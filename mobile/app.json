@@ -4,9 +4,19 @@
     "slug": "freshmanhub-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/icons/freshman-hub-logo.png",
     "scheme": "mobile",
     "userInterfaceStyle": "automatic",
+    "fonts": [
+      "./src/assets/fonts/Poppins-Regular.ttf",
+      "./src/assets/fonts/Poppins-Medium.ttf",
+      "./src/assets/fonts/Poppins-SemiBold.ttf",
+      "./src/assets/fonts/Poppins-Bold.ttf",
+      "./src/assets/fonts/Inter-Regular.ttf",
+      "./src/assets/fonts/Inter-Medium.ttf",
+      "./src/assets/fonts/Inter-SemiBold.ttf",
+      "./src/assets/fonts/Inter-Bold.ttf"
+    ],
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
