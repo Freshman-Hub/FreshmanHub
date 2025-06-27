@@ -14,30 +14,63 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+        tabBarActiveTintColor: Colors[colorScheme ?? "light"].tint,
         headerShown: false,
         tabBarButton: HapticTab,
         tabBarBackground: TabBarBackground,
         tabBarStyle: Platform.select({
           ios: {
             // Use a transparent background on iOS to show the blur effect
-            position: 'absolute',
+            position: "absolute",
           },
           default: {},
         }),
-      }}>
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          title: "Home",
+          tabBarIcon: ({ color }) => (
+            <IconSymbol name="home" size={24} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="map/index"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: "Map",
+          tabBarIcon: ({ color }) => (
+            <IconSymbol name="map" size={28} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="buddy/index"
+        options={{
+          title: "Buddies",
+          tabBarIcon: ({ color }) => (
+            <IconSymbol name="person" size={28} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="chat/index"
+        options={{
+          title: "Chat",
+          tabBarIcon: ({ color }) => (
+            <IconSymbol name="chat" size={28} color={color} />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="profile/index"
+        options={{
+          title: "Profile",
+          tabBarIcon: ({ color }) => (
+            <IconSymbol name="profile" size={28} color={color} />
+          ),
         }}
       />
     </Tabs>
