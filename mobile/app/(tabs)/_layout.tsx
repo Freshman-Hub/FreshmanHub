@@ -7,6 +7,12 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 import TabBarBackground from '@/components/ui/TabBarBackground';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import {
+  BookOpen,
+  Users,
+  CalendarDays,
+  User,
+} from "lucide-react-native";
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -32,34 +38,32 @@ export default function TabLayout() {
         options={{
           title: "Home",
           tabBarIcon: ({ color }) => (
-            <IconSymbol name="home" size={24} color={color} />
+            <IconSymbol name="home" size={28} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="map/index"
+        name="resources/index"
         options={{
-          title: "Map",
-          tabBarIcon: ({ color }) => (
-            <IconSymbol name="map" size={28} color={color} />
+          title: "Resources",
+          tabBarIcon: ({ color, size }) => (
+            <BookOpen color={color} size={size} />
           ),
         }}
       />
       <Tabs.Screen
-        name="buddy/index"
+        name="community/index"
         options={{
-          title: "Buddies",
-          tabBarIcon: ({ color }) => (
-            <IconSymbol name="person" size={28} color={color} />
-          ),
+          title: "Community",
+          tabBarIcon: ({ color, size }) => <Users color={color} size={size} />,
         }}
       />
       <Tabs.Screen
-        name="chat/index"
+        name="events/index"
         options={{
-          title: "Chat",
-          tabBarIcon: ({ color }) => (
-            <IconSymbol name="chat" size={28} color={color} />
+          title: "Events",
+          tabBarIcon: ({ color, size }) => (
+            <CalendarDays color={color} size={size} />
           ),
         }}
       />
@@ -68,9 +72,7 @@ export default function TabLayout() {
         name="profile/index"
         options={{
           title: "Profile",
-          tabBarIcon: ({ color }) => (
-            <IconSymbol name="profile" size={28} color={color} />
-          ),
+          tabBarIcon: ({ color, size }) => <User color={color} size={size} />,
         }}
       />
     </Tabs>
