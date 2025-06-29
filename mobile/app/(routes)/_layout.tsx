@@ -43,6 +43,7 @@ export default function RoutesLayout() {
         name="post/[id]"
         options={{
           title: "Post Details",
+          headerShown: false, // Custom header with image
         }}
       />
       {/* <Stack.Screen
