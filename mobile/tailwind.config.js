@@ -1,6 +1,5 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  // NOTE: Update this to include the paths to all files that contain Nativewind classes.
   content: [
     "./app/**/*.{js,jsx,ts,tsx}",
     "./components/**/*.{js,jsx,ts,tsx}",
@@ -10,8 +9,112 @@ module.exports = {
     "./scripts/**/*.{js,jsx,ts,tsx}",
   ],
   presets: [require("nativewind/preset")],
+  darkMode: "media", // Follows system preference
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        // Static brand colors
+        primary: {
+          DEFAULT: "#3b82f6",
+          50: "#eff6ff",
+          100: "#dbeafe",
+          200: "#bfdbfe",
+          300: "#93c5fd",
+          400: "#60a5fa",
+          500: "#3b82f6",
+          600: "#2563eb",
+          700: "#1d4ed8",
+          800: "#1e40af",
+          900: "#1e3a8a",
+        },
+        secondary: {
+          DEFAULT: "#64748b",
+          50: "#f8fafc",
+          100: "#f1f5f9",
+          200: "#e2e8f0",
+          300: "#cbd5e1",
+          400: "#94a3b8",
+          500: "#64748b",
+          600: "#475569",
+          700: "#334155",
+          800: "#1e293b",
+          900: "#0f172a",
+        },
+        accent: {
+          DEFAULT: "#059669",
+          50: "#ecfdf5",
+          100: "#d1fae5",
+          200: "#a7f3d0",
+          300: "#6ee7b7",
+          400: "#34d399",
+          500: "#10b981",
+          600: "#059669",
+          700: "#047857",
+          800: "#065f46",
+          900: "#064e3b",
+        },
+
+        // Theme-aware colors using Tailwind's built-in dark mode
+        background: {
+          DEFAULT: "#ffffff",
+          dark: "#0f172a",
+        },
+        surface: {
+          DEFAULT: "#f8fafc",
+          dark: "#1e293b",
+        },
+        text: {
+          DEFAULT: "#1e293b",
+          dark: "#f1f5f9",
+          secondary: "#64748b",
+          "secondary-dark": "#94a3b8",
+        },
+        border: {
+          DEFAULT: "#e2e8f0",
+          dark: "#334155",
+        },
+      },
+      spacing: {
+        xs: "4px",
+        sm: "8px",
+        md: "16px",
+        lg: "24px",
+        xl: "32px",
+        xxl: "48px",
+      },
+      borderRadius: {
+        sm: "8px",
+        md: "12px",
+        lg: "16px",
+        xl: "24px",
+        xxl: "32px",
+        xxxl: "50px",
+      },
+      fontFamily: {
+        "poppins-bold": ["Poppins-Bold"],
+        "poppins-semibold": ["Poppins-SemiBold"],
+        "inter-regular": ["Inter-Regular"],
+        "inter-medium": ["Inter-Medium"],
+        "inter-semibold": ["Inter-SemiBold"],
+      },
+      fontSize: {
+        h1: ["26px", { lineHeight: "40px", fontWeight: "700" }],
+        h2: ["22px", { lineHeight: "32px", fontWeight: "700" }],
+        h3: ["20px", { lineHeight: "28px", fontWeight: "600" }],
+        h4: ["18px", { lineHeight: "26px", fontWeight: "600" }],
+        h5: ["16px", { lineHeight: "24px", fontWeight: "600" }],
+        h6: ["12px", { lineHeight: "22px", fontWeight: "600" }],
+        body: ["16px", { lineHeight: "24px", fontWeight: "400" }],
+        "body-small": ["14px", { lineHeight: "22px", fontWeight: "400" }],
+        button: ["16px", { lineHeight: "20px", fontWeight: "600" }],
+        "button-small": ["14px", { lineHeight: "18px", fontWeight: "600" }],
+        label: ["14px", { lineHeight: "20px", fontWeight: "600" }],
+        "label-small": ["12px", { lineHeight: "18px", fontWeight: "600" }],
+        caption: ["12px", { lineHeight: "18px", fontWeight: "500" }],
+        "caption-small": ["10px", { lineHeight: "16px", fontWeight: "500" }],
+        overline: ["11px", { lineHeight: "16px", fontWeight: "600" }],
+      },
+    },
   },
   plugins: [],
 };
