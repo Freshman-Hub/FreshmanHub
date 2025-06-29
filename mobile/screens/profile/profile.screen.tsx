@@ -204,7 +204,7 @@ export default function ProfileScreen() {
       gap: theme.spacing.sm,
     },
     headerButton: {
-      backgroundColor: "rgba(255, 255, 255, 0.9)",
+      backgroundColor: theme.colors.surface,
       padding: theme.spacing.md,
       borderRadius: theme.borderRadius.xxxl,
     },
@@ -392,7 +392,7 @@ export default function ProfileScreen() {
     logoutSection: {
       marginTop: theme.spacing.lg,
       marginHorizontal: theme.spacing.xxl,
-      marginBottom: theme.spacing.md,
+      marginBottom: theme.spacing.lg,
     },
     logoutButton: {
       backgroundColor: "#fee2e2",
@@ -411,7 +411,7 @@ export default function ProfileScreen() {
   });
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Image
