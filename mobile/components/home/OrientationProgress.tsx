@@ -49,7 +49,7 @@ export function OrientationProgress() {
     },
     card: {
       backgroundColor: theme.colors.surface,
-      padding: theme.spacing.xl,
+      padding: theme.spacing.lg,
       borderRadius: theme.borderRadius.xl,
       shadowColor: "#000",
       shadowOffset: {
@@ -58,15 +58,15 @@ export function OrientationProgress() {
       },
       shadowOpacity: 0.1,
       shadowRadius: 16,
-      elevation: 8,
+      elevation: 5,
       borderWidth: 1,
-      borderColor: "rgba(0,0,0,0.05)",
+      borderColor: theme.colors.border,
     },
     header: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
-      marginBottom: theme.spacing.lg,
+      marginBottom: theme.spacing.md,
     },
     headerLeft: {
       flexDirection: "row",
@@ -86,13 +86,13 @@ export function OrientationProgress() {
       marginBottom: 4,
     },
     subtitle: {
-      ...theme.typography.bodySmall,
+      ...theme.typography.captionSmall,
       color: theme.colors.textSecondary,
       fontWeight: undefined,
     },
     badge: {
       backgroundColor: theme.colors.accent,
-      paddingHorizontal: theme.spacing.lg,
+      paddingHorizontal: theme.spacing.md,
       paddingVertical: theme.spacing.sm,
       borderRadius: theme.borderRadius.xxxl,
       shadowColor: theme.colors.accent,
@@ -105,15 +105,15 @@ export function OrientationProgress() {
       elevation: 4,
     },
     badgeText: {
-      ...theme.typography.button,
+      ...theme.typography.buttonSmall,
       color: "white",
       fontWeight: "700",
     },
     progressContainer: {
-      marginBottom: theme.spacing.xl,
+      marginBottom: theme.spacing.sm,
     },
     progressBar: {
-      height: 12,
+      height: 5,
       backgroundColor: theme.colors.border,
       borderRadius: theme.borderRadius.lg,
       marginBottom: theme.spacing.md,
@@ -135,30 +135,30 @@ export function OrientationProgress() {
       alignItems: "center",
     },
     progressLabel: {
-      ...theme.typography.body,
+      ...theme.typography.bodySmall,
       color: theme.colors.text,
       marginLeft: theme.spacing.sm,
       fontWeight: "600",
     },
     remainingText: {
-      ...theme.typography.body,
+      ...theme.typography.bodySmall,
       color: theme.colors.textSecondary,
       fontWeight: "500",
     },
     tasksSection: {
       borderTopWidth: 1,
       borderTopColor: theme.colors.border,
-      paddingTop: theme.spacing.lg,
+      paddingTop: theme.spacing.sm,
     },
     tasksList: {
-      gap: theme.spacing.lg,
+      gap: theme.spacing.sm,
     },
     taskItem: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
       backgroundColor: theme.colors.background,
-      padding: theme.spacing.lg,
+      padding: theme.spacing.md,
       borderRadius: theme.borderRadius.lg,
       borderWidth: 1,
       borderColor: theme.colors.border,
@@ -169,7 +169,7 @@ export function OrientationProgress() {
       flex: 1,
     },
     taskText: {
-      ...theme.typography.body,
+      ...theme.typography.bodySmall,
       color: theme.colors.text,
       marginLeft: theme.spacing.lg,
       flex: 1,
@@ -180,7 +180,7 @@ export function OrientationProgress() {
     },
     actionButton: {
       backgroundColor: theme.colors.primary,
-      paddingHorizontal: theme.spacing.lg,
+      paddingHorizontal: theme.spacing.md,
       paddingVertical: theme.spacing.sm,
       borderRadius: theme.borderRadius.lg,
       flexDirection: "row",
@@ -195,7 +195,7 @@ export function OrientationProgress() {
       elevation: 4,
     },
     actionButtonText: {
-      ...theme.typography.button,
+      ...theme.typography.buttonSmall,
       color: "white",
       marginLeft: theme.spacing.xs,
       fontWeight: "600",
