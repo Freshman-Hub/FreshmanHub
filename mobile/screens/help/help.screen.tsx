@@ -1,211 +1,909 @@
-import React from "react";
-import { View, Text, ScrollView, TouchableOpacity } from "react-native";
-import "@/global.css";
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  ScrollView,
+  TouchableOpacity,
+  StyleSheet,
+  RefreshControl,
+  Linking,
+  TextStyle,
+  ViewStyle,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
+import {
+  ArrowLeft,
+  Phone,
+  Mail,
+  MapPin,
+  Clock,
+  Heart,
+  GraduationCap,
+  Target,
+  Wifi,
+  Home,
+  UserCheck,
+  FileText,
+  Building,
+  ChevronDown,
+  ChevronUp,
+  Shield,
+  Briefcase,
+  BookOpen,
+  Utensils,
+} from "lucide-react-native";
+import { useTheme } from "@/contexts/ThemeContext";
 
-export default function HelpScreen() {
+// Campus services contact information
+const campusServices = [
+  {
+    id: 1,
+    name: "Support Center",
+    description:
+      "IT services, hostel management, laptop repair, internet connection, and general campus support",
+    department: "Campus Operations",
+    phone: "+233 30 610 360",
+    email: "support@ashesi.edu.gh",
+    location: "Student Center, 2nd Floor",
+    hours: "8:00 AM - 6:00 PM (Mon-Fri), 10:00 AM - 4:00 PM (Sat)",
+    icon: Wifi,
+    color: "#3b82f6",
+    services: [
+      "IT Support",
+      "Laptop Repair",
+      "Internet Issues",
+      "Hostel Management",
+      "Room Maintenance",
+      "WiFi Setup",
+    ],
+  },
+  {
+    id: 2,
+    name: "Lobby Services",
+    description:
+      "Hostel reception, room assignments, visitor management, and residential support",
+    department: "Residential Life",
+    phone: "+233 30 610 380",
+    email: "lobby@ashesi.edu.gh",
+    location: "Residence Hall Lobby",
+    hours: "24/7 - Always Available",
+    icon: Home,
+    color: "#059669",
+    services: [
+      "Room Assignments",
+      "Visitor Registration",
+      "Key Management",
+      "Residential Issues",
+      "Check-in/Check-out",
+    ],
+  },
+  {
+    id: 3,
+    name: "Health Center",
+    description:
+      "24/7 medical care, emergency services, counseling, and wellness support",
+    department: "Student Health Services",
+    phone: "+233 30 610 370",
+    email: "health@ashesi.edu.gh",
+    location: "Campus Health Building",
+    hours: "24/7 - Always Open",
+    icon: Heart,
+    color: "#ef4444",
+    services: [
+      "Medical Care",
+      "Emergency Services",
+      "Mental Health",
+      "Pharmacy",
+      "Health Screening",
+    ],
+  },
+  {
+    id: 4,
+    name: "Academic Advising",
+    description:
+      "Course planning, academic guidance, graduation requirements, and study abroad programs",
+    department: "Academic Affairs",
+    phone: "+233 30 610 340",
+    email: "advising@ashesi.edu.gh",
+    location: "Academic Affairs Office",
+    hours: "8:00 AM - 5:00 PM (Mon-Fri)",
+    icon: GraduationCap,
+    color: "#7c3aed",
+    services: [
+      "Course Selection",
+      "Academic Planning",
+      "Graduation Requirements",
+      "Study Abroad",
+      "Academic Support",
+    ],
+  },
+  {
+    id: 5,
+    name: "Student Coaching",
+    description:
+      "Personal development, goal setting, study skills, and leadership coaching",
+    department: "Student Development",
+    phone: "+233 30 610 350",
+    email: "coaching@ashesi.edu.gh",
+    location: "Student Development Center",
+    hours: "9:00 AM - 5:00 PM (Mon-Fri)",
+    icon: Target,
+    color: "#f59e0b",
+    services: [
+      "Personal Coaching",
+      "Study Skills",
+      "Goal Setting",
+      "Leadership Development",
+      "Time Management",
+    ],
+  },
+  {
+    id: 6,
+    name: "Admissions Office",
+    description:
+      "Application support, enrollment services, transfer credits, and prospective student information",
+    department: "Admissions",
+    phone: "+233 30 610 300",
+    email: "admissions@ashesi.edu.gh",
+    location: "Administration Building",
+    hours: "8:00 AM - 5:00 PM (Mon-Fri)",
+    icon: UserCheck,
+    color: "#0891b2",
+    services: [
+      "Application Support",
+      "Enrollment",
+      "Transfer Credits",
+      "Document Verification",
+      "Student Records",
+    ],
+  },
+  {
+    id: 7,
+    name: "Registry",
+    description:
+      "Student records, transcripts, certificates, graduation, and official documentation",
+    department: "Registrar",
+    phone: "+233 30 610 320",
+    email: "registry@ashesi.edu.gh",
+    location: "Registry Office, Admin Building",
+    hours: "8:00 AM - 4:30 PM (Mon-Fri)",
+    icon: FileText,
+    color: "#dc2626",
+    services: [
+      "Transcripts",
+      "Certificates",
+      "Student Records",
+      "Graduation",
+      "Official Documents",
+    ],
+  },
+  {
+    id: 8,
+    name: "Financial Aid",
+    description:
+      "Scholarships, financial assistance, payment plans, and student financial support",
+    department: "Financial Services",
+    phone: "+233 30 610 310",
+    email: "financialaid@ashesi.edu.gh",
+    location: "Financial Aid Office",
+    hours: "8:00 AM - 5:00 PM (Mon-Fri)",
+    icon: Briefcase,
+    color: "#059669",
+    services: [
+      "Scholarships",
+      "Financial Aid",
+      "Payment Plans",
+      "Student Accounts",
+      "Financial Counseling",
+    ],
+  },
+  {
+    id: 9,
+    name: "Library Services",
+    description:
+      "Book catalog, research support, study spaces, computer lab, and printing services",
+    department: "Library",
+    phone: "+233 30 610 350",
+    email: "library@ashesi.edu.gh",
+    location: "Central Library",
+    hours: "24/7 (Limited weekend hours)",
+    icon: BookOpen,
+    color: "#7c3aed",
+    services: [
+      "Book Catalog",
+      "Research Support",
+      "Study Rooms",
+      "Computer Lab",
+      "Printing Services",
+    ],
+  },
+  {
+    id: 10,
+    name: "Dining Services",
+    description:
+      "Meal plan support, dining options, food services, and campus restaurants",
+    department: "Campus Dining",
+    phone: "+233 30 610 390",
+    email: "dining@ashesi.edu.gh",
+    location: "Student Center",
+    hours: "6:00 AM - 10:00 PM (Daily)",
+    icon: Utensils,
+    color: "#f59e0b",
+    services: [
+      "Meal Plans",
+      "Restaurant Support",
+      "Food Services",
+      "Dietary Accommodations",
+      "Catering",
+    ],
+  },
+  {
+    id: 11,
+    name: "Security Services",
+    description:
+      "Campus security, emergency response, lost and found, and safety concerns",
+    department: "Campus Security",
+    phone: "+233 30 610 911",
+    email: "security@ashesi.edu.gh",
+    location: "Security Office, Main Gate",
+    hours: "24/7 - Always Available",
+    icon: Shield,
+    color: "#ef4444",
+    services: [
+      "Campus Security",
+      "Emergency Response",
+      "Lost & Found",
+      "Safety Escorts",
+      "Incident Reports",
+    ],
+  },
+  {
+    id: 12,
+    name: "Facilities Management",
+    description:
+      "Building maintenance, room repairs, utilities, and campus infrastructure",
+    department: "Facilities",
+    phone: "+233 30 610 400",
+    email: "facilities@ashesi.edu.gh",
+    location: "Facilities Office",
+    hours: "7:00 AM - 6:00 PM (Mon-Fri)",
+    icon: Building,
+    color: "#64748b",
+    services: [
+      "Building Maintenance",
+      "Room Repairs",
+      "Utilities",
+      "Infrastructure",
+      "Work Orders",
+    ],
+  },
+];
+
+// Frequently Asked Questions
+const faqData = [
+  {
+    id: 1,
+    question: "How do I connect to the campus WiFi?",
+    answer:
+      'Connect to "Ashesi-WiFi" network and use your student credentials (student ID and password) to log in. If you have issues, contact the Support Center at +233 30 610 360.',
+    category: "IT Support",
+  },
+  {
+    id: 2,
+    question: "Who do I contact for room maintenance issues?",
+    answer:
+      "For hostel room issues like plumbing, electrical, or furniture problems, contact the Support Center at +233 30 610 360. For general residential concerns, contact Lobby Services at +233 30 610 380.",
+    category: "Housing",
+  },
+  {
+    id: 3,
+    question: "How do I request my official transcript?",
+    answer:
+      "Contact the Registry Office at +233 30 610 320 or email registry@ashesi.edu.gh. You can also visit their office in the Administration Building during business hours.",
+    category: "Academic Records",
+  },
+  {
+    id: 4,
+    question: "What should I do in a medical emergency?",
+    answer:
+      "For medical emergencies, call the Health Center emergency line at +233 30 610 911 or visit the Health Center immediately. The Health Center is open 24/7.",
+    category: "Health",
+  },
+  {
+    id: 5,
+    question: "How do I apply for financial aid or scholarships?",
+    answer:
+      "Contact the Financial Aid Office at +233 30 610 310 or email financialaid@ashesi.edu.gh. They can help you with scholarship applications and financial assistance programs.",
+    category: "Financial Aid",
+  },
+  {
+    id: 6,
+    question: "Who can help me with course selection and academic planning?",
+    answer:
+      "Contact Academic Advising at +233 30 610 340 or email advising@ashesi.edu.gh. They provide guidance on course selection, graduation requirements, and academic planning.",
+    category: "Academic",
+  },
+  {
+    id: 7,
+    question: "How do I report a security concern or lost item?",
+    answer:
+      "Contact Campus Security at +233 30 610 911 for emergencies or security concerns. For lost and found items, visit the Security Office at the Main Gate.",
+    category: "Security",
+  },
+  {
+    id: 8,
+    question: "Where can I get help with my laptop or technical issues?",
+    answer:
+      "The Support Center handles all IT issues including laptop repair, software installation, and technical support. Contact them at +233 30 610 360 or visit the Student Center, 2nd Floor.",
+    category: "IT Support",
+  },
+];
+
+export default function HelpDeskScreen() {
+  const { theme } = useTheme();
+  const router = useRouter();
+  const [refreshing, setRefreshing] = useState(false);
+  const [showFAQ, setShowFAQ] = useState(false);
+  const [expandedFAQ, setExpandedFAQ] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    setTimeout(() => setRefreshing(false), 2000);
+  };
+
+  const handleCall = (phone: string) => {
+    Linking.openURL(`tel:${phone}`);
+  };
+
+  const handleEmail = (email: string) => {
+    Linking.openURL(`mailto:${email}`);
+  };
+
+  const toggleFAQ = (faqId: number) => {
+    setExpandedFAQ(expandedFAQ === faqId ? null : faqId);
+  };
+
+  const filteredServices = campusServices.filter(
+    (service) =>
+      service.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      service.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      service.services.some((s) =>
+        s.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+  );
+
+  const filteredFAQs = faqData.filter(
+    (faq) =>
+      faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      faq.answer.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      faq.category.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const styles = StyleSheet.create<{
+    container: ViewStyle;
+    header: ViewStyle;
+    backButton: ViewStyle;
+    headerTitle: TextStyle;
+    toggleContainer: ViewStyle;
+    toggleButton: ViewStyle;
+    toggleButtonActive: ViewStyle;
+    toggleText: TextStyle;
+    toggleTextActive: TextStyle;
+    scrollContent: ViewStyle;
+    searchContainer: ViewStyle;
+    searchInput: TextStyle;
+    servicesContainer: ViewStyle;
+    sectionTitle: TextStyle;
+    serviceCard: ViewStyle;
+    serviceHeader: ViewStyle;
+    serviceIcon: ViewStyle;
+    serviceInfo: ViewStyle;
+    serviceName: TextStyle;
+    serviceDepartment: TextStyle;
+    serviceDescription: TextStyle;
+    contactInfo: ViewStyle;
+    contactRow: ViewStyle;
+    contactIcon: ViewStyle;
+    contactText: TextStyle;
+    servicesOffered: ViewStyle;
+    servicesTitle: TextStyle;
+    servicesList: ViewStyle;
+    serviceTag: ViewStyle;
+    serviceTagText: TextStyle;
+    contactActions: ViewStyle;
+    contactButton: ViewStyle;
+    contactButtonSecondary: ViewStyle;
+    contactButtonText: TextStyle;
+    contactButtonTextSecondary: TextStyle;
+    faqContainer: ViewStyle;
+    faqCard: ViewStyle;
+    faqHeader: ViewStyle;
+    faqQuestion: TextStyle;
+    faqCategory: ViewStyle;
+    faqCategoryText: TextStyle;
+    faqAnswer: ViewStyle;
+    faqAnswerText: TextStyle;
+    noResultsContainer: ViewStyle;
+    noResultsText: TextStyle;
+  }>({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: theme.spacing.lg,
+      paddingVertical: theme.spacing.md,
+      backgroundColor: theme.colors.surface,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+    },
+    backButton: {
+      padding: theme.spacing.sm,
+      marginRight: theme.spacing.md,
+      borderRadius: theme.borderRadius.lg,
+      backgroundColor: theme.colors.background,
+    },
+    headerTitle: {
+      ...theme.typography.h5,
+      color: theme.colors.text,
+      fontWeight: "700",
+      flex: 1,
+    },
+    toggleContainer: {
+      flexDirection: "row",
+      backgroundColor: theme.colors.surface,
+      paddingHorizontal: theme.spacing.lg,
+      paddingVertical: theme.spacing.sm,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+      gap: theme.spacing.sm,
+    },
+    toggleButton: {
+      flex: 1,
+      paddingVertical: theme.spacing.sm,
+      paddingHorizontal: theme.spacing.lg,
+      borderRadius: theme.borderRadius.lg,
+      backgroundColor: theme.colors.background,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      alignItems: "center",
+    },
+    toggleButtonActive: {
+      backgroundColor: theme.colors.primary,
+      borderColor: theme.colors.primary,
+    },
+    toggleText: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      fontWeight: "600",
+    },
+    toggleTextActive: {
+      color: "white",
+      fontWeight: "700",
+    },
+    scrollContent: {
+      paddingBottom: theme.spacing.xl,
+    },
+    searchContainer: {
+      paddingHorizontal: theme.spacing.lg,
+      paddingVertical: theme.spacing.lg,
+    },
+    searchInput: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: theme.borderRadius.lg,
+      paddingHorizontal: theme.spacing.lg,
+      paddingVertical: theme.spacing.md,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      ...theme.typography.body,
+      color: theme.colors.text,
+    } as TextStyle,
+    servicesContainer: {
+      paddingHorizontal: theme.spacing.lg,
+    },
+    sectionTitle: {
+      ...theme.typography.h5,
+      color: theme.colors.text,
+      fontWeight: "700",
+      marginBottom: theme.spacing.lg,
+    },
+    serviceCard: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: theme.borderRadius.xl,
+      padding: theme.spacing.lg,
+      marginBottom: theme.spacing.lg,
+      shadowColor: "#000",
+      shadowOffset: {
+        width: 0,
+        height: 6,
+      },
+      shadowOpacity: 0.15,
+      shadowRadius: 16,
+      elevation: 8,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    serviceHeader: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      marginBottom: theme.spacing.md,
+    },
+    serviceIcon: {
+      marginRight: theme.spacing.md,
+      marginTop: theme.spacing.xs,
+    },
+    serviceInfo: {
+      flex: 1,
+    },
+    serviceName: {
+      ...theme.typography.h6,
+      color: theme.colors.text,
+      fontWeight: "700",
+      marginBottom: 4,
+    },
+    serviceDepartment: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.sm,
+    } as TextStyle,
+    serviceDescription: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      lineHeight: 22,
+      marginBottom: theme.spacing.lg,
+    } as TextStyle,
+    contactInfo: {
+      gap: theme.spacing.md,
+      marginBottom: theme.spacing.lg,
+    },
+    contactRow: {
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    contactIcon: {
+      marginRight: theme.spacing.md,
+      width: 20,
+    },
+    contactText: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      fontWeight: "500",
+      flex: 1,
+    },
+    servicesOffered: {
+      marginBottom: theme.spacing.lg,
+    },
+    servicesTitle: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      fontWeight: "600",
+      marginBottom: theme.spacing.sm,
+    },
+    servicesList: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: theme.spacing.sm,
+    },
+    serviceTag: {
+      backgroundColor: theme.colors.background,
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: theme.spacing.sm,
+      borderRadius: theme.borderRadius.lg,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    serviceTagText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.text,
+      fontWeight: "600",
+    },
+    contactActions: {
+      flexDirection: "row",
+      gap: theme.spacing.md,
+    },
+    contactButton: {
+      flex: 1,
+      backgroundColor: theme.colors.primary,
+      paddingVertical: theme.spacing.md,
+      borderRadius: theme.borderRadius.lg,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: theme.spacing.sm,
+    },
+    contactButtonSecondary: {
+      backgroundColor: theme.colors.background,
+      borderWidth: 2,
+      borderColor: theme.colors.border,
+    },
+    contactButtonText: {
+      ...theme.typography.button,
+      color: "white",
+      fontWeight: "600",
+    },
+    contactButtonTextSecondary: {
+      color: theme.colors.text,
+    },
+    faqContainer: {
+      paddingHorizontal: theme.spacing.lg,
+    },
+    faqCard: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: theme.borderRadius.lg,
+      marginBottom: theme.spacing.md,
+      shadowColor: "#000",
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+      shadowOpacity: 0.1,
+      shadowRadius: 12,
+      elevation: 6,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      overflow: "hidden",
+    },
+    faqHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      padding: theme.spacing.lg,
+    },
+    faqQuestion: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      fontWeight: "600",
+      flex: 1,
+      marginRight: theme.spacing.md,
+    },
+    faqCategory: {
+      backgroundColor: theme.colors.primary + "20",
+      paddingHorizontal: theme.spacing.sm,
+      paddingVertical: 2,
+      borderRadius: theme.borderRadius.sm,
+      marginBottom: theme.spacing.sm,
+      alignSelf: "flex-start",
+    },
+    faqCategoryText: {
+      ...theme.typography.captionSmall,
+      color: theme.colors.primary,
+      fontWeight: "600",
+    },
+    faqAnswer: {
+      padding: theme.spacing.lg,
+      paddingTop: 0,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.border,
+    },
+    faqAnswerText: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      lineHeight: 24,
+    } as TextStyle,
+    noResultsContainer: {
+      alignItems: "center",
+      paddingVertical: theme.spacing.xxl,
+    },
+    noResultsText: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      textAlign: "center",
+    } as TextStyle,
+  });
+
   return (
-    <ScrollView className="flex-1 bg-gray-50">
-      {/* Header */}
-      <View className="bg-indigo-600 px-4 py-6 pt-12">
-        <Text className="text-white text-2xl font-bold">Help & Support</Text>
-        <Text className="text-indigo-100 text-base mt-1">
-          Get the help you need
-        </Text>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
+          <ArrowLeft color={theme.colors.text} size={24} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Help Desk</Text>
       </View>
 
-      {/* Quick Help */}
-      <View className="px-4 py-6">
-        <Text className="text-gray-800 text-lg font-semibold mb-4">
-          Quick Help
-        </Text>
-        <View className="space-y-3">
-          <TouchableOpacity className="bg-white rounded-lg p-4 border border-gray-200 flex-row items-center justify-between">
-            <View>
-              <Text className="text-gray-800 font-medium">
-                🆘 Emergency Contact
-              </Text>
-              <Text className="text-gray-500 text-sm mt-1">
-                Campus security & health services
-              </Text>
-            </View>
-            <Text className="text-gray-400">›</Text>
-          </TouchableOpacity>
+      <View style={styles.toggleContainer}>
+        <TouchableOpacity
+          style={[styles.toggleButton, !showFAQ && styles.toggleButtonActive]}
+          onPress={() => setShowFAQ(false)}
+        >
+          <Text
+            style={[styles.toggleText, !showFAQ && styles.toggleTextActive]}
+          >
+            Contact Services
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.toggleButton, showFAQ && styles.toggleButtonActive]}
+          onPress={() => setShowFAQ(true)}
+        >
+          <Text style={[styles.toggleText, showFAQ && styles.toggleTextActive]}>
+            FAQ
+          </Text>
+        </TouchableOpacity>
+      </View>
 
-          <TouchableOpacity className="bg-white rounded-lg p-4 border border-gray-200 flex-row items-center justify-between">
-            <View>
-              <Text className="text-gray-800 font-medium">
-                💬 Chat with Support
-              </Text>
-              <Text className="text-gray-500 text-sm mt-1">
-                Get instant help from our team
-              </Text>
-            </View>
-            <Text className="text-gray-400">›</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity className="bg-white rounded-lg p-4 border border-gray-200 flex-row items-center justify-between">
-            <View>
-              <Text className="text-gray-800 font-medium">
-                📧 Email Support
-              </Text>
-              <Text className="text-gray-500 text-sm mt-1">
-                Send us a detailed message
-              </Text>
-            </View>
-            <Text className="text-gray-400">›</Text>
-          </TouchableOpacity>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+        contentContainerStyle={styles.scrollContent}
+      >
+        <View style={styles.searchContainer}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder={showFAQ ? "Search FAQs..." : "Search services..."}
+            placeholderTextColor={theme.colors.textSecondary}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
         </View>
-      </View>
 
-      {/* FAQ Categories */}
-      <View className="px-4 pb-6">
-        <Text className="text-gray-800 text-lg font-semibold mb-4">
-          Frequently Asked Questions
-        </Text>
-        <View className="space-y-3">
-          <TouchableOpacity className="bg-white rounded-lg p-4 border border-gray-200 flex-row items-center justify-between">
-            <View>
-              <Text className="text-gray-800 font-medium">
-                📚 Academic Help
-              </Text>
-              <Text className="text-gray-500 text-sm mt-1">
-                Course registration, grades, assignments
-              </Text>
-            </View>
-            <Text className="text-gray-400">›</Text>
-          </TouchableOpacity>
+        {!showFAQ ? (
+          <View style={styles.servicesContainer}>
+            <Text style={styles.sectionTitle}>Campus Services</Text>
+            {filteredServices.length > 0 ? (
+              filteredServices.map((service) => {
+                const IconComponent = service.icon;
+                return (
+                  <View key={service.id} style={styles.serviceCard}>
+                    <View style={styles.serviceHeader}>
+                      <IconComponent
+                        color={service.color}
+                        size={28}
+                        style={styles.serviceIcon}
+                      />
+                      <View style={styles.serviceInfo}>
+                        <Text style={styles.serviceName}>{service.name}</Text>
+                        <Text style={styles.serviceDepartment}>
+                          {service.department}
+                        </Text>
+                      </View>
+                    </View>
 
-          <TouchableOpacity className="bg-white rounded-lg p-4 border border-gray-200 flex-row items-center justify-between">
-            <View>
-              <Text className="text-gray-800 font-medium">🏠 Campus Life</Text>
-              <Text className="text-gray-500 text-sm mt-1">
-                Dorms, dining, facilities, events
-              </Text>
-            </View>
-            <Text className="text-gray-400">›</Text>
-          </TouchableOpacity>
+                    <Text style={styles.serviceDescription}>
+                      {service.description}
+                    </Text>
 
-          <TouchableOpacity className="bg-white rounded-lg p-4 border border-gray-200 flex-row items-center justify-between">
-            <View>
-              <Text className="text-gray-800 font-medium">
-                💳 Financial Aid
-              </Text>
-              <Text className="text-gray-500 text-sm mt-1">
-                Tuition, scholarships, payment plans
-              </Text>
-            </View>
-            <Text className="text-gray-400">›</Text>
-          </TouchableOpacity>
+                    <View style={styles.contactInfo}>
+                      <View style={styles.contactRow}>
+                        <Phone
+                          color={theme.colors.textSecondary}
+                          size={20}
+                          style={styles.contactIcon}
+                        />
+                        <Text style={styles.contactText}>{service.phone}</Text>
+                      </View>
+                      <View style={styles.contactRow}>
+                        <Mail
+                          color={theme.colors.textSecondary}
+                          size={20}
+                          style={styles.contactIcon}
+                        />
+                        <Text style={styles.contactText}>{service.email}</Text>
+                      </View>
+                      <View style={styles.contactRow}>
+                        <MapPin
+                          color={theme.colors.textSecondary}
+                          size={20}
+                          style={styles.contactIcon}
+                        />
+                        <Text style={styles.contactText}>
+                          {service.location}
+                        </Text>
+                      </View>
+                      <View style={styles.contactRow}>
+                        <Clock
+                          color={theme.colors.textSecondary}
+                          size={20}
+                          style={styles.contactIcon}
+                        />
+                        <Text style={styles.contactText}>{service.hours}</Text>
+                      </View>
+                    </View>
 
-          <TouchableOpacity className="bg-white rounded-lg p-4 border border-gray-200 flex-row items-center justify-between">
-            <View>
-              <Text className="text-gray-800 font-medium">
-                🔧 Technical Issues
-              </Text>
-              <Text className="text-gray-500 text-sm mt-1">
-                App problems, login issues, bugs
-              </Text>
-            </View>
-            <Text className="text-gray-400">›</Text>
-          </TouchableOpacity>
+                    <View style={styles.servicesOffered}>
+                      <Text style={styles.servicesTitle}>Services Offered</Text>
+                      <View style={styles.servicesList}>
+                        {service.services.map((serviceItem, index) => (
+                          <View key={index} style={styles.serviceTag}>
+                            <Text style={styles.serviceTagText}>
+                              {serviceItem}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
 
-          <TouchableOpacity className="bg-white rounded-lg p-4 border border-gray-200 flex-row items-center justify-between">
-            <View>
-              <Text className="text-gray-800 font-medium">👥 Buddy System</Text>
-              <Text className="text-gray-500 text-sm mt-1">
-                Connecting with your mentor
-              </Text>
-            </View>
-            <Text className="text-gray-400">›</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Popular Questions */}
-      <View className="px-4 pb-6">
-        <Text className="text-gray-800 text-lg font-semibold mb-4">
-          Popular Questions
-        </Text>
-        <View className="bg-white rounded-lg border border-gray-200">
-          <TouchableOpacity className="p-4 border-b border-gray-100">
-            <Text className="text-gray-800 font-medium">
-              How do I register for classes?
-            </Text>
-            <Text className="text-gray-500 text-sm mt-1">
-              Step-by-step course registration guide
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity className="p-4 border-b border-gray-100">
-            <Text className="text-gray-800 font-medium">
-              Where is the dining hall?
-            </Text>
-            <Text className="text-gray-500 text-sm mt-1">
-              Campus dining locations and hours
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity className="p-4 border-b border-gray-100">
-            <Text className="text-gray-800 font-medium">
-              How do I contact my buddy?
-            </Text>
-            <Text className="text-gray-500 text-sm mt-1">
-              Using the buddy system effectively
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity className="p-4 border-b border-gray-100">
-            <Text className="text-gray-800 font-medium">
-              What events are happening this week?
-            </Text>
-            <Text className="text-gray-500 text-sm mt-1">
-              Finding and joining campus activities
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity className="p-4">
-            <Text className="text-gray-800 font-medium">
-              How do I book a study room?
-            </Text>
-            <Text className="text-gray-500 text-sm mt-1">
-              Library and study space reservations
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Contact Information */}
-      <View className="px-4 pb-6">
-        <Text className="text-gray-800 text-lg font-semibold mb-4">
-          Contact Information
-        </Text>
-        <View className="bg-white rounded-lg border border-gray-200 p-4">
-          <View className="mb-3">
-            <Text className="text-gray-800 font-medium">
-              📞 Student Services
-            </Text>
-            <Text className="text-gray-600 text-sm mt-1">(555) 123-4567</Text>
+                    <View style={styles.contactActions}>
+                      <TouchableOpacity
+                        style={styles.contactButton}
+                        onPress={() => handleCall(service.phone)}
+                      >
+                        <Phone color="white" size={20} />
+                        <Text style={styles.contactButtonText}>Call</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.contactButton,
+                          styles.contactButtonSecondary,
+                        ]}
+                        onPress={() => handleEmail(service.email)}
+                      >
+                        <Mail color={theme.colors.text} size={20} />
+                        <Text
+                          style={[
+                            styles.contactButtonText,
+                            styles.contactButtonTextSecondary,
+                          ]}
+                        >
+                          Email
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              })
+            ) : (
+              <View style={styles.noResultsContainer}>
+                <Text style={styles.noResultsText}>
+                  No services found for &quot;{searchQuery}&quot;
+                </Text>
+              </View>
+            )}
           </View>
-          <View className="mb-3">
-            <Text className="text-gray-800 font-medium">📧 Email Support</Text>
-            <Text className="text-gray-600 text-sm mt-1">
-              support@freshmanhub.edu
-            </Text>
+        ) : (
+          <View style={styles.faqContainer}>
+            <Text style={styles.sectionTitle}>Frequently Asked Questions</Text>
+            {filteredFAQs.length > 0 ? (
+              filteredFAQs.map((faq) => (
+                <TouchableOpacity
+                  key={faq.id}
+                  style={styles.faqCard}
+                  onPress={() => toggleFAQ(faq.id)}
+                >
+                  <View style={styles.faqHeader}>
+                    <View style={{ flex: 1 }}>
+                      <View style={styles.faqCategory}>
+                        <Text style={styles.faqCategoryText}>
+                          {faq.category}
+                        </Text>
+                      </View>
+                      <Text style={styles.faqQuestion}>{faq.question}</Text>
+                    </View>
+                    {expandedFAQ === faq.id ? (
+                      <ChevronUp color={theme.colors.textSecondary} size={24} />
+                    ) : (
+                      <ChevronDown
+                        color={theme.colors.textSecondary}
+                        size={24}
+                      />
+                    )}
+                  </View>
+                  {expandedFAQ === faq.id && (
+                    <View style={styles.faqAnswer}>
+                      <Text style={styles.faqAnswerText}>{faq.answer}</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ))
+            ) : (
+              <View style={styles.noResultsContainer}>
+                <Text style={styles.noResultsText}>
+                  No FAQs found for &quot;{searchQuery}&quot;
+                </Text>
+              </View>
+            )}
           </View>
-          <View className="mb-3">
-            <Text className="text-gray-800 font-medium">🏢 Office Hours</Text>
-            <Text className="text-gray-600 text-sm mt-1">
-              Monday - Friday: 8:00 AM - 6:00 PM
-            </Text>
-          </View>
-          <View>
-            <Text className="text-gray-800 font-medium">📍 Location</Text>
-            <Text className="text-gray-600 text-sm mt-1">
-              Student Services Building, Room 101
-            </Text>
-          </View>
-        </View>
-      </View>
-    </ScrollView>
+        )}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
