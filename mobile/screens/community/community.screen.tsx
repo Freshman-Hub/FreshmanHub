@@ -277,7 +277,7 @@ export default function CommunityScreen() {
       borderColor: theme.colors.border,
     },
     scrollContent: {
-      paddingBottom: theme.spacing.xl,
+      paddingBottom: theme.spacing.md,
     },
     statsContainer: {
       paddingHorizontal: theme.spacing.md,
@@ -303,7 +303,7 @@ export default function CommunityScreen() {
       shadowRadius: 16,
       elevation: 5,
       borderWidth: 1,
-      borderColor: "rgba(0,0,0,0.05)",
+      borderColor: theme.colors.border,
     },
     statIcon: {
       marginBottom: theme.spacing.xs,
@@ -403,7 +403,7 @@ export default function CommunityScreen() {
       fontWeight: "500",
     },
     postsContainer: {
-      paddingHorizontal: theme.spacing.lg,
+      paddingHorizontal: theme.spacing.md,
       paddingBottom: theme.spacing.xl,
     },
     noResultsContainer: {
