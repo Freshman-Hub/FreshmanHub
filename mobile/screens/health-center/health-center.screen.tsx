@@ -325,7 +325,7 @@ export default function HealthCenterScreen() {
         backgroundColor: theme.colors.background,
       },
       headerTitle: {
-        ...theme.typography.h5,
+        ...theme.typography.h4,
         color: theme.colors.text,
         fontWeight: "700",
         flex: 1,
