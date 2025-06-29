@@ -1,6 +1,6 @@
-import HelpScreen from "@/screens/help/help.screen";
+import HelpDeskScreen from "@/screens/help/help.screen";
 
 const index = () => {
-  return <HelpScreen />;
+  return <HelpDeskScreen />;
 };
 export default index;
