@@ -418,7 +418,7 @@ export default function CommunityScreen() {
   });
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <View style={styles.headerContainer}>
         <View style={styles.headerTop}>
           <Text style={styles.title}>Community</Text>
