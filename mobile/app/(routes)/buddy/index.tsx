@@ -1,6 +1,6 @@
-import BuddiesScreen from "@/screens/buddy/buddy.screen";
+import BuddyScreen from "@/screens/buddy/buddy.screen";
 
 const index = () => {
-  return <BuddiesScreen />;
+  return <BuddyScreen />;
 };
 export default index;
