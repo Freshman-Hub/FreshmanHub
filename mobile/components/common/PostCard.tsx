@@ -171,9 +171,10 @@ export function PostCard({
       fontWeight: "700",
     },
     moreButton: {
-      padding: theme.spacing.md,
+      paddingVertical: theme.spacing.xs,
+      paddingHorizontal: theme.spacing.md,
       borderRadius: theme.borderRadius.lg,
-      backgroundColor: theme.colors.background,
+      backgroundColor: theme.colors.surface,
     },
     postContent: {
       ...theme.typography.body,
