@@ -10,6 +10,7 @@ import { Bell, MessageSquare} from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useRouter } from "expo-router";
+import { HelloWave } from "../HelloWave";
 
 // Hardcoded values
 const userName = "Kwame";
@@ -40,12 +41,12 @@ export function WelcomeHeader() {
 
   const styles = StyleSheet.create({
     container: {
-      marginBottom: theme.spacing.xxl + theme.spacing.md,
+      marginBottom: 0,
     },
     gradient: {
       paddingHorizontal: theme.spacing.lg,
-      paddingTop: theme.spacing.xxl,
-      paddingBottom: theme.spacing.xxl + theme.spacing.lg,
+      paddingTop: theme.spacing.sm,
+      paddingBottom: theme.spacing.xxl,
       borderBottomLeftRadius: theme.borderRadius.xxl,
       borderBottomRightRadius: theme.borderRadius.xxl,
     },
@@ -53,7 +54,7 @@ export function WelcomeHeader() {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
-      marginBottom: theme.spacing.xl,
+      marginBottom: theme.spacing.sm,
     },
     userInfo: {
       flexDirection: "row",
@@ -62,12 +63,12 @@ export function WelcomeHeader() {
       marginRight: theme.spacing.md,
     },
     avatar: {
-      width: 56,
-      height: 56,
+      width: 45,
+      height: 45,
       borderRadius: 28,
       marginRight: theme.spacing.md,
       borderWidth: 3,
-      borderColor: "rgba(255, 255, 255, 0.4)",
+      borderColor: theme.colors.border,
     },
     userTextContainer: {
       flex: 1,
@@ -76,14 +77,14 @@ export function WelcomeHeader() {
       ...theme.typography.bodySmall,
       color: "rgba(255, 255, 255, 0.85)",
       marginBottom: 4,
-      fontSize: 14,
+      fontSize: 13,
       fontWeight: "400" as const,
     },
     userName: {
       ...theme.typography.h4,
       color: "white",
       fontWeight: "700",
-      fontSize: 22,
+      fontSize: 20,
     },
     actions: {
       flexDirection: "row",
@@ -92,47 +93,47 @@ export function WelcomeHeader() {
     },
     actionButton: {
       backgroundColor: "rgba(255, 255, 255, 0.25)",
-      padding: theme.spacing.md,
+      padding: theme.spacing.sm,
       borderRadius: theme.borderRadius.xxxl,
-      borderWidth: 1,
-      borderColor: "rgba(255, 255, 255, 0.3)",
+      borderWidth: 0.5,
+      borderColor: theme.colors.border,
     },
     notificationDot: {
       position: "absolute",
       top: -2,
       right: -2,
       backgroundColor: "#ef4444",
-      width: 16,
-      height: 16,
+      width: 12,
+      height: 12,
       borderRadius: 8,
-      borderWidth: 2,
-      borderColor: "white",
+      borderWidth: 1,
+      borderColor: theme.colors.border,
     },
     welcomeCard: {
       backgroundColor: "rgba(255, 255, 255, 0.15)",
-      padding: theme.spacing.xl,
+      padding: theme.spacing.md,
       borderRadius: theme.borderRadius.xl,
       backdropFilter: "blur(20px)",
-      borderWidth: 1,
-      borderColor: "rgba(255, 255, 255, 0.2)",
+      borderWidth: 0.25,
+      borderColor: theme.colors.border,
     },
     welcomeTitle: {
       ...theme.typography.h5,
       color: "white",
-      marginBottom: theme.spacing.md,
+      marginBottom: theme.spacing.sm,
       fontWeight: "700",
-      fontSize: 20,
+      fontSize: 18,
     },
     welcomeText: {
       ...theme.typography.body,
       color: "rgba(255, 255, 255, 0.9)",
       lineHeight: 24,
-      fontSize: 16,
+      fontSize: 14,
       fontWeight: "400",
     },
     statsContainer: {
       position: "absolute",
-      bottom: -32,
+      bottom: -20,
       left: theme.spacing.lg,
       right: theme.spacing.lg,
       zIndex: 10,
@@ -145,7 +146,7 @@ export function WelcomeHeader() {
     statCard: {
       flex: 1,
       backgroundColor: "white",
-      padding: theme.spacing.lg,
+      padding: theme.spacing.sm,
       alignItems: "center",
       borderRadius: theme.borderRadius.lg,
       shadowColor: "#000",
@@ -155,9 +156,9 @@ export function WelcomeHeader() {
       },
       shadowOpacity: 0.15,
       shadowRadius: 16,
-      elevation: 8,
+      elevation: 5,
       borderWidth: 1,
-      borderColor: "rgba(0,0,0,0.05)",
+      borderColor: theme.colors.border,
     },
     statNumber: {
       ...theme.typography.h3,
@@ -170,14 +171,14 @@ export function WelcomeHeader() {
       ...theme.typography.h3,
       color: theme.colors.accent,
       fontWeight: "800",
-      fontSize: 24,
+      fontSize: 22,
       marginBottom: 4,
     },
     statNumberSecondary: {
       ...theme.typography.h3,
       color: "#f59e0b",
       fontWeight: "800",
-      fontSize: 24,
+      fontSize: 22,
       marginBottom: 4,
     },
     statLabel: {
@@ -185,7 +186,7 @@ export function WelcomeHeader() {
       color: theme.colors.textSecondary,
       textAlign: "center",
       fontWeight: "600",
-      fontSize: 11,
+      fontSize: 10,
       lineHeight: 14,
     },
   });
@@ -198,7 +199,7 @@ export function WelcomeHeader() {
             <Image source={{ uri: userAvatar }} style={styles.avatar} />
             <View style={styles.userTextContainer}>
               <Text style={styles.greeting}>{getGreeting()}</Text>
-              <Text style={styles.userName}>{userName}! 👋</Text>
+              <Text style={styles.userName}>{userName}! <HelloWave/></Text>
             </View>
           </View>
 
