@@ -136,7 +136,7 @@ export function TodaySchedule() {
       padding: theme.spacing.md,
       borderRadius: theme.borderRadius.xl,
       width: 320,
-      marginRight: theme.spacing.lg,
+      marginRight: theme.spacing.sm,
       shadowColor: "#000",
       shadowOffset: {
         width: 0,
