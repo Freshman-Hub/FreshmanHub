@@ -129,6 +129,7 @@ export function TodaySchedule() {
     },
     scrollContainer: {
       paddingHorizontal: theme.spacing.md,
+      paddingBottom: theme.spacing.sm,
     },
     eventCard: {
       backgroundColor: theme.colors.surface,
