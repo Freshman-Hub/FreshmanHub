@@ -438,22 +438,22 @@ export default function BuddiesScreen() {
       fontWeight: "700",
     },
     scrollContent: {
-      paddingBottom: theme.spacing.xl,
+      paddingBottom: theme.spacing.md,
     },
     myBuddyContainer: {
-      paddingHorizontal: theme.spacing.lg,
-      paddingVertical: theme.spacing.lg,
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: theme.spacing.md,
     },
     sectionTitle: {
       ...theme.typography.h5,
       color: theme.colors.text,
       fontWeight: "700",
-      marginBottom: theme.spacing.lg,
+      marginBottom: theme.spacing.md,
     },
     myBuddyCard: {
       backgroundColor: theme.colors.primary + "10",
       borderRadius: theme.borderRadius.xl,
-      padding: theme.spacing.lg,
+      padding: theme.spacing.md,
       borderWidth: 2,
       borderColor: theme.colors.primary + "30",
       shadowColor: theme.colors.primary,
@@ -463,8 +463,8 @@ export default function BuddiesScreen() {
       },
       shadowOpacity: 0.2,
       shadowRadius: 12,
-      elevation: 6,
-      marginBottom: theme.spacing.lg,
+      elevation: 0,
+      marginBottom: theme.spacing.sm,
     },
     // LinkedIn-style compact cards
     buddyCard: {
@@ -486,7 +486,7 @@ export default function BuddiesScreen() {
     connectionCard: {
       backgroundColor: theme.colors.surface,
       borderRadius: theme.borderRadius.lg,
-      padding: theme.spacing.md,
+      padding: theme.spacing.sm,
       marginBottom: theme.spacing.md,
       shadowColor: "#000",
       shadowOffset: {
@@ -495,7 +495,7 @@ export default function BuddiesScreen() {
       },
       shadowOpacity: 0.1,
       shadowRadius: 8,
-      elevation: 4,
+      elevation: 0,
       borderWidth: 1,
       borderColor: theme.colors.border,
     },
