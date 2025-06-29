@@ -69,7 +69,7 @@ const quickActions = [
   },
   {
     id: 8,
-    title: "IT Support",
+    title: "Support Center",
     icon: Wifi,
     color: "#65a30d",
     bgColor: "#f7fee7",
