@@ -17,7 +17,7 @@ export default function RootLayout() {
   return (
     <ThemeProvider>
       <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="(student-tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="(routes)" options={{ headerShown: false }} />
         <Stack.Screen name="+not-found" />
       </Stack>
