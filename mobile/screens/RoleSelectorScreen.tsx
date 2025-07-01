@@ -26,7 +26,7 @@ const RoleSelectorScreen = () => {
     // Navigate to the appropriate layout group
     switch (role) {
       case "freshman":
-        router.replace("/(freshman-tabs)");
+        // router.replace("/(freshman-tabs)");
         break;
       case "student":
         router.replace("/(student-tabs)");
@@ -34,17 +34,17 @@ const RoleSelectorScreen = () => {
       case "peerCoach":
       case "peerAdvisor":
       case "buddy":
-        router.replace("/(coach-tabs)");
+        // router.replace("/(coach-tabs)");
         break;
       case "headCoach":
         router.replace("/(head-coach)");
         break;
       case "academicAdvisor":
-        router.replace("/(academic-advisor)");
+        // router.replace("/(academic-advisor)");
         break;
       case "odip":
       case "sle":
-        router.replace("/(admin-tabs)");
+        // router.replace("/(admin-tabs)");
         break;
       default:
         router.replace("/(student-tabs)");
