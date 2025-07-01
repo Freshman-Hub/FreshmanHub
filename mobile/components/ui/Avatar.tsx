@@ -32,11 +32,11 @@ export function Avatar({ imageUrl, initials, size = 40, onPress, style }: Avatar
     },
     initials: {
       color: "white",
+      ...theme.typography.button,
       fontSize: size * 0.4,
       fontWeight: "700",
-      ...theme.typography.button,
     },
-  })
+  });
 
   const AvatarContent = (
     <View style={[styles.container, style]}>
