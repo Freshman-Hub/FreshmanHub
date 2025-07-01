@@ -1,4 +1,4 @@
-import HealthCenterScreen from "@/screens/health-center/health-center.screen";
+import HealthCenterScreen from "@/screens/common/health-center/health-center.screen";
 
 export default function HealthCenterLayout() {
   return <HealthCenterScreen />;

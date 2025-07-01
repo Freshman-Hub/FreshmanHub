@@ -1,4 +1,4 @@
-import ITSupportScreen from "@/screens/IT/it-support.screen";
+import ITSupportScreen from "@/screens/common/IT/it-support.screen";
 
 export default function ITSupport() {
   return <ITSupportScreen />;

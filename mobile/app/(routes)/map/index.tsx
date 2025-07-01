@@ -1,4 +1,4 @@
-import MapScreen from "@/screens/map/map.screen";
+import MapScreen from "@/screens/freshman/map/map.screen";
 
 const index = () => {
   return <MapScreen />;
