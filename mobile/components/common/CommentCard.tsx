@@ -1,6 +1,7 @@
 "use client";
+
 import { useState } from "react";
-import { View, Text, TouchableOpacity, Image, StyleSheet } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import {
   Heart,
   ReplyIcon,
@@ -9,6 +10,7 @@ import {
   CheckCircle,
 } from "lucide-react-native";
 import { useTheme } from "@/contexts/ThemeContext";
+import { Avatar } from "@/components/ui/Avatar";
 
 interface User {
   name: string;
@@ -75,13 +77,6 @@ export function CommentCard({
       alignItems: "center",
       marginBottom: theme.spacing.md,
     },
-    avatar: {
-      width: isReply ? 30 : 40,
-      height: isReply ? 36 : 44,
-      borderRadius: isReply ? 18 : 22,
-      borderWidth: 2,
-      borderColor: theme.colors.primary + "20",
-    },
     userDetails: {
       marginLeft: theme.spacing.md,
       flex: 1,
@@ -111,7 +106,7 @@ export function CommentCard({
       lineHeight: 24,
       marginBottom: theme.spacing.sm,
       fontSize: isReply ? 15 : 16,
-      fontWeight: "500"
+      fontWeight: "500",
     },
     actions: {
       flexDirection: "row",
@@ -161,7 +156,11 @@ export function CommentCard({
   return (
     <View style={styles.container}>
       <View style={styles.commentHeader}>
-        <Image source={{ uri: user.avatar }} style={styles.avatar} />
+        <Avatar
+          imageUrl={user.avatar}
+          initials={user.name.charAt(0)}
+          size={isReply ? 30 : 40}
+        />
         <View style={styles.userDetails}>
           <View style={styles.userNameContainer}>
             <Text style={styles.userName}>{user.name}</Text>

@@ -1,4 +1,5 @@
 "use client";
+
 import { useState } from "react";
 import {
   View,
@@ -8,15 +9,11 @@ import {
   StyleSheet,
   Animated,
 } from "react-native";
-import {
-  Heart,
-  MessageCircle,
-  Share,
-  MoreHorizontal,
-  CheckCircle,
-} from "lucide-react-native";
+import { Heart, MessageCircle, Share, CheckCircle } from "lucide-react-native";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useRouter } from "expo-router";
+import { PostOptionsMenu } from "@/components/ui/PostOptionsMenu";
+import { Avatar } from "@/components/ui/Avatar";
 
 interface User {
   name: string;
@@ -36,10 +33,18 @@ interface PostCardProps {
   timeAgo: string;
   isLiked: boolean;
   category?: string;
+  isOwner?: boolean;
+  isFollowing?: boolean;
   onLike?: (id: number) => void;
   onComment?: (id: number) => void;
   onShare?: (id: number) => void;
   onPress?: (id: number) => void;
+  onEdit?: (id: number) => void;
+  onDelete?: (id: number) => void;
+  onCopyLink?: (id: number) => void;
+  onSavePost?: (id: number) => void;
+  onReportPost?: (id: number) => void;
+  onUnfollow?: (id: number) => void;
   showViewMore?: boolean;
   maxContentLength?: number;
 }
@@ -55,10 +60,18 @@ export function PostCard({
   timeAgo,
   isLiked,
   category,
+  isOwner = false,
+  isFollowing = false,
   onLike,
   onComment,
   onShare,
   onPress,
+  onEdit,
+  onDelete,
+  onCopyLink,
+  onSavePost,
+  onReportPost,
+  onUnfollow,
   showViewMore = true,
   maxContentLength = 150,
 }: PostCardProps) {
@@ -127,13 +140,6 @@ export function PostCard({
       alignItems: "center",
       flex: 1,
     },
-    avatar: {
-      width: 45,
-      height: 45,
-      borderRadius: 26,
-      borderWidth: 2,
-      borderColor: theme.colors.primary + "20",
-    },
     userDetails: {
       marginLeft: theme.spacing.md,
       flex: 1,
@@ -169,12 +175,6 @@ export function PostCard({
       ...theme.typography.captionSmall,
       color: theme.colors.accent,
       fontWeight: "700",
-    },
-    moreButton: {
-      paddingVertical: theme.spacing.xs,
-      paddingHorizontal: theme.spacing.md,
-      borderRadius: theme.borderRadius.lg,
-      backgroundColor: theme.colors.surface,
     },
     postContent: {
       ...theme.typography.body,
@@ -212,7 +212,6 @@ export function PostCard({
       paddingHorizontal: theme.spacing.md,
       paddingVertical: theme.spacing.xs,
       borderRadius: theme.borderRadius.lg,
-      // backgroundColor: theme.colors.background,
       minWidth: 50,
       justifyContent: "center",
     },
@@ -234,7 +233,11 @@ export function PostCard({
       <View style={styles.container}>
         <View style={styles.postHeader}>
           <View style={styles.userInfo}>
-            <Image source={{ uri: user.avatar }} style={styles.avatar} />
+            <Avatar
+              imageUrl={user.avatar}
+              initials={user.name.charAt(0)}
+              size={45}
+            />
             <View style={styles.userDetails}>
               <View style={styles.userNameContainer}>
                 <Text style={styles.userName}>{user.name}</Text>
@@ -257,9 +260,19 @@ export function PostCard({
               )}
             </View>
           </View>
-          <TouchableOpacity style={styles.moreButton}>
-            <MoreHorizontal color={theme.colors.textSecondary} size={22} />
-          </TouchableOpacity>
+
+          <PostOptionsMenu
+            postId={id}
+            isOwner={isOwner}
+            isFollowing={isFollowing}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            onCopyLink={onCopyLink}
+            onSavePost={onSavePost}
+            onReportPost={onReportPost}
+            onUnfollow={onUnfollow}
+            onShare={onShare}
+          />
         </View>
 
         <Text style={styles.postContent}>{displayContent}</Text>

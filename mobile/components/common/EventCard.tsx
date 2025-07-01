@@ -1,4 +1,5 @@
 "use client";
+
 import { useState } from "react";
 import {
   View,
@@ -11,6 +12,7 @@ import {
 import { Calendar, MapPin, Users, Heart, Clock } from "lucide-react-native";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useRouter } from "expo-router";
+import { Button } from "@/components/ui/Button";
 
 interface EventCardProps {
   id: number;
@@ -172,7 +174,7 @@ export function EventCard({
       ...theme.typography.body,
       color: theme.colors.textSecondary,
       marginBottom: theme.spacing.md,
-      fontWeight: "500"
+      fontWeight: "500",
     },
     eventDetails: {
       gap: theme.spacing.sm,
@@ -191,25 +193,6 @@ export function EventCard({
       marginLeft: theme.spacing.md,
       fontWeight: "600",
       flex: 1,
-    },
-    interestedButton: {
-      backgroundColor: theme.colors.primary,
-      paddingVertical: theme.spacing.md,
-      borderRadius: theme.borderRadius.xxxl,
-      alignItems: "center",
-      shadowColor: theme.colors.primary,
-      shadowOffset: {
-        width: 0,
-        height: 6,
-      },
-      shadowOpacity: 0.3,
-      shadowRadius: 10,
-      elevation: 5,
-    },
-    buttonText: {
-      ...theme.typography.h6,
-      color: "white",
-      fontWeight: "700",
     },
   });
 
@@ -273,12 +256,11 @@ export function EventCard({
             </View>
           </View>
 
-          <TouchableOpacity
-            style={styles.interestedButton}
+          <Button
+            title="I'm Interested"
             onPress={() => onInterested?.(id)}
-          >
-            <Text style={styles.buttonText}>I&apos;m Interested</Text>
-          </TouchableOpacity>
+            mode="contained"
+          />
         </View>
       </View>
     </TouchableOpacity>
