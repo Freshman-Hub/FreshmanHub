@@ -1,0 +1,45 @@
+Hello V0,
+
+We are now moving to implement the Head of Coaches module in my Freshman Hub project.
+
+I have attached a couple of screens for you to see the design pattern and how they are implemented.
+
+🚨 Please read and strictly follow these rules:
+
+1. **Do not change any of my file names, component names, or functions**. Do not add suffixes like "Enhanced" or "Fixed" to anything I already have.
+2. **Do not alter existing functionalities** unless I explicitly ask you to. No silent fixes or architecture changes.
+3. Follow the design system and styling in my existing files and **use the ThemeContext I provided**.
+4. **Use my shared components** where appropriate. Only create new components when necessary—and make them reusable and clean.
+5. All screens and UI must be **modular**, well-structured, and **highly user-friendly**, designed for clarity and ease of use.
+6. The UI should be **elegant, addictive, and visually appealing**, especially since these are admin-facing tools. Use proper spacing, intuitive icons, and modern mobile design patterns.
+7. **Use mock data** for lists, users, progress, or sessions where necessary. The screens must be fully interactive and demonstrate expected functionality.
+8. Each screen must take all required/optional props and support interaction patterns (e.g., list clicks, modal opens, forms, etc.).
+
+🗂️ Below are the Head of Coaches–specific screens to implement. I already attached the feature map and user role descriptions you’ve learned earlier. Please fully implement the following files as specified:
+
+👩🏽‍🏫 **Head of Coaches Screens**
+
+| Screen Description                | Route                  | File Path                                                              |
+|----------------------------------|------------------------|------------------------------------------------------------------------|
+| Peer Coaches List                | `/coaches`             | `screens/head-of-coach/coaches/coaches-list.screen.tsx`               |
+| Freshmen List                    | `/freshmen`            | `screens/head-of-coach/freshmen/freshmen-list.screen.tsx`             |
+| Assign Freshman to Coach        | `/assign/freshman`     | `screens/head-of-coach/assign/assign-freshman.screen.tsx`             |
+| Track Peer Coach Progress       | `/coach-progress`      | `screens/head-of-coach/progress/coach-progress.screen.tsx`            |
+| Coach Session Bookings          | `/coach-sessions`      | `screens/head-of-coach/sessions/session-management.screen.tsx`        |
+| Availability Setup              | `/availability`        | `screens/common/availability/availability.screen.tsx`                 |
+| Announcements                   | `/announcements/send`  | `screens/common/announcements/send-announcement.screen.tsx`           |
+| Wellness Events Management      | `/events/wellness`     | `screens/head-of-coach/events/wellness-events.screen.tsx`             |
+| View Session History            | `/sessions/history`    | `screens/common/sessions/sessions-history.screen.tsx`                 |
+
+💡 Notes for each screen:
+- Use mock lists with names, statuses, images, tags, and sample bookings/sessions as needed.
+- Use section headers, filters, and chips when appropriate.
+- Always show clean empty state UIs when there's no data.
+- Prioritize user feedback: modals, loading indicators, and animations if needed.
+- All buttons, cards, modals, and inputs must use the shared components or create new ones using react-native-paper themed via ThemeContext.
+
+My goal is to ensure that this admin module (Head of Coaches) is highly effective, intuitive, and joyful to use.
+
+Do not do anything I did not ask for. Do not go outside this scope.
+
+Please begin.
