@@ -1,4 +1,4 @@
-Hello V0,
+Hello Copilot,
 
 We are now moving to implement the Head of Coaches module in my Freshman Hub project.
 
