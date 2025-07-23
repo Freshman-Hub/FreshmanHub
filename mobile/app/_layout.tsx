@@ -1,35 +1,90 @@
 import { ThemeProvider } from "@/contexts/ThemeContext";
-import { UserProvider } from "@/contexts/UserContext";
+import { UserProvider, useUser } from "@/contexts/UserContext";
 import { useFonts } from "expo-font";
-import { Stack } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { useEffect, useState } from "react";
 import "react-native-reanimated";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 function LayoutContent() {
-  // const { role } = useUser();
+  const { isAuthenticated, loading, user } = useUser();
+  const [hasSeenOnboarding, setHasSeenOnboarding] = useState<boolean | null>(
+    null
+  );
+  const router = useRouter();
 
-  // Fallback if role not yet selected
-  // const getLayoutName = () => {
-  //   if (!role) return "role-select"; // A screen where user picks a role
-  //   switch (role) {
-  //     case "freshman":
-  //       return "(freshman-tabs)";
-  //     case "buddy":
-  //       return "(coach-tabs)";
-  //     case "odip":
-  //     case "sle":
-  //       return "(admin-tabs)";
-  //     default:
-  //       return "(student-tabs)";
-  //   }
-  // };
+  console.log("Role-=================", user?.role);
+  console.log("Email-=================", user?.email);
+  
 
-  // const layoutName = getLayoutName();
+  useEffect(() => {
+    checkOnboardingStatus();
+  }, []);
+
+
+
+  const checkOnboardingStatus = async () => {
+    try {
+      const hasSeenOnboardingValue =
+        await AsyncStorage.getItem("hasSeenOnboarding");
+      setHasSeenOnboarding(hasSeenOnboardingValue === "true");
+        console.log("Onboarding ==============",hasSeenOnboardingValue);
+    } catch (error) {
+      setHasSeenOnboarding(false);
+      console.error("Failed to check onboarding status:", error);
+    }
+    
+  };
+  // Navigation logic based on auth status
+  useEffect(() => {
+    if (!loading && hasSeenOnboarding !== null) {
+      if (isAuthenticated && user) {
+        // Route based on user role
+        switch (user.role) {
+          case "admin":
+          case "head_of_coaches":
+          case "odip":
+          case "sle":
+            router.replace("/(head-coach)");
+            break;
+          case "peer_coach":
+          case "peer_advisor":
+          case "buddy":
+            router.replace("/(head-coach)");
+            break;
+          case "freshman":
+            router.replace("/(student-tabs)");
+            break;
+          case "continuous":
+            router.replace("/(student-tabs)");
+            break;
+          default:
+            router.replace("/(student-tabs)");
+        }
+      } else {
+        // Not authenticated - show onboarding if first time, login if returning
+        if (!hasSeenOnboarding) {
+          router.replace("/(onboarding)");
+        } else {
+          router.replace("/(auth)/login");
+        }
+      }
+    }
+  }, [loading, isAuthenticated, user, hasSeenOnboarding, router]);
+
+  // Show splash while loading
+  if (loading || hasSeenOnboarding === null) {
+    return (
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(splash)" options={{ headerShown: false }} />
+      </Stack>
+    );
+  }
 
   return (
     <>
       <Stack
-        initialRouteName="(splash)"
         screenOptions={{
           headerShown: false,
           animation: "fade_from_bottom",
@@ -39,8 +94,11 @@ function LayoutContent() {
         <Stack.Screen name="(splash)" options={{ headerShown: false }} />
         <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-        {/* <Stack.Screen name={layoutName} options={{ headerShown: false }} /> */}
-        <Stack.Screen name="(routes)" options={{ headerShown: false }} />
+        <Stack.Screen name="(student-tabs)" options={{ headerShown: false }} />
+        {/* <Stack.Screen name="(freshman-tabs)" options={{ headerShown: false }} /> */}
+        {/* <Stack.Screen name="(coach-tabs)" options={{ headerShown: false }} /> */}
+        {/* <Stack.Screen name="(admin-tabs)" options={{ headerShown: false }} /> */}
+        <Stack.Screen name="(head-coach)" options={{ headerShown: false }} />
         <Stack.Screen name="+not-found" />
       </Stack>
       <StatusBar style="auto" />
