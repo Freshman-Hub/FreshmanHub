@@ -237,10 +237,10 @@ export default function LoginScreen() {
       flexDirection: "row",
       alignItems: "center",
       backgroundColor: theme.colors.surface,
-      borderRadius: theme.borderRadius.md,
-      borderWidth: 2,
+      borderRadius: theme.borderRadius.xxl,
+      borderWidth: 1,
       paddingHorizontal: theme.spacing.md,
-      height: 56,
+      height: 50,
     },
     inputWrapperFocused: {
       borderColor: theme.colors.primary,
@@ -313,7 +313,7 @@ export default function LoginScreen() {
     loginButton: {
       height: 56,
       backgroundColor: theme.colors.primary,
-      borderRadius: theme.borderRadius.md,
+      borderRadius: theme.borderRadius.xxl,
       justifyContent: "center",
       alignItems: "center",
       marginBottom: theme.spacing.lg,
@@ -430,7 +430,7 @@ export default function LoginScreen() {
 
             {/* Email Input */}
             <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Email Address</Text>
+              {/* <Text style={styles.inputLabel}>Email Address</Text> */}
               <View
                 style={[styles.inputWrapper, getInputWrapperStyle("email")]}
               >
@@ -467,7 +467,7 @@ export default function LoginScreen() {
 
             {/* Password Input */}
             <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Password</Text>
+              {/* <Text style={styles.inputLabel}>Password</Text> */}
               <View
                 style={[styles.inputWrapper, getInputWrapperStyle("password")]}
               >
