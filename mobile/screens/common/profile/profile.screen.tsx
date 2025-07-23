@@ -1,4 +1,6 @@
+import { useUser } from "@/contexts/UserContext";
 import { useTheme } from "@/contexts/ThemeContext";
+import { AuthService } from "@/services/auth.service";
 import { router } from "expo-router";
 import {
   Award,
@@ -30,6 +32,8 @@ import {
   TextStyle,
   TouchableOpacity,
   View,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -158,18 +162,83 @@ const settingsOptions = [
 
 export default function ProfileScreen() {
   const { theme, isDark, toggleTheme } = useTheme();
+  const { user, loading: userLoading } = useUser();
   const [, setIsEditing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+   const defaultAvatar =
+     "https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=400";
+
+  const userStats = {
+    posts: 0, // TODO: Implement posts count from backend
+    friends: 0, // TODO: Implement friends count from backend
+    events: 0, // TODO: Implement events count from backend
+  };
+
+  // Mock achievements - you can later create an achievements service
+  const userAchievements = [
+    {
+      id: 1,
+      name: "New Member",
+      description: "Welcome to FreshmanHub!",
+      icon: Award,
+    },
+  ];
+
+  const handleSignOut = async () => {
+    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+      {
+        text: "Sign Out",
+        style: "destructive",
+        onPress: async () => {
+          setIsLoading(true);
+          try {
+            const { error } = await AuthService.signOut();
+            if (error) {
+              Alert.alert("Error", "Failed to sign out. Please try again.");
+            } else {
+              // router.push("/(auth)/login");
+              // The UserContext will handle navigation automatically
+            }
+          } catch (error: any) {
+            Alert.alert("Error", "An unexpected error occurred.", error.message);
+          } finally {
+            setIsLoading(false);
+          }
+        },
+      },
+    ]);
+  };
 
   const handleSettingPress = (action: string) => {
     switch (action) {
       case "edit":
         setIsEditing(true);
+        // TODO: Navigate to edit profile screen
+        router.push("/(routes)/settings"); //edit-profile
         break;
       case "toggle":
         toggleTheme();
         break;
+      case "privacy":
+        // TODO: Navigate to privacy settings
+        router.push("/(routes)/settings"); //privacy-settings
+        break;
+      case "notifications":
+        // TODO: Navigate to notification settings
+        router.push("/(routes)/settings"); //notification-settings
+        break;
+      case "help":
+        // TODO: Navigate to help center
+        router.push("/(routes)/help");
+        break;
       case "settings":
         router.push("/(routes)/settings");
+        break;
       default:
         console.log("Setting pressed:", action);
     }
@@ -410,6 +479,38 @@ export default function ProfileScreen() {
     },
   });
 
+  
+  if (userLoading) {
+    return (
+      <SafeAreaView
+        style={[
+          styles.container,
+          { justifyContent: "center", alignItems: "center" },
+        ]}
+      >
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={{ color: theme.colors.text, marginTop: 16 }}>
+          Loading profile...
+        </Text>
+      </SafeAreaView>
+    );
+  }
+
+  if (!user) {
+    return (
+      <SafeAreaView
+        style={[
+          styles.container,
+          { justifyContent: "center", alignItems: "center" },
+        ]}
+      >
+        <Text style={{ color: theme.colors.text }}>No user data available</Text>
+      </SafeAreaView>
+    );
+  }
+
+  
+
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -432,32 +533,40 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
         </View>
-
         <View style={styles.profileSection}>
           <View style={styles.avatarContainer}>
-            <Image source={{ uri: userData.avatar }} style={styles.avatar} />
+            <Image
+              source={{ uri: user.profileImage || defaultAvatar }}
+              style={styles.avatar}
+            />
             <TouchableOpacity style={styles.editAvatarButton}>
               <Edit3 color="white" size={16} />
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.userName}>{userData.name}</Text>
-          <Text style={styles.userTitle}>
-            {userData.year} • {userData.major}
+          <Text style={styles.userName}>
+            {`${user.firstName} ${user.lastName}`}
           </Text>
-          <Text style={styles.userBio}>{userData.bio}</Text>
+          <Text style={styles.userTitle}>
+            {user.yearGroup ? `${user.yearGroup} • ` : ""}
+            {user.major || user.role}
+          </Text>
+          {/* TODO: Add bio field to User interface and display here */}
+          <Text style={styles.userBio}>
+            Welcome to FreshmanHub! Connect with peers and coaches.
+          </Text>
 
           <View style={styles.statsContainer}>
             <TouchableOpacity style={styles.statItem}>
-              <Text style={styles.statNumber}>{userData.stats.posts}</Text>
+              <Text style={styles.statNumber}>{userStats.posts}</Text>
               <Text style={styles.statLabel}>Posts</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.statItem}>
-              <Text style={styles.statNumber}>{userData.stats.friends}</Text>
+              <Text style={styles.statNumber}>{userStats.friends}</Text>
               <Text style={styles.statLabel}>Friends</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.statItem}>
-              <Text style={styles.statNumber}>{userData.stats.events}</Text>
+              <Text style={styles.statNumber}>{userStats.events}</Text>
               <Text style={styles.statLabel}>Events</Text>
             </TouchableOpacity>
           </View>
@@ -472,17 +581,19 @@ export default function ProfileScreen() {
               size={20}
               style={styles.infoIcon}
             />
-            <Text style={styles.infoText}>{userData.email}</Text>
+            <Text style={styles.infoText}>{user.email}</Text>
           </View>
 
-          <View style={styles.infoItem}>
-            <Phone
-              color={theme.colors.textSecondary}
-              size={20}
-              style={styles.infoIcon}
-            />
-            <Text style={styles.infoText}>{userData.phone}</Text>
-          </View>
+          {user.phoneNumber && (
+            <View style={styles.infoItem}>
+              <Phone
+                color={theme.colors.textSecondary}
+                size={20}
+                style={styles.infoIcon}
+              />
+              <Text style={styles.infoText}>{user.phoneNumber}</Text>
+            </View>
+          )}
 
           <View style={styles.infoItem}>
             <MapPin
@@ -490,7 +601,7 @@ export default function ProfileScreen() {
               size={20}
               style={styles.infoIcon}
             />
-            <Text style={styles.infoText}>{userData.location}</Text>
+            <Text style={styles.infoText}>{user.country}</Text>
           </View>
 
           <View style={styles.infoItem}>
@@ -499,14 +610,44 @@ export default function ProfileScreen() {
               size={20}
               style={styles.infoIcon}
             />
-            <Text style={styles.infoText}>Joined {userData.joinDate}</Text>
+            <Text style={styles.infoText}>
+              Joined{" "}
+              {user.createdAt
+                ? new Date(user.createdAt.seconds * 1000).toLocaleDateString(
+                    "en-US",
+                    { month: "long", year: "numeric" }
+                  )
+                : "Recently"}
+            </Text>
           </View>
+
+          {user.studentId && (
+            <View style={styles.infoItem}>
+              <Users
+                color={theme.colors.textSecondary}
+                size={20}
+                style={styles.infoIcon}
+              />
+              <Text style={styles.infoText}>Student ID: {user.studentId}</Text>
+            </View>
+          )}
+
+          {user.department && (
+            <View style={styles.infoItem}>
+              <Settings
+                color={theme.colors.textSecondary}
+                size={20}
+                style={styles.infoIcon}
+              />
+              <Text style={styles.infoText}>Department: {user.department}</Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.achievementsSection}>
           <Text style={styles.sectionTitle}>Achievements</Text>
 
-          {userData.achievements.map((achievement) => {
+          {userAchievements.map((achievement) => {
             const IconComponent = achievement.icon;
             return (
               <View key={achievement.id} style={styles.achievementItem}>
@@ -578,9 +719,19 @@ export default function ProfileScreen() {
         ))}
 
         <View style={styles.logoutSection}>
-          <TouchableOpacity style={styles.logoutButton}>
-            <LogOut color="#dc2626" size={20} />
-            <Text style={styles.logoutText}>Sign Out</Text>
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={handleSignOut}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="#dc2626" size={20} />
+            ) : (
+              <LogOut color="#dc2626" size={20} />
+            )}
+            <Text style={styles.logoutText}>
+              {isLoading ? "Signing Out..." : "Sign Out"}
+            </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
