@@ -3,15 +3,15 @@
 import { useEffect, useRef } from "react";
 import { View, Text, StyleSheet, Animated, StatusBar } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+// import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "../../contexts/ThemeContext";
-import { useUser } from "../../contexts/UserContext";
+// import { useUser } from "../../contexts/UserContext";
 
 export default function SplashScreen() {
   const { theme } = useTheme();
-  const { isAuthenticated, loading } = useUser();
-  const router = useRouter();
+  // const { isAuthenticated, loading } = useUser();
+  // const router = useRouter();
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
@@ -118,19 +118,19 @@ export default function SplashScreen() {
     createParticleAnimation(particle4, 3000);
 
     // Navigate after animations and auth check
-    const timer = setTimeout(() => {
-      if (!loading) {
-        if (isAuthenticated) {
-          router.replace("/(student-tabs)");
-        } else {
-          router.replace("/(onboarding)");
-        }
-      }
-    }, 3000); // Increased to 3 seconds for better animation viewing
+    // const timer = setTimeout(() => {
+    //   if (!loading) {
+    //     if (isAuthenticated) {
+    //       router.replace("/(student-tabs)");
+    //     } else {
+    //       router.replace("/(onboarding)");
+    //     }
+    //   }
+    // }, 3000); // Increased to 3 seconds for better animation viewing
 
-    return () => clearTimeout(timer);
+    // return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, isAuthenticated]);
+  }, []);
 
   const styles = StyleSheet.create({
     container: {
