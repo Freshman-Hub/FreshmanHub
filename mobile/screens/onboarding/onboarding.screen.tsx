@@ -17,6 +17,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "../../contexts/ThemeContext";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
 
 const { width } = Dimensions.get("window");
 
@@ -184,8 +186,14 @@ export default function OnboardingScreen() {
     }
   };
 
-  const handleGetStarted = () => {
-    router.replace("/(auth)/login");
+  const handleGetStarted = async () => {
+    try {
+      await AsyncStorage.setItem("hasSeenOnboarding", "true");
+      router.replace("/(auth)/login");
+    } catch (error) {
+      console.error("Error saving onboarding status:", error);
+      router.replace("/(auth)/login");
+    }
   };
 
   const handleSkip = () => {
