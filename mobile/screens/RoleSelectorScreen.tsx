@@ -18,10 +18,10 @@ const roles = [
 ];
 
 const RoleSelectorScreen = () => {
-  const { setRole } = useUser();
+  // const { setRole } = useUser();
 
   const handleSelect = (role: string) => {
-    setRole(role as any);
+    // setRole(role as any);
 
     // Navigate to the appropriate layout group
     switch (role) {
