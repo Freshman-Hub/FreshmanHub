@@ -132,7 +132,7 @@ export interface Theme {
 
 const lightTheme: Theme = {
   colors: {
-    primary: "#3b82f6",
+    primary: "#923D41",
     secondary: "#64748b",
     accent: "#059669",
     background: "#ffffff",
