@@ -46,13 +46,14 @@ export default function RoutesLayout() {
           headerShown: false, // Custom header with image
         }}
       />
-      {/* <Stack.Screen
+      <Stack.Screen
         name="create-post/index"
         options={{
           title: "Create Post",
           presentation: "modal",
+          headerShown: false,
         }}
-      /> */}
+      />
       {/* <Stack.Screen
         name="user/[id]"
         options={{
@@ -80,13 +81,14 @@ export default function RoutesLayout() {
           headerShown: false, // Custom header with image
         }}
       />
-      {/* <Stack.Screen
-        name="create-event"
+      <Stack.Screen
+        name="create-event/index"
         options={{
           title: "Create Event",
           presentation: "modal",
+          headerShown: false,
         }}
-      /> */}
+      />
       {/* <Stack.Screen
         name="my-events"
         options={{
@@ -182,7 +184,7 @@ export default function RoutesLayout() {
           title: "Career Services",
           headerShown: false,
         }}
-      /> 
+      />
 
       {/* Academic */}
       {/* <Stack.Screen
