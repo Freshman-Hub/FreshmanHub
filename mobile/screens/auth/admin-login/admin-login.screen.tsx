@@ -1,5 +1,3 @@
-"use client";
-
 import React, { useState, useRef } from "react";
 import {
   View,
@@ -9,58 +7,153 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
   Animated,
   StatusBar,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "../../../contexts/ThemeContext";
+import { AuthService } from "../../../services/auth.service";
+import { ValidationUtils } from "../../../utils/validation";
+import type { User } from "../../../types/user.types";
 
-export default function AdminLoginScreen() {
+export default function AdminAuthScreen() {
   const { theme, isDark } = useTheme();
   const router = useRouter();
-  const [adminCode, setAdminCode] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+
+  const [adminCredentials, setAdminCredentials] = useState({
+    adminCode: "",
+    adminEmail: "",
+    adminPassword: "",
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [focusedField, setFocusedField] = useState("");
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
 
   React.useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 800,
-      useNativeDriver: true,
-    }).start();
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 1000,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+    ]).start();
   }, []);
 
-  const handleAdminLogin = async () => {
-    if (!adminCode.trim() || !email.trim() || !password.trim()) {
-      Alert.alert("Error", "Please fill in all fields");
-      return;
-    }
+  const handleAdminAuth = async () => {
+    // Validate admin credentials
+    const validation = ValidationUtils.validateAdminCredentials(
+      adminCredentials.adminCode,
+      adminCredentials.adminEmail,
+      adminCredentials.adminPassword
+    );
 
-    // TODO: Verify admin code and credentials
-    if (adminCode !== "ADMIN2024") {
-      Alert.alert("Error", "Invalid admin access code");
+    if (!validation.isValid) {
+      Alert.alert("Validation Error", validation.errors.join("\n"));
       return;
     }
 
     setIsLoading(true);
 
-    // TODO: Implement admin authentication
-    setTimeout(() => {
+    try {
+      // Verify admin credentials
+      const { user, error } = await AuthService.verifyAdminCredentials(
+        adminCredentials.adminCode,
+        adminCredentials.adminEmail,
+        adminCredentials.adminPassword
+      );
+
+      if (error) {
+        Alert.alert("Authentication Failed", error);
+        return;
+      }
+
+      if (user) {
+        // Navigate to register screen with admin data
+        router.push({
+          pathname: "/(auth)/register",
+          params: {
+            adminData: JSON.stringify({
+              id: user.id,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              role: user.role,
+              email: user.email,
+            }),
+          },
+        });
+      }
+    } catch (error: any) {
+      Alert.alert(
+        "Authentication Error",
+        error.message || "An unexpected error occurred"
+      );
+    } finally {
       setIsLoading(false);
-      router.push("/(auth)/register");
-    }, 1500);
+    }
   };
 
-  const navigateToLogin = () => {
-    router.back();
+  const renderInput = (
+    field: string,
+    label: string,
+    placeholder: string,
+    icon: string,
+    required = true,
+    secureTextEntry = false,
+    keyboardType = "default" as any
+  ) => {
+    const isFocused = focusedField === field;
+
+    return (
+      <View style={styles.inputContainer}>
+        <Text style={styles.inputLabel}>
+          {label}
+          {required && <Text style={styles.requiredStar}> *</Text>}
+        </Text>
+        <View
+          style={[
+            styles.inputWrapper,
+            isFocused ? styles.inputWrapperFocused : styles.inputWrapperDefault,
+          ]}
+        >
+          <Ionicons
+            name={icon as any}
+            size={22}
+            color={
+              isFocused ? theme.colors.primary : theme.colors.textSecondary
+            }
+            style={styles.inputIcon}
+          />
+          <TextInput
+            style={styles.textInput}
+            placeholder={placeholder}
+            placeholderTextColor={theme.colors.textSecondary}
+            value={adminCredentials[field as keyof typeof adminCredentials]}
+            onChangeText={(value) =>
+              setAdminCredentials((prev) => ({ ...prev, [field]: value }))
+            }
+            onFocus={() => setFocusedField(field)}
+            onBlur={() => setFocusedField("")}
+            secureTextEntry={secureTextEntry}
+            keyboardType={keyboardType}
+            autoCapitalize={field === "adminEmail" ? "none" : "words"}
+            autoCorrect={false}
+            editable={!isLoading}
+          />
+        </View>
+      </View>
+    );
   };
 
   const styles = StyleSheet.create({
@@ -69,22 +162,36 @@ export default function AdminLoginScreen() {
       backgroundColor: theme.colors.background,
     },
     header: {
-      backgroundColor: theme.colors.error,
+      backgroundColor: theme.colors.primary,
       paddingVertical: theme.spacing.lg,
       paddingHorizontal: theme.spacing.lg,
       flexDirection: "row",
       alignItems: "center",
+      borderBottomLeftRadius: theme.borderRadius.xl,
+      borderBottomRightRadius: theme.borderRadius.xl,
+      shadowColor: theme.colors.primary,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 8,
     },
     backButton: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: "rgba(255, 255, 255, 0.2)",
+      justifyContent: "center",
+      alignItems: "center",
       marginRight: theme.spacing.md,
     },
     headerTitle: {
-      ...theme.typography.h3,
+      ...theme.typography.h2,
       color: "#ffffff",
       flex: 1,
+      fontWeight: "700",
     },
-    content: {
-      flex: 1,
+    scrollContainer: {
+      flexGrow: 1,
       paddingHorizontal: theme.spacing.lg,
       paddingVertical: theme.spacing.xl,
       justifyContent: "center",
@@ -93,32 +200,57 @@ export default function AdminLoginScreen() {
       alignItems: "center",
       marginBottom: theme.spacing.xl,
     },
-    icon: {
-      marginBottom: theme.spacing.md,
-    },
     title: {
-      ...theme.typography.h2,
+      ...theme.typography.h1,
       color: theme.colors.text,
       textAlign: "center",
-      marginBottom: theme.spacing.xs,
+      marginBottom: theme.spacing.sm,
+      fontWeight: "700",
     },
     subtitle: {
       ...theme.typography.body,
       color: theme.colors.textSecondary,
       textAlign: "center",
+      lineHeight: 24,
+      fontWeight: "500",
     },
-    warningBox: {
-      backgroundColor: theme.colors.error + "20",
-      borderRadius: theme.borderRadius.md,
-      padding: theme.spacing.md,
-      marginBottom: theme.spacing.xl,
-      borderLeftWidth: 4,
-      borderLeftColor: theme.colors.error,
+    authCard: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: theme.borderRadius.xl,
+      padding: theme.spacing.xl,
+      shadowColor: theme.colors.border,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.1,
+      shadowRadius: 12,
+      elevation: 4,
     },
-    warningText: {
-      ...theme.typography.bodySmall,
-      color: theme.colors.error,
+    authHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: theme.spacing.lg,
+      justifyContent: "center",
+    },
+    authIcon: {
+      width: 60,
+      height: 60,
+      borderRadius: 30,
+      backgroundColor: theme.colors.primary + "20",
+      justifyContent: "center",
+      alignItems: "center",
+      marginRight: theme.spacing.md,
+    },
+    authTitle: {
+      ...theme.typography.h3,
+      color: theme.colors.text,
       fontWeight: "600",
+    },
+    authSubtitle: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      textAlign: "center",
+      marginBottom: theme.spacing.xl,
+      lineHeight: 22,
+      fontWeight: "500",
     },
     inputContainer: {
       marginBottom: theme.spacing.lg,
@@ -126,61 +258,69 @@ export default function AdminLoginScreen() {
     inputLabel: {
       ...theme.typography.label,
       color: theme.colors.text,
-      marginBottom: theme.spacing.xs,
+      marginBottom: theme.spacing.sm,
+      fontWeight: "600",
+    },
+    requiredStar: {
+      color: theme.colors.error,
     },
     inputWrapper: {
       flexDirection: "row",
       alignItems: "center",
-      backgroundColor: theme.colors.surface,
-      borderRadius: theme.borderRadius.md,
-      borderWidth: 2,
+      backgroundColor: theme.colors.background,
+      borderRadius: theme.borderRadius.lg,
+      borderWidth: 1,
       paddingHorizontal: theme.spacing.md,
       height: 56,
+      shadowColor: theme.colors.border,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 4,
+      elevation: 2,
     },
     inputWrapperFocused: {
-      borderColor: theme.colors.error,
-      backgroundColor: isDark ? theme.colors.surface : "#fff5f5",
+      borderColor: theme.colors.primary,
+      backgroundColor: isDark ? theme.colors.background : "#f8faff",
+      shadowColor: theme.colors.primary,
+      shadowOpacity: 0.2,
     },
     inputWrapperDefault: {
       borderColor: theme.colors.border,
     },
     inputIcon: {
-      marginRight: theme.spacing.sm,
+      marginRight: theme.spacing.md,
     },
     textInput: {
       flex: 1,
       ...theme.typography.body,
       color: theme.colors.text,
       height: "100%",
+      fontSize: 16,
+      fontWeight: "500",
     },
-    eyeIcon: {
-      padding: theme.spacing.xs,
-    },
-    loginButton: {
+    authButton: {
       height: 56,
-      backgroundColor: theme.colors.error,
-      borderRadius: theme.borderRadius.md,
+      backgroundColor: theme.colors.primary,
+      borderRadius: theme.borderRadius.lg,
       justifyContent: "center",
       alignItems: "center",
-      marginTop: theme.spacing.xl,
-      marginBottom: theme.spacing.lg,
-      shadowColor: theme.colors.error,
-      shadowOffset: {
-        width: 0,
-        height: 4,
-      },
-      shadowOpacity: 0.2,
-      shadowRadius: 8,
-      elevation: 4,
+      marginTop: theme.spacing.lg,
+      shadowColor: theme.colors.primary,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.3,
+      shadowRadius: 12,
+      elevation: 6,
     },
-    loginButtonDisabled: {
+    authButtonDisabled: {
       backgroundColor: theme.colors.textSecondary,
       shadowOpacity: 0,
       elevation: 0,
     },
-    loginButtonText: {
+    authButtonText: {
       ...theme.typography.button,
       color: "#ffffff",
+      fontSize: 16,
+      fontWeight: "700",
     },
     loadingContainer: {
       flexDirection: "row",
@@ -190,208 +330,126 @@ export default function AdminLoginScreen() {
       ...theme.typography.button,
       color: "#ffffff",
       marginLeft: theme.spacing.sm,
-    },
-    backContainer: {
-      flexDirection: "row",
-      justifyContent: "center",
-      alignItems: "center",
-      paddingVertical: theme.spacing.md,
-    },
-    backText: {
-      ...theme.typography.body,
-      color: theme.colors.textSecondary,
-    },
-    backLink: {
-      ...theme.typography.body,
-      color: theme.colors.primary,
+      fontSize: 16,
       fontWeight: "600",
-      marginLeft: 4,
     },
   });
 
   return (
-    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
-      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor={theme.colors.primary}
+      />
 
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={navigateToLogin}>
+      <Animated.View
+        style={[
+          styles.header,
+          {
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }],
+          },
+        ]}
+      >
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+          disabled={isLoading}
+        >
           <Ionicons name="arrow-back" size={24} color="#ffffff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Admin Access</Text>
-      </View>
+        <Text style={styles.headerTitle}>Admin Authentication</Text>
+      </Animated.View>
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
-          <View style={styles.titleContainer}>
-            <Ionicons
-              name="shield-checkmark"
-              size={60}
-              color={theme.colors.error}
-              style={styles.icon}
-            />
-            <Text style={styles.title}>Admin Portal</Text>
-            <Text style={styles.subtitle}>
-              Restricted access for administrators only
-            </Text>
-          </View>
-
-          <View style={styles.warningBox}>
-            <Text style={styles.warningText}>
-              ⚠️ This area is restricted to authorized administrators only.
-              Unauthorized access is prohibited.
-            </Text>
-          </View>
-
-          {/* Admin Code Input */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Admin Access Code</Text>
-            <View
-              style={[
-                styles.inputWrapper,
-                focusedField === "adminCode"
-                  ? styles.inputWrapperFocused
-                  : styles.inputWrapperDefault,
-              ]}
-            >
-              <Ionicons
-                name="key-outline"
-                size={20}
-                color={
-                  focusedField === "adminCode"
-                    ? theme.colors.error
-                    : theme.colors.textSecondary
-                }
-                style={styles.inputIcon}
-              />
-              <TextInput
-                style={styles.textInput}
-                placeholder="Enter admin access code"
-                placeholderTextColor={theme.colors.textSecondary}
-                value={adminCode}
-                onChangeText={setAdminCode}
-                onFocus={() => setFocusedField("adminCode")}
-                onBlur={() => setFocusedField("")}
-                autoCapitalize="characters"
-                autoCorrect={false}
-                secureTextEntry
-              />
+        <ScrollView
+          contentContainerStyle={styles.scrollContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          <Animated.View
+            style={{
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            }}
+          >
+            {/* Title */}
+            <View style={styles.titleContainer}>
+              <Text style={styles.title}>Admin Portal</Text>
+              <Text style={styles.subtitle}>
+                Authenticate to access user management
+              </Text>
             </View>
-          </View>
 
-          {/* Email Input */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Admin Email</Text>
-            <View
-              style={[
-                styles.inputWrapper,
-                focusedField === "email"
-                  ? styles.inputWrapperFocused
-                  : styles.inputWrapperDefault,
-              ]}
-            >
-              <Ionicons
-                name="mail-outline"
-                size={20}
-                color={
-                  focusedField === "email"
-                    ? theme.colors.error
-                    : theme.colors.textSecondary
-                }
-                style={styles.inputIcon}
-              />
-              <TextInput
-                style={styles.textInput}
-                placeholder="Enter admin email"
-                placeholderTextColor={theme.colors.textSecondary}
-                value={email}
-                onChangeText={setEmail}
-                onFocus={() => setFocusedField("email")}
-                onBlur={() => setFocusedField("")}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-            </View>
-          </View>
+            {/* Authentication Card */}
+            <View style={styles.authCard}>
+              <View style={styles.authHeader}>
+                <View style={styles.authIcon}>
+                  <Ionicons
+                    name="shield-checkmark"
+                    size={30}
+                    color={theme.colors.primary}
+                  />
+                </View>
+              </View>
 
-          {/* Password Input */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Password</Text>
-            <View
-              style={[
-                styles.inputWrapper,
-                focusedField === "password"
-                  ? styles.inputWrapperFocused
-                  : styles.inputWrapperDefault,
-              ]}
-            >
-              <Ionicons
-                name="lock-closed-outline"
-                size={20}
-                color={
-                  focusedField === "password"
-                    ? theme.colors.error
-                    : theme.colors.textSecondary
-                }
-                style={styles.inputIcon}
-              />
-              <TextInput
-                style={styles.textInput}
-                placeholder="Enter password"
-                placeholderTextColor={theme.colors.textSecondary}
-                value={password}
-                onChangeText={setPassword}
-                onFocus={() => setFocusedField("password")}
-                onBlur={() => setFocusedField("")}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
+              <Text style={styles.authTitle}>Secure Access Required</Text>
+              <Text style={styles.authSubtitle}>
+                Please provide your administrative credentials to proceed
+              </Text>
+
+              {renderInput(
+                "adminCode",
+                "Admin Access Code",
+                "Enter admin code",
+                "key-outline",
+                true,
+                true
+              )}
+              {renderInput(
+                "adminEmail",
+                "Admin Email",
+                "Enter your admin email",
+                "mail-outline",
+                true,
+                false,
+                "email-address"
+              )}
+              {renderInput(
+                "adminPassword",
+                "Admin Password",
+                "Enter admin password",
+                "lock-closed-outline",
+                true,
+                true
+              )}
+
               <TouchableOpacity
-                style={styles.eyeIcon}
-                onPress={() => setShowPassword(!showPassword)}
+                style={[
+                  styles.authButton,
+                  isLoading && styles.authButtonDisabled,
+                ]}
+                onPress={handleAdminAuth}
+                disabled={isLoading}
+                activeOpacity={0.8}
               >
-                <Ionicons
-                  name={showPassword ? "eye-outline" : "eye-off-outline"}
-                  size={20}
-                  color={theme.colors.textSecondary}
-                />
+                {isLoading ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator color="#ffffff" size={20} />
+                    <Text style={styles.loadingText}>Authenticating...</Text>
+                  </View>
+                ) : (
+                  <Text style={styles.authButtonText}>
+                    Authenticate & Continue
+                  </Text>
+                )}
               </TouchableOpacity>
             </View>
-          </View>
-
-          {/* Login Button */}
-          <TouchableOpacity
-            style={[
-              styles.loginButton,
-              isLoading && styles.loginButtonDisabled,
-            ]}
-            onPress={handleAdminLogin}
-            disabled={isLoading}
-            activeOpacity={0.8}
-          >
-            {isLoading ? (
-              <View style={styles.loadingContainer}>
-                <Ionicons name="refresh" size={20} color="#ffffff" />
-                <Text style={styles.loadingText}>Verifying...</Text>
-              </View>
-            ) : (
-              <Text style={styles.loginButtonText}>Access Admin Portal</Text>
-            )}
-          </TouchableOpacity>
-
-          {/* Back to Login */}
-          <View style={styles.backContainer}>
-            <Text style={styles.backText}>Not an admin?</Text>
-            <TouchableOpacity onPress={navigateToLogin}>
-              <Text style={styles.backLink}>Back to Login</Text>
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
+          </Animated.View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
