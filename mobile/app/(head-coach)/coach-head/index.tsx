@@ -1,6 +1,5 @@
-import CoachingDashboardScreen from "@/screens/head-of-coach/coaching-dashboard.screen";
-// import CoachProgressScreen from "@/screens/head-of-coach/progress/coach-progress.screen";
+import ViewCoachesScreen from "@/screens/coaches/coaches";
 
-export default function CoachHead() {
-  return <CoachingDashboardScreen />;
+export default function CoachesTab() {
+  return <ViewCoachesScreen />;
 }
