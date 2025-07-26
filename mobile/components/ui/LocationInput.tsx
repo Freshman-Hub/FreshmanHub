@@ -123,8 +123,8 @@ export function LocationInput({
     optionText: {
       ...theme.typography.body,
       color: theme.colors.text,
-        flex: 1,
-        fontWeight: "500",
+      flex: 1,
+      fontWeight: "500",
     },
     selectedOption: {
       backgroundColor: theme.colors.primary + "10",
