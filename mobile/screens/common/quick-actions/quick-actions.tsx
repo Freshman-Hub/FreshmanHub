@@ -19,7 +19,6 @@ import {
   MessageSquare,
   BarChart3,
   Settings,
-  Bell,
   FileText,
   Award,
   Target,
@@ -103,6 +102,14 @@ const getActionsForRole = (role: string) => {
         icon: BookOpen,
         color: "#7c3aed",
         route: "(routes)/send-reminders",
+        category: "Development",
+      },
+      {
+        title: "Events",
+        description: "View upcoming events",
+        icon: BookOpen,
+        color: "#7c3aed",
+        route: "(routes)/events",
         category: "Development",
       },
       {
