@@ -1,16 +1,26 @@
 "use client";
 
 import { useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  TextInput,
+  Alert,
+} from "react-native";
 import {
   Heart,
   ReplyIcon,
   ChevronDown,
   ChevronUp,
   CheckCircle,
+  Check,
+  X,
 } from "lucide-react-native";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Avatar } from "@/components/ui/Avatar";
+import { CommentOptionsMenu } from "@/components/ui/CommentOptionsMenu";
 
 interface User {
   name: string;
@@ -19,7 +29,8 @@ interface User {
 }
 
 interface Reply {
-  id: number;
+  id: string;
+  userId: string;
   user: User;
   content: string;
   timeAgo: string;
@@ -28,15 +39,22 @@ interface Reply {
 }
 
 interface CommentCardProps {
-  id: number;
+  id: string;
   user: User;
   content: string;
   timeAgo: string;
   likes: number;
   isLiked: boolean;
   replies?: Reply[];
-  onLike?: (id: number) => void;
-  onReply?: (id: number) => void;
+  onLike?: (id: string) => void;
+  onReply?: (id: string) => void;
+  onEdit?: (id: string, newContent: string) => void;
+  onDelete?: (id: string) => void;
+  onReplyLike?: (replyId: string) => void;
+  onReplyEdit?: (replyId: string, newContent: string) => void;
+  onReplyDelete?: (replyId: string) => void;
+  isOwner?: boolean;
+  currentUserId?: string;
   isReply?: boolean;
 }
 
@@ -50,10 +68,21 @@ export function CommentCard({
   replies = [],
   onLike,
   onReply,
+  onEdit,
+  onDelete,
+  onReplyLike,
+  onReplyEdit,
+  onReplyDelete,
+  isOwner = false,
+  currentUserId,
   isReply = false,
 }: CommentCardProps) {
   const { theme } = useTheme();
   const [showReplies, setShowReplies] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState(content);
+  const [editingReplyId, setEditingReplyId] = useState<string | null>(null);
+  const [editReplyContent, setEditReplyContent] = useState("");
 
   const styles = StyleSheet.create({
     container: {
@@ -108,7 +137,44 @@ export function CommentCard({
       fontSize: isReply ? 15 : 16,
       fontWeight: "500",
     },
+    editInput: {
+      backgroundColor: theme.colors.background,
+      borderRadius: theme.borderRadius.lg,
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: theme.spacing.sm,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      color: theme.colors.text,
+      fontSize: isReply ? 15 : 16,
+      marginBottom: theme.spacing.sm,
+      minHeight: 40,
+    },
+    editActions: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: theme.spacing.sm,
+      marginBottom: theme.spacing.sm,
+    },
+    editButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      padding: theme.spacing.xs,
+      borderRadius: theme.borderRadius.lg,
+      backgroundColor: theme.colors.primary,
+    },
+    cancelButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      padding: theme.spacing.xs,
+      borderRadius: theme.borderRadius.lg,
+      backgroundColor: theme.colors.textSecondary,
+    },
     actions: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    leftActions: {
       flexDirection: "row",
       alignItems: "center",
       gap: theme.spacing.xl,
@@ -153,6 +219,95 @@ export function CommentCard({
     },
   });
 
+  const handleEdit = () => {
+    setIsEditing(true);
+    setEditContent(content);
+  };
+
+  const handleSaveEdit = () => {
+    if (editContent.trim() && editContent !== content) {
+      onEdit?.(id, editContent.trim());
+    }
+    setIsEditing(false);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditContent(content);
+  };
+
+  const handleDelete = () => {
+    Alert.alert(
+      `Delete ${isReply ? "Reply" : "Comment"}`,
+      `Are you sure you want to delete this ${isReply ? "reply" : "comment"}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => onDelete?.(id),
+        },
+      ]
+    );
+  };
+
+  const handleReplyEdit = (replyId: string) => {
+    const reply = replies.find((r) => r.id === replyId);
+    if (reply) {
+      setEditingReplyId(replyId);
+      setEditReplyContent(reply.content);
+    }
+  };
+
+  const handleSaveReplyEdit = (replyId: string) => {
+    if (editReplyContent.trim()) {
+      onReplyEdit?.(replyId, editReplyContent.trim());
+    }
+    setEditingReplyId(null);
+    setEditReplyContent("");
+  };
+
+  const handleCancelReplyEdit = () => {
+    setEditingReplyId(null);
+    setEditReplyContent("");
+  };
+
+  const handleReplyDelete = (replyId: string) => {
+    Alert.alert("Delete Reply", "Are you sure you want to delete this reply?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: () => onReplyDelete?.(replyId),
+      },
+    ]);
+  };
+
+const renderContentWithTags = (content: string, theme: any) => {
+  const parts = content.split(/(@[A-Za-z]+(?:\s+[A-Za-z]+)*)/g);
+
+  return (
+    <>
+      {parts.map((part, index) => {
+        if (part.match(/^@[A-Za-z]+(?:\s+[A-Za-z]+)*$/)) {
+          return (
+            <Text
+              key={index}
+              style={{
+                color: theme.colors.primary,
+                fontWeight: "700",
+              }}
+            >
+              {part}
+            </Text>
+          );
+        }
+        return part;
+      })}
+    </>
+  );
+};
+
   return (
     <View style={styles.container}>
       <View style={styles.commentHeader}>
@@ -174,34 +329,72 @@ export function CommentCard({
           </View>
           <Text style={styles.timeText}>{timeAgo}</Text>
         </View>
+
+        <CommentOptionsMenu
+          commentId={id}
+          isOwner={isOwner}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          isReply={isReply}
+        />
       </View>
 
-      <Text style={styles.content}>{content}</Text>
+      {isEditing ? (
+        <>
+          <TextInput
+            style={styles.editInput}
+            value={editContent}
+            onChangeText={setEditContent}
+            multiline
+            autoFocus
+          />
+          <View style={styles.editActions}>
+            <TouchableOpacity
+              style={styles.editButton}
+              onPress={handleSaveEdit}
+            >
+              <Check color="white" size={16} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={handleCancelEdit}
+            >
+              <X color="white" size={16} />
+            </TouchableOpacity>
+          </View>
+        </>
+      ) : (
+        <Text style={styles.content}>
+          {renderContentWithTags(content, theme)}
+        </Text>
+      )}
 
       <View style={styles.actions}>
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => onLike?.(id)}
-        >
-          <Heart
-            color={isLiked ? "#e11d48" : theme.colors.textSecondary}
-            size={18}
-            fill={isLiked ? "#e11d48" : "none"}
-          />
-          <Text style={[styles.actionText, isLiked && styles.likedText]}>
-            {likes}
-          </Text>
-        </TouchableOpacity>
-
-        {!isReply && (
+        <View style={styles.leftActions}>
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => onReply?.(id)}
+            onPress={() => onLike?.(id)}
           >
-            <ReplyIcon color={theme.colors.textSecondary} size={18} />
-            <Text style={styles.actionText}>Reply</Text>
+            <Heart
+              color={isLiked ? "#e11d48" : theme.colors.textSecondary}
+              size={18}
+              fill={isLiked ? "#e11d48" : "none"}
+            />
+            <Text style={[styles.actionText, isLiked && styles.likedText]}>
+              {likes}
+            </Text>
           </TouchableOpacity>
-        )}
+
+          {!isReply && (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => onReply?.(id)}
+            >
+              <ReplyIcon color={theme.colors.textSecondary} size={18} />
+              <Text style={styles.actionText}>Reply</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {!isReply && replies.length > 0 && (
@@ -224,17 +417,98 @@ export function CommentCard({
           {showReplies && (
             <View style={styles.repliesContainer}>
               {replies.map((reply) => (
-                <CommentCard
-                  key={reply.id}
-                  id={reply.id}
-                  user={reply.user}
-                  content={reply.content}
-                  timeAgo={reply.timeAgo}
-                  likes={reply.likes}
-                  isLiked={reply.isLiked}
-                  onLike={onLike}
-                  isReply={true}
-                />
+                <View key={reply.id}>
+                  <View style={styles.commentHeader}>
+                    <Avatar
+                      imageUrl={reply.user.avatar}
+                      initials={reply.user.name.charAt(0)}
+                      size={30}
+                    />
+                    <View style={styles.userDetails}>
+                      <View style={styles.userNameContainer}>
+                        <Text style={[styles.userName, { fontSize: 15 }]}>
+                          {reply.user.name}
+                        </Text>
+                        {reply.user.verified && (
+                          <CheckCircle
+                            color={theme.colors.primary}
+                            size={14}
+                            style={styles.verifiedBadge}
+                          />
+                        )}
+                      </View>
+                      <Text style={styles.timeText}>{reply.timeAgo}</Text>
+                    </View>
+
+                    {/* FIXED: Correct ownership check */}
+                    <CommentOptionsMenu
+                      commentId={reply.id}
+                      isOwner={reply.userId === currentUserId} // Use reply.userId, not reply.user.name
+                      onEdit={() => handleReplyEdit(reply.id)}
+                      onDelete={() => handleReplyDelete(reply.id)}
+                      isReply={true}
+                    />
+                  </View>
+
+                  {editingReplyId === reply.id ? (
+                    <>
+                      <TextInput
+                        style={styles.editInput}
+                        value={editReplyContent}
+                        onChangeText={setEditReplyContent}
+                        multiline
+                        autoFocus
+                      />
+                      <View style={styles.editActions}>
+                        <TouchableOpacity
+                          style={styles.editButton}
+                          onPress={() => handleSaveReplyEdit(reply.id)}
+                        >
+                          <Check color="white" size={16} />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.cancelButton}
+                          onPress={handleCancelReplyEdit}
+                        >
+                          <X color="white" size={16} />
+                        </TouchableOpacity>
+                      </View>
+                    </>
+                  ) : (
+                    <Text style={[styles.content, { fontSize: 15 }]}>
+                      {renderContentWithTags
+                        ? renderContentWithTags(reply.content, theme)
+                        : reply.content}
+                    </Text>
+                  )}
+
+                  <View style={styles.actions}>
+                    <View style={styles.leftActions}>
+                      <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={() => onReplyLike?.(reply.id)}
+                      >
+                        <Heart
+                          color={
+                            reply.isLiked
+                              ? "#e11d48"
+                              : theme.colors.textSecondary
+                          }
+                          size={16}
+                          fill={reply.isLiked ? "#e11d48" : "none"}
+                        />
+                        <Text
+                          style={[
+                            styles.actionText,
+                            reply.isLiked && styles.likedText,
+                          ]}
+                        >
+                          {reply.likes}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
               ))}
             </View>
           )}
