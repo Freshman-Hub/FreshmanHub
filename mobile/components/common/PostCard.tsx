@@ -23,7 +23,7 @@ interface User {
 }
 
 interface PostCardProps {
-  id: number;
+  id: string;
   user: User;
   content: string;
   image?: string;
@@ -35,16 +35,16 @@ interface PostCardProps {
   category?: string;
   isOwner?: boolean;
   isFollowing?: boolean;
-  onLike?: (id: number) => void;
-  onComment?: (id: number) => void;
-  onShare?: (id: number) => void;
-  onPress?: (id: number) => void;
-  onEdit?: (id: number) => void;
-  onDelete?: (id: number) => void;
-  onCopyLink?: (id: number) => void;
-  onSavePost?: (id: number) => void;
-  onReportPost?: (id: number) => void;
-  onUnfollow?: (id: number) => void;
+  onLike?: (id: string) => void;
+  onComment?: (id: string) => void;
+  onShare?: (id: string) => void;
+  onPress?: (id: string) => void;
+  onEdit?: (id: string) => void;
+  onDelete?: (id: string) => void;
+  onCopyLink?: (id: string) => void;
+  onSavePost?: (id: string) => void;
+  onReportPost?: (id: string) => void;
+  onUnfollow?: (id: string) => void;
   showViewMore?: boolean;
   maxContentLength?: number;
 }
