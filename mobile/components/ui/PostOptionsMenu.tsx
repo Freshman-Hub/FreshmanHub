@@ -23,16 +23,16 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { Modal } from "@/components/ui/Modal";
 
 interface PostOptionsMenuProps {
-  postId: number;
+  postId: string;
   isOwner?: boolean;
   isFollowing?: boolean;
-  onEdit?: (postId: number) => void;
-  onDelete?: (postId: number) => void;
-  onCopyLink?: (postId: number) => void;
-  onSavePost?: (postId: number) => void;
-  onReportPost?: (postId: number) => void;
-  onUnfollow?: (postId: number) => void;
-  onShare?: (postId: number) => void;
+  onEdit?: (postId: string) => void;
+  onDelete?: (postId: string) => void;
+  onCopyLink?: (postId: string) => void;
+  onSavePost?: (postId: string) => void;
+  onReportPost?: (postId: string) => void;
+  onUnfollow?: (postId: string) => void;
+  onShare?: (postId: string) => void;
   style?: ViewStyle;
 }
 
