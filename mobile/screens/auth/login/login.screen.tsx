@@ -147,7 +147,7 @@ export default function LoginScreen() {
     }
   };
   const navigateToUserRequest = () => {
-    router.push("/(auth)/register");
+    router.push("/(auth)/admin-auth");
   };
 
   const navigateToForgotPassword = () => {
