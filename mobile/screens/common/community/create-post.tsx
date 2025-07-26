@@ -25,6 +25,10 @@ import { Avatar } from "@/components/ui/Avatar";
 import { CustomSelect } from "@/components/ui/CustomSelect";
 import { Modal } from "@/components/ui/Modal";
 
+import { PostsService } from "../../../services/posts.service";
+import { useUser } from "../../../contexts/UserContext";
+
+
 const categories = [
   { label: "Campus Life", value: "Campus Life" },
   { label: "Study Tips", value: "Study Tips" },
@@ -34,16 +38,17 @@ const categories = [
   { label: "General", value: "General" },
 ];
 
-const currentUser = {
-  name: "Current User",
-  avatar:
-    "https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=400",
-  year: "Junior",
-  verified: false,
-};
+// const currentUser = {
+//   name: "Current User",
+//   avatar:
+//     "https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=400",
+//   year: "Junior",
+//   verified: false,
+// };
 
 export default function CreatePostScreen() {
   const { theme } = useTheme();
+  const { user } = useUser();
   const router = useRouter();
 
   const [content, setContent] = useState("");
@@ -299,52 +304,61 @@ export default function CreatePostScreen() {
     setIsPreviewVisible(true);
   };
 
-  const handlePost = async () => {
-    if (!content.trim()) {
-      Alert.alert("Error", "Please write some content for your post");
-      return;
-    }
+const handlePost = async () => {
+  if (!content.trim() || !selectedCategory || !user) return;
 
-    if (!selectedCategory) {
-      Alert.alert("Error", "Please select a category for your post");
-      return;
-    }
+  setIsPosting(true);
 
-    setIsPosting(true);
-
-    // Create the new post object
-    const newPost = {
-      id: Date.now(),
-      user: currentUser,
+  try {
+    // Create postData with only defined values
+    const postData: any = {
       content: content.trim(),
-      image: selectedImage,
-      likes: 0,
-      comments: 0,
-      shares: 0,
-      timeAgo: "now",
-      isLiked: false,
       category: selectedCategory,
+      userId: user.id,
+      userDisplayName: `${user.firstName} ${user.lastName}`,
+      userVerified: user.role === "admin" || user.role === "head_of_coaches",
     };
 
-    // Simulate API call
-    setTimeout(() => {
-      setIsPosting(false);
-      setIsPreviewVisible(false);
+    // Only add optional fields if they have actual values
+    if (user.profileImage && user.profileImage.trim() !== "") {
+      postData.userAvatar = user.profileImage;
+    }
 
-      Alert.alert("Success!", "Your post has been published successfully", [
-        {
-          text: "OK",
-          onPress: () => {
-            // Navigate back to community screen with the new post
-            router.push({
-              pathname: "/(student-tabs)/community",
-              params: { newPost: JSON.stringify(newPost) },
-            });
-          },
+    if (user.yearGroup && user.yearGroup.trim() !== "") {
+      postData.userYear = user.yearGroup;
+    }
+
+    console.log("Creating post with data:", postData); // Debug log
+
+    const { post: newPost, error } = await PostsService.createPost(
+      postData,
+      selectedImage || undefined
+    );
+
+    if (error) {
+      Alert.alert("Error", error);
+      return;
+    }
+
+    Alert.alert("Success!", "Your post has been published successfully", [
+      {
+        text: "OK",
+        onPress: () => {
+          router.push({
+            pathname: "/(student-tabs)/community",
+            params: { refresh: "true" },
+          });
         },
-      ]);
-    }, 2000);
-  };
+      },
+    ]);
+  } catch (error: any) {
+    console.error("Create post error:", error);
+    Alert.alert("Error", error.message || "Failed to create post");
+  } finally {
+    setIsPosting(false);
+    setIsPreviewVisible(false);
+  }
+};
 
   const canPost = content.trim().length > 0 && selectedCategory;
 
@@ -368,12 +382,18 @@ export default function CreatePostScreen() {
           content={
             <View style={styles.userSection}>
               <Avatar
-                imageUrl={currentUser.avatar}
-                initials={currentUser.name.charAt(0)}
+                imageUrl={user?.profileImage || undefined}
+                initials={
+                  user
+                    ? `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`
+                    : "U"
+                }
                 size={50}
               />
               <View style={styles.userDetails}>
-                <Text style={styles.userName}>{currentUser.name}</Text>
+                <Text style={styles.userName}>
+                  {user ? `${user.firstName} ${user.lastName}` : "Unknown User"}
+                </Text>
                 <Text style={styles.userMeta}>Posting to Community</Text>
               </View>
             </View>
@@ -464,14 +484,20 @@ export default function CreatePostScreen() {
           <View style={styles.previewPost}>
             <View style={styles.postHeader}>
               <Avatar
-                imageUrl={currentUser.avatar}
-                initials={currentUser.name.charAt(0)}
+                imageUrl={user?.profileImage || undefined}
+                initials={
+                  user
+                    ? `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`
+                    : "U"
+                }
                 size={40}
               />
               <View style={styles.postUserDetails}>
-                <Text style={styles.postUserName}>{currentUser.name}</Text>
+                <Text style={styles.postUserName}>
+                  {user ? `${user.firstName} ${user.lastName}` : "Unknown User"}
+                </Text>
                 <Text style={styles.postUserMeta}>
-                  {currentUser.year} • now
+                  {user?.yearGroup || "Student"} • now
                 </Text>
                 {selectedCategory && (
                   <View style={styles.categoryBadge}>
@@ -483,6 +509,7 @@ export default function CreatePostScreen() {
               </View>
             </View>
 
+            {/* Rest of the preview content remains the same */}
             <Text style={styles.postContent}>{content}</Text>
 
             {selectedImage && (
