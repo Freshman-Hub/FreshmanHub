@@ -24,6 +24,7 @@ import { Picker } from "@react-native-picker/picker";
 import { AuthService } from "../../../services/auth.service";
 import { ValidationUtils } from "../../../utils/validation";
 import type { User, UserRole } from "../../../types/user.types";
+import { useLocalSearchParams } from "expo-router";
 
 // const { width, height } = Dimensions.get("window");
 
@@ -157,16 +158,16 @@ export default function RegisterScreen() {
   // const { user: currentUser } = useUser();
   const router = useRouter();
 
-  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
-  const [adminCredentials, setAdminCredentials] = useState({
-    adminCode: "",
-    adminEmail: "",
-    adminPassword: "",
-  });
-  const [showAdminLogin, setShowAdminLogin] = useState(true);
-  const [authenticatedAdmin, setAuthenticatedAdmin] = useState<User | null>(
-    null
-  );
+  // const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
+  // const [adminCredentials, setAdminCredentials] = useState({
+  //   adminCode: "",
+  //   adminEmail: "",
+  //   adminPassword: "",
+  // });
+  // const [showAdminLogin, setShowAdminLogin] = useState(true);
+  // const [authenticatedAdmin, setAuthenticatedAdmin] = useState<User | null>(
+  //   null
+  // );
 
   // Form state
   const [formData, setFormData] = useState({
@@ -193,6 +194,29 @@ export default function RegisterScreen() {
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
+
+  const params = useLocalSearchParams();
+
+  // Get admin data from navigation params
+  const [authenticatedAdmin, setAuthenticatedAdmin] = useState<User | null>(
+    null
+  );
+
+   React.useEffect(() => {
+     if (params.adminData) {
+       try {
+         const adminData = JSON.parse(params.adminData as string);
+         setAuthenticatedAdmin(adminData);
+       } catch (error) {
+         console.error("Error parsing admin data:", error);
+         Alert.alert("Error", "Invalid admin data received");
+         router.back();
+       }
+     } else {
+       // No admin data, redirect to admin auth
+       router.replace("/(auth)/admin-auth");
+     }
+   }, [params.adminData]);
 
   React.useEffect(() => {
     Animated.parallel([
@@ -244,7 +268,7 @@ export default function RegisterScreen() {
      return;
    }
 
-   if (!authenticatedAdmin) {
+   if (!authenticatedAdmin?.id) {
      Alert.alert("Error", "Admin authentication required");
      return;
    }
@@ -260,7 +284,7 @@ export default function RegisterScreen() {
        role: formData.role as UserRole,
        country: formData.country,
        gender: formData.gender as any,
-       createdBy: authenticatedAdmin.id,
+       createdBy: authenticatedAdmin?.id,
      };
 
      // Only add fields that have actual values
@@ -285,7 +309,7 @@ export default function RegisterScreen() {
      const { user, error } = await AuthService.createUser(
        userData,
        formData.password,
-       authenticatedAdmin.id
+       authenticatedAdmin?.id
      );
 
      if (error) {
@@ -340,76 +364,93 @@ export default function RegisterScreen() {
     router.back();
   };
 
-  const handleAdminAuth = async () => {
-    // Validate admin credentials
-    const validation = ValidationUtils.validateAdminCredentials(
-      adminCredentials.adminCode,
-      adminCredentials.adminEmail,
-      adminCredentials.adminPassword
-    );
+  // const handleAdminAuth = async () => {
+  //   // Validate admin credentials
+  //   const validation = ValidationUtils.validateAdminCredentials(
+  //     adminCredentials.adminCode,
+  //     adminCredentials.adminEmail,
+  //     adminCredentials.adminPassword
+  //   );
 
-    if (!validation.isValid) {
-      Alert.alert("Validation Error", validation.errors.join("\n"));
-      return;
-    }
+  //   if (!validation.isValid) {
+  //     Alert.alert("Validation Error", validation.errors.join("\n"));
+  //     return;
+  //   }
 
-    setIsLoading(true);
+  //   setIsLoading(true);
 
-    try {
-      // Verify admin credentials with Firebase
-      const { user, error } = await AuthService.verifyAdminCredentials(
-        adminCredentials.adminCode,
-        adminCredentials.adminEmail,
-        adminCredentials.adminPassword
-      );
+  //   try {
+  //     // Verify admin credentials with Firebase
+  //     const { user, error } = await AuthService.verifyAdminCredentials(
+  //       adminCredentials.adminCode,
+  //       adminCredentials.adminEmail,
+  //       adminCredentials.adminPassword
+  //     );
 
-      if (error) {
-        Alert.alert("Authentication Failed", error);
-        return;
-      }
+  //     if (error) {
+  //       Alert.alert("Authentication Failed", error);
+  //       return;
+  //     }
 
-      if (user) {
-        setAuthenticatedAdmin(user);
-        setIsAdminAuthenticated(true);
-        setShowAdminLogin(false);
-        Alert.alert(
-          "Success",
-          `Welcome, ${user.firstName}! You can now create user accounts.`
-        );
-      }
-    } catch (error: any) {
-      Alert.alert(
-        "Authentication Error",
-        error.message || "An unexpected error occurred"
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  //     if (user) {
+  //       setAuthenticatedAdmin(user);
+  //       setIsAdminAuthenticated(true);
+  //       setShowAdminLogin(false);
+  //       Alert.alert(
+  //         "Success",
+  //         `Welcome, ${user.firstName}! You can now create user accounts.`
+  //       );
+  //     }
+  //   } catch (error: any) {
+  //     Alert.alert(
+  //       "Authentication Error",
+  //       error.message || "An unexpected error occurred"
+  //     );
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // };
 
-  const handleAdminLogout = () => {
-    setIsAdminAuthenticated(false);
-    setShowAdminLogin(true);
-    setAuthenticatedAdmin(null);
-    setAdminCredentials({ adminCode: "", adminEmail: "", adminPassword: "" });
-    // Clear form data
-    setFormData({
-      firstName: "",
-      lastName: "",
-      email: "",
-      password: "",
-      confirmPassword: "",
-      role: "",
-      studentId: "",
-      department: "",
-      phoneNumber: "",
-      country: "",
-      yearGroup: "",
-      major: "",
-      gender: "",
-    });
-  };
+const handleAdminLogout = () => {
+  Alert.alert(
+    "Logout",
+    "Are you sure you want to logout? You'll need to authenticate again to create users.",
+    [
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+      {
+        text: "Logout",
+        style: "destructive",
+        onPress: () => {
+          // Clear admin data and navigate back to admin auth
+          setAuthenticatedAdmin(null);
 
+          // Clear form data
+          setFormData({
+            firstName: "",
+            lastName: "",
+            email: "",
+            password: "",
+            confirmPassword: "",
+            role: "",
+            studentId: "",
+            department: "",
+            phoneNumber: "",
+            country: "",
+            yearGroup: "",
+            major: "",
+            gender: "",
+          });
+
+          // Navigate back to admin auth screen
+          router.replace("/(auth)/admin-auth");
+        },
+      },
+    ]
+  );
+};
   const styles = StyleSheet.create({
     container: {
       flex: 1,
@@ -864,55 +905,55 @@ export default function RegisterScreen() {
     );
   };
 
-  const renderAdminInput = (
-    field: string,
-    label: string,
-    placeholder: string,
-    icon: string,
-    required = true,
-    secureTextEntry = false,
-    keyboardType = "default" as any
-  ) => {
-    const isFocused = focusedField === field;
+  // const renderAdminInput = (
+  //   field: string,
+  //   label: string,
+  //   placeholder: string,
+  //   icon: string,
+  //   required = true,
+  //   secureTextEntry = false,
+  //   keyboardType = "default" as any
+  // ) => {
+  //   const isFocused = focusedField === field;
 
-    return (
-      <View style={styles.inputContainer}>
-        <Text style={styles.inputLabel}>
-          {label}
-          {required && <Text style={styles.requiredStar}> *</Text>}
-        </Text>
-        <View
-          style={[
-            styles.inputWrapper,
-            isFocused ? styles.inputWrapperFocused : styles.inputWrapperDefault,
-          ]}
-        >
-          <Ionicons
-            name={icon as any}
-            size={22}
-            color={isFocused ? theme.colors.error : theme.colors.textSecondary}
-            style={styles.inputIcon}
-          />
-          <TextInput
-            style={styles.textInput}
-            placeholder={placeholder}
-            placeholderTextColor={theme.colors.textSecondary}
-            value={adminCredentials[field as keyof typeof adminCredentials]}
-            onChangeText={(value) =>
-              setAdminCredentials((prev) => ({ ...prev, [field]: value }))
-            }
-            onFocus={() => setFocusedField(field)}
-            onBlur={() => setFocusedField("")}
-            secureTextEntry={secureTextEntry}
-            keyboardType={keyboardType}
-            autoCapitalize={field === "adminEmail" ? "none" : "words"}
-            autoCorrect={false}
-            editable={!isLoading}
-          />
-        </View>
-      </View>
-    );
-  };
+  //   return (
+  //     <View style={styles.inputContainer}>
+  //       <Text style={styles.inputLabel}>
+  //         {label}
+  //         {required && <Text style={styles.requiredStar}> *</Text>}
+  //       </Text>
+  //       <View
+  //         style={[
+  //           styles.inputWrapper,
+  //           isFocused ? styles.inputWrapperFocused : styles.inputWrapperDefault,
+  //         ]}
+  //       >
+  //         <Ionicons
+  //           name={icon as any}
+  //           size={22}
+  //           color={isFocused ? theme.colors.error : theme.colors.textSecondary}
+  //           style={styles.inputIcon}
+  //         />
+  //         <TextInput
+  //           style={styles.textInput}
+  //           placeholder={placeholder}
+  //           placeholderTextColor={theme.colors.textSecondary}
+  //           value={adminCredentials[field as keyof typeof adminCredentials]}
+  //           onChangeText={(value) =>
+  //             setAdminCredentials((prev) => ({ ...prev, [field]: value }))
+  //           }
+  //           onFocus={() => setFocusedField(field)}
+  //           onBlur={() => setFocusedField("")}
+  //           secureTextEntry={secureTextEntry}
+  //           keyboardType={keyboardType}
+  //           autoCapitalize={field === "adminEmail" ? "none" : "words"}
+  //           autoCorrect={false}
+  //           editable={!isLoading}
+  //         />
+  //       </View>
+  //     </View>
+  //   );
+  // };
 
   const renderPicker = (
     field: string,
@@ -974,7 +1015,7 @@ export default function RegisterScreen() {
           <Ionicons name="arrow-back" size={24} color="#ffffff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Admin Portal</Text>
-        {isAdminAuthenticated && (
+        {authenticatedAdmin && (
           <TouchableOpacity
             style={styles.headerIcon}
             onPress={handleAdminLogout}
@@ -1006,7 +1047,7 @@ export default function RegisterScreen() {
                 Administrative user creation for students, staff, and coaches
               </Text>
             </View>
-
+            {/* 
             {showAdminLogin && (
               <View style={styles.adminAuthSection}>
                 <View style={styles.adminAuthCard}>
@@ -1071,9 +1112,9 @@ export default function RegisterScreen() {
                   </TouchableOpacity>
                 </View>
               </View>
-            )}
+            )} */}
 
-            {isAdminAuthenticated && authenticatedAdmin && (
+            {authenticatedAdmin && (
               <>
                 {/* Admin Info Card */}
                 <View style={styles.adminInfoCard}>
@@ -1171,7 +1212,7 @@ export default function RegisterScreen() {
                     "Create secure password",
                     "lock-closed-outline",
                     true,
-                    !showPassword
+                    showPassword ? false : true // Change from !showPassword to this
                   )}
                   {renderInput(
                     "confirmPassword",
@@ -1179,7 +1220,7 @@ export default function RegisterScreen() {
                     "Confirm password",
                     "lock-closed-outline",
                     true,
-                    !showConfirmPassword
+                    showConfirmPassword ? false : true // Change from !showConfirmPassword to this
                   )}
                 </View>
 
