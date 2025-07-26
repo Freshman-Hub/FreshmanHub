@@ -14,6 +14,7 @@ import {
   Mail,
   Calendar,
   User,
+  UserPlus,
   MoreHorizontal,
   X,
 } from "lucide-react-native";
@@ -26,6 +27,7 @@ interface CoachOptionsMenuProps {
     name: string;
     email: string;
   };
+  onAssignFreshman?: (coach: any) => void;
   onCall?: (coach: any) => void;
   onMessage?: (coach: any) => void;
   onEmail?: (coach: any) => void;
@@ -36,6 +38,7 @@ interface CoachOptionsMenuProps {
 
 export function CoachOptionsMenu({
   coach,
+  onAssignFreshman,
   onCall,
   onMessage,
   onEmail,
@@ -97,6 +100,11 @@ export function CoachOptionsMenu({
   });
 
   const options = [
+    {
+      icon: UserPlus,
+      label: "Assign Freshman",
+      action: () => onAssignFreshman?.(coach),
+    },
     {
       icon: Phone,
       label: "Call",
