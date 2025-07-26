@@ -16,7 +16,7 @@ import {
   Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "../../../contexts/ThemeContext";
 // import { useUser } from "../../../contexts/UserContext";
@@ -24,7 +24,6 @@ import { Picker } from "@react-native-picker/picker";
 import { AuthService } from "../../../services/auth.service";
 import { ValidationUtils } from "../../../utils/validation";
 import type { User, UserRole } from "../../../types/user.types";
-import { useLocalSearchParams } from "expo-router";
 
 // const { width, height } = Dimensions.get("window");
 
@@ -216,6 +215,7 @@ export default function RegisterScreen() {
        // No admin data, redirect to admin auth
        router.replace("/(auth)/admin-auth");
      }
+   // eslint-disable-next-line react-hooks/exhaustive-deps
    }, [params.adminData]);
 
   React.useEffect(() => {
