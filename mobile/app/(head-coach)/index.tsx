@@ -1,5 +1,3 @@
-import HomeScreen from "@/screens/common/home/home.screen";
+import HeadCoachHomeScreen from "@/screens/head-of-coach/home/head-coach-home";
 
-export default function Home() {
-  return <HomeScreen />;
-}
+export default HeadCoachHomeScreen;
