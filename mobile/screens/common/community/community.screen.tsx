@@ -1,5 +1,5 @@
 "use client";
-import { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,97 +8,104 @@ import {
   StyleSheet,
   RefreshControl,
   type TextStyle,
+  Alert, // Import Alert for error handling
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Users, TrendingUp, Calendar, BookOpen } from "lucide-react-native";
+// import { Users, TrendingUp, Calendar, BookOpen } from "lucide-react-native";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { PostCard } from "@/components/common/PostCard";
 
+import { PostsService } from "../../../services/posts.service";
+import { Post } from "../../../types/post.types";
+import { useUser } from "../../../contexts/UserContext";
+
+
 // Import our reusable components
 import { Header } from "@/components/ui/Header";
 import { FullSearchHeader } from "@/components/ui/FullSearchHeader";
-import { StatCard } from "@/components/ui/StatCard";
+// import { StatCard } from "@/components/ui/StatCard";
 import { FilterChip } from "@/components/ui/FilterChip";
+import { Loader } from "@/components/ui/Loader";
 
-const initialCommunityPosts = [
-  {
-    id: 1,
-    user: {
-      name: "Sarah Mensah",
-      avatar:
-        "https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=400",
-      year: "Freshman",
-      verified: true,
-    },
-    content:
-      "Just finished my first week at Ashesi! The campus is absolutely beautiful and everyone has been so welcoming. Can't wait to join the debate club! 🎓✨ I've been exploring different parts of the campus and I'm amazed by the architecture and the green spaces.",
-    image:
-      "https://images.pexels.com/photos/1454360/pexels-photo-1454360.jpeg?auto=compress&cs=tinysrgb&w=400",
-    likes: 24,
-    comments: 8,
-    shares: 3,
-    timeAgo: "2h ago",
-    isLiked: false,
-    category: "Campus Life",
-  },
-  {
-    id: 2,
-    user: {
-      name: "Michael Osei",
-      avatar:
-        "https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=400",
-      year: "Sophomore",
-      verified: false,
-    },
-    content:
-      "Pro tip for freshmen: The library has amazing study spots on the 3rd floor! Perfect for group projects and the view is incredible 📚 Also, don't forget to check out the quiet zones during exam periods.",
-    likes: 31,
-    comments: 12,
-    shares: 7,
-    timeAgo: "4h ago",
-    isLiked: true,
-    category: "Study Tips",
-  },
-  {
-    id: 3,
-    user: {
-      name: "Ama Asante",
-      avatar:
-        "https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=400",
-      year: "Junior",
-      verified: true,
-    },
-    content:
-      "Excited to announce that our robotics team just won first place at the regional competition! 🤖🏆 Proud to represent Ashesi! The months of hard work and dedication have finally paid off.",
-    image:
-      "https://images.pexels.com/photos/2599244/pexels-photo-2599244.jpeg?auto=compress&cs=tinysrgb&w=400",
-    likes: 89,
-    comments: 23,
-    shares: 15,
-    timeAgo: "6h ago",
-    isLiked: false,
-    category: "Achievements",
-  },
-  {
-    id: 4,
-    user: {
-      name: "Kwame Nkrumah",
-      avatar:
-        "https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg?auto=compress&cs=tinysrgb&w=400",
-      year: "Senior",
-      verified: true,
-    },
-    content:
-      "Looking for study partners for Advanced Algorithms! Let's form a study group and tackle these problems together. DM me if interested! 💻 We can meet twice a week and work through the challenging assignments.",
-    likes: 18,
-    comments: 9,
-    shares: 4,
-    timeAgo: "8h ago",
-    isLiked: true,
-    category: "Study Groups",
-  },
-];
+// const initialCommunityPosts = [
+//   {
+//     id: 1,
+//     user: {
+//       name: "Sarah Mensah",
+//       avatar:
+//         "https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=400",
+//       year: "Freshman",
+//       verified: true,
+//     },
+//     content:
+//       "Just finished my first week at Ashesi! The campus is absolutely beautiful and everyone has been so welcoming. Can't wait to join the debate club! 🎓✨ I've been exploring different parts of the campus and I'm amazed by the architecture and the green spaces.",
+//     image:
+//       "https://images.pexels.com/photos/1454360/pexels-photo-1454360.jpeg?auto=compress&cs=tinysrgb&w=400",
+//     likes: 24,
+//     comments: 8,
+//     shares: 3,
+//     timeAgo: "2h ago",
+//     isLiked: false,
+//     category: "Campus Life",
+//   },
+//   {
+//     id: 2,
+//     user: {
+//       name: "Michael Osei",
+//       avatar:
+//         "https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=400",
+//       year: "Sophomore",
+//       verified: false,
+//     },
+//     content:
+//       "Pro tip for freshmen: The library has amazing study spots on the 3rd floor! Perfect for group projects and the view is incredible 📚 Also, don't forget to check out the quiet zones during exam periods.",
+//     likes: 31,
+//     comments: 12,
+//     shares: 7,
+//     timeAgo: "4h ago",
+//     isLiked: true,
+//     category: "Study Tips",
+//   },
+//   {
+//     id: 3,
+//     user: {
+//       name: "Ama Asante",
+//       avatar:
+//         "https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=400",
+//       year: "Junior",
+//       verified: true,
+//     },
+//     content:
+//       "Excited to announce that our robotics team just won first place at the regional competition! 🤖🏆 Proud to represent Ashesi! The months of hard work and dedication have finally paid off.",
+//     image:
+//       "https://images.pexels.com/photos/2599244/pexels-photo-2599244.jpeg?auto=compress&cs=tinysrgb&w=400",
+//     likes: 89,
+//     comments: 23,
+//     shares: 15,
+//     timeAgo: "6h ago",
+//     isLiked: false,
+//     category: "Achievements",
+//   },
+//   {
+//     id: 4,
+//     user: {
+//       name: "Kwame Nkrumah",
+//       avatar:
+//         "https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg?auto=compress&cs=tinysrgb&w=400",
+//       year: "Senior",
+//       verified: true,
+//     },
+//     content:
+//       "Looking for study partners for Advanced Algorithms! Let's form a study group and tackle these problems together. DM me if interested! 💻 We can meet twice a week and work through the challenging assignments.",
+//     likes: 18,
+//     comments: 9,
+//     shares: 4,
+//     timeAgo: "8h ago",
+//     isLiked: true,
+//     category: "Study Groups",
+//   },
+// ];
 
 const trendingTopics = [
   { id: 5, name: "#FreshmanLife", posts: 234 },
@@ -107,22 +114,24 @@ const trendingTopics = [
   { id: 8, name: "#AshesiPride", posts: 142 },
 ];
 
-const communityStats = [
-  { label: "Active Members", value: "2.4K", icon: Users, color: "#3b82f6" },
-  { label: "Posts Today", value: "47", icon: TrendingUp, color: "#059669" },
-  { label: "Events This Week", value: "12", icon: Calendar, color: "#dc2626" },
-  { label: "Study Groups", value: "28", icon: BookOpen, color: "#7c3aed" },
-];
+// const communityStats = [
+//   { label: "Active Members", value: "2.4K", icon: Users, color: "#3b82f6" },
+//   { label: "Posts Today", value: "47", icon: TrendingUp, color: "#059669" },
+//   { label: "Events This Week", value: "12", icon: Calendar, color: "#dc2626" },
+//   { label: "Study Groups", value: "28", icon: BookOpen, color: "#7c3aed" },
+// ];
 
 export default function CommunityScreen() {
   const { theme } = useTheme();
+  const { user } = useUser(); // Get current user
   const router = useRouter();
   const params = useLocalSearchParams();
 
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFilter, setSelectedFilter] = useState("All");
-  const [posts, setPosts] = useState(initialCommunityPosts);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isSearchMode, setIsSearchMode] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
 
@@ -133,6 +142,29 @@ export default function CommunityScreen() {
     "Achievements",
     "Study Groups",
   ];
+
+  // Load posts on component mount
+  useEffect(() => {
+    loadPosts();
+  }, []);
+
+  const loadPosts = async () => {
+    try {
+      setLoading(true);
+      const { posts: fetchedPosts, error } = await PostsService.getPosts(20);
+
+      if (error) {
+        console.error("Error loading posts:", error);
+        Alert.alert("Error", "Failed to load posts");
+      } else {
+        setPosts(fetchedPosts);
+      }
+    } catch (error) {
+      console.error("Error loading posts:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Handle new post when screen comes into focus
   useFocusEffect(
@@ -157,9 +189,10 @@ export default function CommunityScreen() {
     }, [params.newPost])
   );
 
-  const onRefresh = () => {
+  const onRefresh = async () => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 2000);
+    await loadPosts();
+    setRefreshing(false);
   };
 
   const handleSearchPress = () => {
@@ -181,26 +214,40 @@ export default function CommunityScreen() {
     }
   };
 
-  const handleLike = (postId: number) => {
+  const handleLike = async (postId: string) => {
+    if (!user?.id) return;
+
+    // Optimistic update
     setPosts((prevPosts) =>
       prevPosts.map((post) => {
         if (post.id === postId) {
+          const isLiked = post.likedBy?.includes(user.id) || false;
           return {
             ...post,
-            isLiked: !post.isLiked,
-            likes: post.isLiked ? post.likes - 1 : post.likes + 1,
+            likes: isLiked ? post.likes - 1 : post.likes + 1,
+            likedBy: isLiked
+              ? post.likedBy?.filter((id) => id !== user.id) || []
+              : [...(post.likedBy || []), user.id],
           };
         }
         return post;
       })
     );
+
+    // API call
+    const { error } = await PostsService.toggleLike(postId, user.id);
+
+    if (error) {
+      console.error("Error toggling like:", error);
+      await loadPosts();
+    }
   };
 
-  const handleComment = (postId: number) => {
+  const handleComment = (postId: string) => {
     router.push(`/(routes)/post/${postId}`);
   };
 
-  const handleShare = (postId: number) => {
+  const handleShare = (postId: string) => {
     console.log("Sharing post", postId);
   };
 
@@ -214,6 +261,50 @@ export default function CommunityScreen() {
     console.log("Opening filter options");
   };
 
+  // Add this handler after your existing handlers (around line 180)
+  const handleDeletePost = async (postId: string) => {
+    try {
+      // Show confirmation dialog
+      Alert.alert(
+        "Delete Post",
+        "Are you sure you want to delete this post? This action cannot be undone.",
+        [
+          {
+            text: "Cancel",
+            style: "cancel",
+          },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: async () => {
+              // Show loading
+              setLoading(true);
+
+              const { error } = await PostsService.deletePost(postId);
+
+              if (error) {
+                Alert.alert(
+                  "Error",
+                  "Failed to delete post. Please try again."
+                );
+              } else {
+                // Remove post from local state
+                setPosts((prev) => prev.filter((post) => post.id !== postId));
+                Alert.alert("Success", "Post deleted successfully");
+              }
+
+              setLoading(false);
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      console.error("Error deleting post:", error);
+      Alert.alert("Error", "Failed to delete post");
+      setLoading(false);
+    }
+  };
+
   // Filter posts based on search query and selected filter
   const filteredPosts = posts.filter((post) => {
     const matchesFilter =
@@ -221,7 +312,7 @@ export default function CommunityScreen() {
     const matchesSearch =
       searchQuery === "" ||
       post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      post.user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      post.userDisplayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       post.category.toLowerCase().includes(searchQuery.toLowerCase());
 
     return matchesFilter && matchesSearch;
@@ -246,7 +337,7 @@ export default function CommunityScreen() {
     },
     filtersContainer: {
       paddingHorizontal: theme.spacing.md,
-      marginBottom: theme.spacing.md,
+      marginVertical: theme.spacing.md,
     },
     filtersScroll: {
       flexDirection: "row",
@@ -321,7 +412,35 @@ export default function CommunityScreen() {
       textAlign: "center",
       fontStyle: "italic",
     } as TextStyle,
+
+    postsLoadingContainer: {
+      alignItems: "center",
+      paddingVertical: theme.spacing.xxl,
+    },
+    postsLoadingText: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      textAlign: "center",
+      fontStyle: "italic",
+    } as TextStyle,
   });
+
+  const formatTimeAgo = (dateString: string): string => {
+    const now = new Date();
+    const postDate = new Date(dateString);
+    const diffInSeconds = Math.floor(
+      (now.getTime() - postDate.getTime()) / 1000
+    );
+
+    if (diffInSeconds < 60) return "now";
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+    if (diffInSeconds < 86400)
+      return `${Math.floor(diffInSeconds / 3600)}h ago`;
+    if (diffInSeconds < 604800)
+      return `${Math.floor(diffInSeconds / 86400)}d ago`;
+
+    return postDate.toLocaleDateString();
+  };
 
   // Search Results Component
   const SearchResults = () => (
@@ -337,20 +456,27 @@ export default function CommunityScreen() {
           <PostCard
             key={post.id}
             id={post.id}
-            user={post.user}
+            user={{
+              name: post.userDisplayName,
+              avatar:
+                post.userAvatar ||
+                "https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=400",
+              year: post.userYear,
+              verified: post.userVerified || false,
+            }}
             content={post.content}
             image={post.image}
             likes={post.likes}
             comments={post.comments}
             shares={post.shares}
-            timeAgo={post.timeAgo}
-            isLiked={post.isLiked}
+            timeAgo={formatTimeAgo(post.createdAt)}
+            isLiked={post.likedBy?.includes(user?.id || "") || false}
             category={post.category}
-            isOwner={post.user.name === "Current User"} // Replace with actual logic
-            isFollowing={true} // Replace with actual logic
-            onLike={handleLike}
-            onComment={handleComment}
-            onShare={handleShare}
+            isOwner={post.userId === user?.id}
+            isFollowing={true}
+            onLike={() => handleLike(post.id)}
+            onComment={() => handleComment(post.id)}
+            onShare={() => handleShare(post.id)}
             onEdit={(postId) => console.log("Edit post", postId)}
             onDelete={(postId) => console.log("Delete post", postId)}
             onCopyLink={(postId) => console.log("Copy link", postId)}
@@ -373,6 +499,7 @@ export default function CommunityScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+      <Loader visible={loading} message="Loading posts..." />
       {isSearchMode ? (
         <>
           <FullSearchHeader
@@ -388,10 +515,10 @@ export default function CommunityScreen() {
       ) : (
         <>
           <Header
-            title="Community"
+            title="Community Feed"
             showSearch={true}
             onSearchPress={handleSearchPress}
-            showFilter={true}
+            showFilter={false}
             onFilterPress={handleFilterPress}
             showCreate={true}
             onCreatePress={handleCreatePost}
@@ -405,7 +532,7 @@ export default function CommunityScreen() {
             }
             contentContainerStyle={styles.scrollContent}
           >
-            <View style={styles.statsContainer}>
+            {/* <View style={styles.statsContainer}>
               <View style={styles.statsRow}>
                 {communityStats.map((stat, index) => (
                   <StatCard
@@ -417,7 +544,7 @@ export default function CommunityScreen() {
                   />
                 ))}
               </View>
-            </View>
+            </View> */}
 
             <View style={styles.filtersContainer}>
               <ScrollView
@@ -436,7 +563,7 @@ export default function CommunityScreen() {
               </ScrollView>
             </View>
 
-            <View style={styles.trendingContainer}>
+            {/* <View style={styles.trendingContainer}>
               <Text style={styles.trendingTitle}>Trending Topics</Text>
               <ScrollView
                 horizontal
@@ -452,30 +579,42 @@ export default function CommunityScreen() {
                   </TouchableOpacity>
                 ))}
               </ScrollView>
-            </View>
+            </View> */}
 
             <View style={styles.postsContainer}>
-              {filteredPosts.length > 0 ? (
+              {/* Show loading state for posts */}
+              {loading ? (
+                <View style={styles.postsLoadingContainer}>
+                  <Text style={styles.postsLoadingText}>Loading posts...</Text>
+                </View>
+              ) : filteredPosts.length > 0 ? (
                 filteredPosts.map((post) => (
                   <PostCard
                     key={post.id}
                     id={post.id}
-                    user={post.user}
+                    user={{
+                      name: post.userDisplayName,
+                      avatar:
+                        post.userAvatar ||
+                        "https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=400",
+                      year: post.userYear,
+                      verified: post.userVerified || false,
+                    }}
                     content={post.content}
                     image={post.image}
                     likes={post.likes}
                     comments={post.comments}
                     shares={post.shares}
-                    timeAgo={post.timeAgo}
-                    isLiked={post.isLiked}
+                    timeAgo={formatTimeAgo(post.createdAt)}
+                    isLiked={post.likedBy?.includes(user?.id || "") || false}
                     category={post.category}
-                    isOwner={post.user.name === "Current User"} // Replace with actual logic
-                    isFollowing={true} // Replace with actual logic
-                    onLike={handleLike}
-                    onComment={handleComment}
-                    onShare={handleShare}
+                    isOwner={post.userId === user?.id}
+                    isFollowing={true}
+                    onLike={() => handleLike(post.id)}
+                    onComment={() => handleComment(post.id)}
+                    onShare={() => handleShare(post.id)}
                     onEdit={(postId) => console.log("Edit post", postId)}
-                    onDelete={(postId) => console.log("Delete post", postId)}
+                    onDelete={handleDeletePost}
                     onCopyLink={(postId) => console.log("Copy link", postId)}
                     onSavePost={(postId) => console.log("Save post", postId)}
                     onReportPost={(postId) =>
