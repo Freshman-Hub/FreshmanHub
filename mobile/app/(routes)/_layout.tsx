@@ -89,12 +89,13 @@ export default function RoutesLayout() {
           headerShown: false,
         }}
       />
-      {/* <Stack.Screen
-        name="my-events"
+      <Stack.Screen
+        name="events/index"
         options={{
           title: "My Events",
+          headerShown: false,
         }}
-      /> */}
+      />
       {/* <Stack.Screen
         name="event-attendees/[id]"
         options={{
