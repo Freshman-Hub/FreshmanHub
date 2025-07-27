@@ -1,100 +1,100 @@
-"use client"
+"use client";
 
-import type { ReactNode } from "react"
-import { Modal as RNModal, View, Text, TouchableOpacity, StyleSheet, type ViewStyle, Dimensions } from "react-native"
-import { X } from "lucide-react-native"
-import { useTheme } from "@/contexts/ThemeContext"
+import { ReactNode } from "react";
+import {
+  StyleSheet,
+  TouchableOpacity,
+  Dimensions,
+   Modal as RNModal
+} from "react-native";
+import { X } from "lucide-react-native";
+import { useTheme } from "@/contexts/ThemeContext";
 
 interface ModalProps {
-  visible: boolean
-  onClose: () => void
-  children: ReactNode
-  title?: string
-  dismissable?: boolean
-  fullScreen?: boolean
-  style?: ViewStyle
-  contentStyle?: ViewStyle
-  showCloseIcon?: boolean
+  visible: boolean;
+  onClose: () => void;
+  children: ReactNode;
+  dismissable?: boolean;
+  showCloseIcon?: boolean;
+  animationType?: "slide" | "fade" | "none";
+  position?: "center" | "bottom";
 }
 
-const { height: screenHeight } = Dimensions.get("window")
+const { height: screenHeight } = Dimensions.get("window");
 
 export function Modal({
   visible,
   onClose,
   children,
-  title,
   dismissable = true,
-  fullScreen = false,
-  style,
-  contentStyle,
   showCloseIcon = true,
+  animationType = "slide",
+  position = "center",
 }: ModalProps) {
-  const { theme } = useTheme()
+  const { theme } = useTheme();
 
   const styles = StyleSheet.create({
     overlay: {
       flex: 1,
       backgroundColor: "rgba(0, 0, 0, 0.5)",
-      justifyContent: fullScreen ? "flex-start" : "center",
+      justifyContent: position === "bottom" ? "flex-end" : "center",
       alignItems: "center",
-      padding: fullScreen ? 0 : theme.spacing.lg,
     },
     container: {
       backgroundColor: theme.colors.surface,
-      borderRadius: fullScreen ? 0 : theme.borderRadius.xl,
-      width: fullScreen ? "100%" : "90%",
-      maxHeight: fullScreen ? screenHeight : screenHeight * 0.8,
+      borderRadius: position === "bottom" ? 0 : theme.borderRadius.xl,
+      borderTopLeftRadius:
+        position === "bottom" ? theme.borderRadius.xl : theme.borderRadius.xl,
+      borderTopRightRadius:
+        position === "bottom" ? theme.borderRadius.xl : theme.borderRadius.xl,
+      maxWidth: position === "bottom" ? "100%" : "90%",
+      width: position === "bottom" ? "100%" : "auto",
+      maxHeight: position === "bottom" ? screenHeight * 0.9 : "80%",
       shadowColor: "#000",
       shadowOffset: {
         width: 0,
-        height: 10,
+        height: -4,
       },
       shadowOpacity: 0.25,
-      shadowRadius: 20,
-      elevation: 10,
-    },
-    header: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      padding: theme.spacing.lg,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.colors.border,
-    },
-    title: {
-      ...theme.typography.h5,
-      color: theme.colors.text,
-      fontWeight: "700",
-      flex: 1,
+      shadowRadius: 16,
+      elevation: 16,
     },
     closeButton: {
-      padding: theme.spacing.sm,
-      borderRadius: theme.borderRadius.lg,
+      position: "absolute",
+      top: theme.spacing.md,
+      right: theme.spacing.md,
+      zIndex: 1,
       backgroundColor: theme.colors.background,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.sm,
     },
-    content: {
-      padding: theme.spacing.lg,
-    },
-  })
+  });
 
   return (
-    <RNModal visible={visible} transparent animationType="fade" onRequestClose={dismissable ? onClose : undefined}>
-      <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={dismissable ? onClose : undefined}>
-        <TouchableOpacity activeOpacity={1} style={[styles.container, style]} onPress={() => {}}>
-          {(title || showCloseIcon) && (
-            <View style={styles.header}>
-              {title && <Text style={styles.title}>{title}</Text>}
-              {showCloseIcon && (
-                <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                  <X color={theme.colors.text} size={24} />
-                </TouchableOpacity>
-              )}
-            </View>
+    <RNModal
+      visible={visible}
+      transparent={true}
+      animationType={animationType}
+      onRequestClose={dismissable ? onClose : undefined}
+    >
+      <TouchableOpacity
+        style={styles.overlay}
+        activeOpacity={1}
+        onPress={dismissable ? onClose : undefined}
+      >
+        <TouchableOpacity
+          style={styles.container}
+          activeOpacity={1}
+          onPress={() => {}}
+        >
+          {showCloseIcon && (
+            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+              <X color={theme.colors.textSecondary} size={20} />
+            </TouchableOpacity>
           )}
-          <View style={[styles.content, contentStyle]}>{children}</View>
+          {children}
         </TouchableOpacity>
       </TouchableOpacity>
     </RNModal>
-  )
+  );
 }
