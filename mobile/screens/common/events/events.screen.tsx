@@ -1,101 +1,91 @@
 "use client";
-import { useState, useCallback } from "react";
+
+import { useState, useCallback, useEffect } from "react";
 import {
   View,
   Text,
   ScrollView,
   StyleSheet,
   RefreshControl,
-  type TextStyle,
+  TouchableOpacity,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Calendar, MapPin, Users, TrendingUp } from "lucide-react-native";
+import { Calendar, List } from "lucide-react-native";
 import { useTheme } from "@/contexts/ThemeContext";
-import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
-import { EventCard } from "@/components/common/EventCard";
+import { useLocalSearchParams, useFocusEffect } from "expo-router";
 
-// Import our reusable components
+// Import components
 import { Header } from "@/components/ui/Header";
-import { FullSearchHeader } from "@/components/ui/FullSearchHeader";
-import { StatCard } from "@/components/ui/StatCard";
+import { FloatingActionButton } from "@/components/ui/FloatingActionButton";
+import { CalendarView } from "@/components/ui/CalendarView";
+import { CompactEventCard } from "@/components/ui/EventCard";
+import { CreateEventModal } from "@/components/ui/CreateEventModal";
+import { EventDetailModal } from "@/components/modals/EventDetailModal";
+import { EditEventModal } from "@/components/modals/EditEventModal";
+
 import { FilterChip } from "@/components/ui/FilterChip";
 
-const upcomingEvents = [
-  {
-    id: 1,
-    title: "International Night",
-    date: "Friday, Jan 26",
-    time: "7:00 PM",
-    location: "Main Hall",
-    attendees: 156,
-    image:
-      "https://images.pexels.com/photos/1190298/pexels-photo-1190298.jpeg?auto=compress&cs=tinysrgb&w=400",
-    category: "Cultural",
-    isLiked: false,
-    description:
-      "Join us for an evening celebrating diverse cultures from around the world with food, music, and performances.",
-  },
-  {
-    id: 2,
-    title: "Study Skills Workshop",
-    date: "Monday, Jan 29",
-    time: "3:00 PM",
-    location: "Library Conference Room",
-    attendees: 42,
-    image:
-      "https://images.pexels.com/photos/159711/books-bookstore-book-reading-159711.jpeg?auto=compress&cs=tinysrgb&w=400",
-    category: "Academic",
-    isLiked: true,
-    description:
-      "Learn effective study techniques and time management strategies to excel in your academic journey.",
-  },
-  {
-    id: 3,
-    title: "Football Match: Ashesi vs UG",
-    date: "Saturday, Feb 3",
-    time: "4:00 PM",
-    location: "Sports Complex",
-    attendees: 89,
-    image:
-      "https://images.pexels.com/photos/274506/pexels-photo-274506.jpeg?auto=compress&cs=tinysrgb&w=400",
-    category: "Sports",
-    isLiked: false,
-    description:
-      "Cheer for our team as they take on the University of Ghana in this exciting football match.",
-  },
-  {
-    id: 4,
-    title: "Tech Innovation Summit",
-    date: "Wednesday, Feb 7",
-    time: "10:00 AM",
-    location: "Innovation Hub",
-    attendees: 234,
-    image:
-      "https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=400",
-    category: "Academic",
-    isLiked: true,
-    description:
-      "Explore the latest trends in technology and innovation with industry leaders and entrepreneurs.",
-  },
-];
-
-const eventStats = [
-  { label: "This Week", value: "12", icon: Calendar, color: "#3b82f6" },
-  { label: "This Month", value: "47", icon: TrendingUp, color: "#059669" },
-  { label: "Total Attendees", value: "2.1K", icon: Users, color: "#dc2626" },
-  { label: "Venues", value: "8", icon: MapPin, color: "#7c3aed" },
-];
+import { EventsService } from "@/services/events.service";
+import { CreateEventData, Event } from "@/types/event.types";
+import { useUser } from "@/contexts/UserContext";
+import { Loader } from "@/components/ui/Loader";
 
 export default function EventsScreen() {
   const { theme } = useTheme();
-  const router = useRouter();
   const params = useLocalSearchParams();
-  const [refreshing, setRefreshing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  const { user } = useUser(); // Get current user
+
+  const [viewMode, setViewMode] = useState<"calendar" | "list">("list");
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [events, setEvents] = useState<Event[]>([]); // Use Event type
   const [selectedFilter, setSelectedFilter] = useState("All");
-  const [events, setEvents] = useState(upcomingEvents);
-  const [isSearchMode, setIsSearchMode] = useState(false);
-  const [searchLoading, setSearchLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true); // Add loading state
+  const [createModalVisible, setCreateModalVisible] = useState(false);
+  const [createModalDate, setCreateModalDate] = useState<Date>();
+  const [createModalTime, setCreateModalTime] = useState<string>();
+
+  // Add these states after your existing useState declarations
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [showEventDetail, setShowEventDetail] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false); // Add this for delete operations
+
+  const filters = ["All", "Cultural", "Academic", "Sports", "Social"];
+
+  // Load events from Firebase
+  const loadEvents = useCallback(async () => {
+    try {
+      // Only show main loader on initial load, not on filter changes
+      if (events.length === 0) {
+        setLoading(true);
+      }
+
+      const { events: fetchedEvents, error } = await EventsService.getEvents(
+        50,
+        selectedFilter
+      );
+
+      if (error) {
+        console.error("Error loading events:", error);
+        Alert.alert("Error", "Failed to load events");
+      } else {
+        setEvents(fetchedEvents);
+      }
+    } catch (error) {
+      console.error("Error loading events:", error);
+      Alert.alert("Error", "Failed to load events");
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedFilter, events.length]);
+
+  // Load events on component mount and filter change
+  useEffect(() => {
+    loadEvents();
+  }, [loadEvents]);
 
   useFocusEffect(
     useCallback(() => {
@@ -103,7 +93,6 @@ export default function EventsScreen() {
         try {
           const parsedEvent = JSON.parse(params.newEvent as string);
           setEvents((prevEvents) => {
-            // Check if event already exists to prevent duplicates
             const eventExists = prevEvents.some(
               (event) => event.id === parsedEvent.id
             );
@@ -119,91 +108,273 @@ export default function EventsScreen() {
     }, [params.newEvent])
   );
 
-  const filters = ["All", "Cultural", "Academic", "Sports", "Social"];
-
-  const onRefresh = () => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 2000);
-  };
+    await loadEvents();
+    setRefreshing(false);
+  }, [loadEvents]);
 
-  const handleSearchPress = () => {
-    setIsSearchMode(true);
-  };
-
-  const handleSearchClose = () => {
-    setIsSearchMode(false);
-    setSearchQuery("");
-  };
-
-  const handleSearchSubmit = () => {
-    if (searchQuery.trim()) {
-      setSearchLoading(true);
-      // Simulate search API call
-      setTimeout(() => {
-        setSearchLoading(false);
-      }, 1000);
+  const handleEventPress = (eventId: string) => {
+    const event = events.find((e) => e.id === eventId);
+    if (event) {
+      setSelectedEvent(event);
+      setShowEventDetail(true);
     }
   };
 
-  const handleLike = (eventId: number) => {
-    setEvents((prevEvents) =>
-      prevEvents.map((event) => {
-        if (event.id === eventId) {
-          return {
-            ...event,
-            isLiked: !event.isLiked,
-          };
-        }
-        return event;
-      })
-    );
+  const handleEditEvent = (event: Event) => {
+    setSelectedEvent(event);
+    setShowEventDetail(false);
+    setShowEditModal(true);
   };
 
-  const handleInterested = (eventId: number) => {
-    console.log("Marked interested in event", eventId);
-    router.push(`/(routes)/event/${eventId}`);
+  const handleSaveEdit = async (
+    eventId: string,
+    updatedData: Partial<CreateEventData>
+  ) => {
+    try {
+      setEditLoading(true);
+
+      const { error } = await EventsService.updateEvent(eventId, updatedData);
+
+      if (error) {
+        Alert.alert("Error", "Failed to update event. Please try again.");
+      } else {
+        // Update local state
+        setEvents((prevEvents) =>
+          prevEvents.map((event) =>
+            event.id === eventId ? { ...event, ...updatedData } : event
+          )
+        );
+        setShowEditModal(false);
+        setSelectedEvent(null);
+        Alert.alert("Success", "Event updated successfully");
+      }
+    } catch (error) {
+      console.error("Error editing event:", error);
+      Alert.alert("Error", "Failed to update event");
+    } finally {
+      setEditLoading(false);
+    }
   };
 
-  const handleCreateEvent = () => {
-    console.log("Creating new event");
-    // Navigate to create event screen
-    router.push("/(routes)/create-event");
+  const handleDeleteEvent = async (eventId: string) => {
+    try {
+      setDeleteLoading(true); // Use separate loading state
+
+      const { error } = await EventsService.deleteEvent(eventId);
+
+      if (error) {
+        Alert.alert("Error", "Failed to delete event. Please try again.");
+      } else {
+        // Remove event from local state
+        setEvents((prevEvents) =>
+          prevEvents.filter((event) => event.id !== eventId)
+        );
+        setShowEventDetail(false);
+        setSelectedEvent(null);
+        Alert.alert("Success", "Event deleted successfully");
+      }
+    } catch (error) {
+      console.error("Error deleting event:", error);
+      Alert.alert("Error", "Failed to delete event");
+    } finally {
+      setDeleteLoading(false);
+    }
   };
 
-  const handleFilterPress = () => {
-    console.log("Opening event filter options");
+  const handleRSVP = async (
+    eventId: string,
+    response: "yes" | "no" | "maybe"
+  ) => {
+    if (!user?.id) {
+      Alert.alert("Error", "Please log in to RSVP");
+      return;
+    }
+
+    try {
+      // Optimistic update
+      setEvents((prevEvents) =>
+        prevEvents.map((event) => {
+          if (event.id === eventId) {
+            const updatedEvent = { ...event };
+
+            // Remove user from all RSVP arrays
+            updatedEvent.rsvpYes =
+              event.rsvpYes?.filter((id) => id !== user.id) || [];
+            updatedEvent.rsvpNo =
+              event.rsvpNo?.filter((id) => id !== user.id) || [];
+            updatedEvent.rsvpMaybe =
+              event.rsvpMaybe?.filter((id) => id !== user.id) || [];
+
+            // Add user to appropriate RSVP array
+            if (response === "yes") {
+              updatedEvent.rsvpYes.push(user.id);
+              if (!event.attendees?.includes(user.id)) {
+                updatedEvent.attendees = [...(event.attendees || []), user.id];
+                updatedEvent.attendeeCount = (event.attendeeCount || 0) + 1;
+              }
+            } else if (response === "no") {
+              updatedEvent.rsvpNo.push(user.id);
+              updatedEvent.attendees =
+                event.attendees?.filter((id) => id !== user.id) || [];
+              updatedEvent.attendeeCount = Math.max(
+                (event.attendeeCount || 0) - 1,
+                0
+              );
+            } else if (response === "maybe") {
+              updatedEvent.rsvpMaybe.push(user.id);
+              updatedEvent.attendees =
+                event.attendees?.filter((id) => id !== user.id) || [];
+              updatedEvent.attendeeCount = Math.max(
+                (event.attendeeCount || 0) - 1,
+                0
+              );
+            }
+
+            return updatedEvent;
+          }
+          return event;
+        })
+      );
+
+      // API call
+      const { error } = await EventsService.rsvpToEvent(
+        eventId,
+        user.id,
+        response
+      );
+
+      if (error) {
+        console.error("Error updating RSVP:", error);
+        Alert.alert("Error", "Failed to update RSVP");
+        // Revert optimistic update
+        await loadEvents();
+      }
+    } catch (error) {
+      console.error("Error handling RSVP:", error);
+      Alert.alert("Error", "Failed to update RSVP");
+      await loadEvents();
+    }
   };
 
-  // Filter events based on search query and selected filter
+  const handleCreateEvent = async (eventData: any) => {
+    if (!user) {
+      Alert.alert("Error", "Please log in to create events");
+      return;
+    }
+
+    try {
+      // Don't use main loading state for create operation
+      const { event, error } = await EventsService.createEvent(
+        {
+          title: eventData.title,
+          description: eventData.description,
+          date: eventData.date,
+          startTime: eventData.startTime,
+          endTime: eventData.endTime,
+          allDay: eventData.allDay,
+          location: eventData.location,
+          category: eventData.category,
+          color: eventData.color,
+          repeat: eventData.repeat,
+          isPublic: true, // Default to public
+        },
+        user.id,
+        `${user.firstName} ${user.lastName}`,
+        user.profileImage
+      );
+
+      if (error) {
+        Alert.alert("Error", "Failed to create event");
+      } else if (event) {
+        setEvents((prevEvents) => [event, ...prevEvents]);
+        setCreateModalVisible(false);
+        Alert.alert("Success", "Event created successfully");
+      }
+    } catch (error) {
+      console.error("Error creating event:", error);
+      Alert.alert("Error", "Failed to create event");
+    }
+  };
+
+  // Add a loading message function similar to community screen
+  const getLoadingMessage = () => {
+    if (deleteLoading) return "Deleting event...";
+    if (editLoading) return "Updating event...";
+    return "Loading events...";
+  };
+
+  const getUserRSVPStatus = (event: Event): "yes" | "no" | "maybe" | "none" => {
+    if (!user?.id) return "none";
+    if (event.rsvpYes?.includes(user.id)) return "yes";
+    if (event.rsvpNo?.includes(user.id)) return "no";
+    if (event.rsvpMaybe?.includes(user.id)) return "maybe";
+    return "none";
+  };
+
   const filteredEvents = events.filter((event) => {
     const matchesFilter =
       selectedFilter === "All" || event.category === selectedFilter;
-    const matchesSearch =
-      searchQuery === "" ||
-      event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      event.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      event.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      event.description.toLowerCase().includes(searchQuery.toLowerCase());
-
-    return matchesFilter && matchesSearch;
+    return matchesFilter;
   });
+
+  // Convert events for calendar view
+  const calendarEvents = filteredEvents
+    .filter((event) => event.startTime !== undefined)
+    .map((event) => ({
+      ...event,
+      startTime: event.startTime as string,
+      endTime: event.endTime || (event.startTime as string),
+      isRSVP: getUserRSVPStatus(event) !== "none",
+    }));
+
+  const handleTimeSlotPress = (date: Date, time: string) => {
+    setCreateModalDate(date);
+    setCreateModalTime(time);
+    setCreateModalVisible(true);
+  };
+
+  const handleFloatingButtonPress = () => {
+    setCreateModalDate(undefined);
+    setCreateModalTime(undefined);
+    setCreateModalVisible(true);
+  };
 
   const styles = StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: theme.colors.background,
     },
-    scrollContent: {
-      paddingBottom: theme.spacing.md,
-    },
-    statsContainer: {
-      paddingHorizontal: theme.spacing.md,
-      paddingVertical: theme.spacing.md,
-    },
-    statsRow: {
+    viewToggle: {
       flexDirection: "row",
-      justifyContent: "space-between",
+      backgroundColor: theme.colors.surface,
+      borderRadius: theme.borderRadius.lg,
+      padding: 4,
+      margin: theme.spacing.md,
+      marginBottom: theme.spacing.sm,
+    },
+    viewButton: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: theme.spacing.sm,
+      borderRadius: theme.borderRadius.md,
       gap: theme.spacing.sm,
+    },
+    viewButtonActive: {
+      backgroundColor: theme.colors.primary,
+    },
+    viewButtonText: {
+      ...theme.typography.button,
+      fontWeight: "600",
+    },
+    viewButtonTextActive: {
+      color: "white",
+    },
+    viewButtonTextInactive: {
+      color: theme.colors.textSecondary,
     },
     filtersContainer: {
       paddingHorizontal: theme.spacing.md,
@@ -212,176 +383,213 @@ export default function EventsScreen() {
     filtersScroll: {
       flexDirection: "row",
       gap: theme.spacing.xs,
-      paddingBottom: theme.spacing.xs,
     },
-    eventsContainer: {
+    listContainer: {
+      flex: 1,
       paddingHorizontal: theme.spacing.md,
-      paddingBottom: theme.spacing.xl,
     },
     sectionTitle: {
-      ...theme.typography.h4,
+      ...theme.typography.h5,
       color: theme.colors.text,
       fontWeight: "700",
       marginBottom: theme.spacing.md,
     },
-    searchResultsContainer: {
-      paddingHorizontal: theme.spacing.md,
-      paddingTop: theme.spacing.md,
-    },
-    noResultsContainer: {
+    emptyState: {
+      flex: 1,
+      justifyContent: "center",
       alignItems: "center",
       paddingVertical: theme.spacing.xxl,
     },
-    noResultsText: {
+    emptyText: {
       ...theme.typography.body,
       color: theme.colors.textSecondary,
       textAlign: "center",
-    } as TextStyle,
-    searchSuggestions: {
-      padding: theme.spacing.md,
+      fontWeight: "500",
     },
-    suggestionText: {
-      ...theme.typography.body,
-      color: theme.colors.textSecondary,
-      textAlign: "center",
-      fontStyle: "italic",
-    } as TextStyle,
   });
 
-  // Search Results Component
-  const SearchResults = () => (
-    <View style={styles.searchResultsContainer}>
-      {searchQuery.length === 0 ? (
-        <View style={styles.searchSuggestions}>
-          <Text style={styles.suggestionText}>
-            Try searching for events, locations, or categories...
-          </Text>
-        </View>
-      ) : filteredEvents.length > 0 ? (
-        filteredEvents.map((event) => (
-          <EventCard
-            key={event.id}
-            id={event.id}
-            title={event.title}
-            date={event.date}
-            time={event.time}
-            location={event.location}
-            attendees={event.attendees}
-            image={event.image}
-            category={event.category}
-            isLiked={event.isLiked}
-            description={event.description}
-            onLike={handleLike}
-            onInterested={handleInterested}
-          />
-        ))
-      ) : (
-        <View style={styles.noResultsContainer}>
-          <Text style={styles.noResultsText}>
-            No events found for &quot;{searchQuery}&quot;
-          </Text>
-        </View>
-      )}
-    </View>
-  );
+ return (
+   <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+     {/* Add Loader component similar to community screen */}
+     <Loader
+       visible={loading || deleteLoading || editLoading}
+       message={getLoadingMessage()}
+     />
 
-  return (
-    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
-      {isSearchMode ? (
-        <>
-          <FullSearchHeader
-            query={searchQuery}
-            onChangeQuery={setSearchQuery}
-            onClose={handleSearchClose}
-            onSubmit={handleSearchSubmit}
-            placeholder="Search events, locations, categories..."
-            loading={searchLoading}
-            showResults={true}
-            resultComponent={<SearchResults />}
-          />
-        </>
-      ) : (
-        <>
-          <Header
-            title="Events"
-            showSearch={true}
-            onSearchPress={handleSearchPress}
-            showFilter={true}
-            onFilterPress={handleFilterPress}
-            showCreate={true}
-            onCreatePress={handleCreateEvent}
-            createIconType="event"
-          />
+     <Header
+       title="Events"
+       showSearch={true}
+       onSearchPress={() => {}}
+       showFilter={true}
+       onFilterPress={() => {}}
+     />
 
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-            }
-            contentContainerStyle={styles.scrollContent}
-          >
-            <View style={styles.statsContainer}>
-              <View style={styles.statsRow}>
-                {eventStats.map((stat, index) => (
-                  <StatCard
-                    key={index}
-                    label={stat.label}
-                    value={stat.value}
-                    icon={stat.icon}
-                    color={stat.color}
-                  />
-                ))}
-              </View>
-            </View>
+     <View style={styles.viewToggle}>
+       <TouchableOpacity
+         style={[
+           styles.viewButton,
+           viewMode === "list" && styles.viewButtonActive,
+         ]}
+         onPress={() => setViewMode("list")}
+       >
+         <List
+           color={viewMode === "list" ? "white" : theme.colors.textSecondary}
+           size={18}
+         />
+         <Text
+           style={[
+             styles.viewButtonText,
+             viewMode === "list"
+               ? styles.viewButtonTextActive
+               : styles.viewButtonTextInactive,
+           ]}
+         >
+           List
+         </Text>
+       </TouchableOpacity>
 
-            <View style={styles.filtersContainer}>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.filtersScroll}
-              >
-                {filters.map((filter) => (
-                  <FilterChip
-                    key={filter}
-                    label={filter}
-                    selected={selectedFilter === filter}
-                    onPress={() => setSelectedFilter(filter)}
-                  />
-                ))}
-              </ScrollView>
-            </View>
+       <TouchableOpacity
+         style={[
+           styles.viewButton,
+           viewMode === "calendar" && styles.viewButtonActive,
+         ]}
+         onPress={() => setViewMode("calendar")}
+       >
+         <Calendar
+           color={
+             viewMode === "calendar" ? "white" : theme.colors.textSecondary
+           }
+           size={18}
+         />
+         <Text
+           style={[
+             styles.viewButtonText,
+             viewMode === "calendar"
+               ? styles.viewButtonTextActive
+               : styles.viewButtonTextInactive,
+           ]}
+         >
+           Calendar
+         </Text>
+       </TouchableOpacity>
+     </View>
 
-            <View style={styles.eventsContainer}>
-              <Text style={styles.sectionTitle}>Upcoming Events</Text>
-              {filteredEvents.length > 0 ? (
-                filteredEvents.map((event) => (
-                  <EventCard
-                    key={event.id}
-                    id={event.id}
-                    title={event.title}
-                    date={event.date}
-                    time={event.time}
-                    location={event.location}
-                    attendees={event.attendees}
-                    image={event.image}
-                    category={event.category}
-                    isLiked={event.isLiked}
-                    description={event.description}
-                    onLike={handleLike}
-                    onInterested={handleInterested}
-                  />
-                ))
-              ) : (
-                <View style={styles.noResultsContainer}>
-                  <Text style={styles.noResultsText}>
-                    No events found in {selectedFilter} category
-                  </Text>
-                </View>
-              )}
-            </View>
-          </ScrollView>
-        </>
-      )}
-    </SafeAreaView>
-  );
+     {viewMode === "list" && (
+       <View style={styles.filtersContainer}>
+         <ScrollView
+           horizontal
+           showsHorizontalScrollIndicator={false}
+           contentContainerStyle={styles.filtersScroll}
+         >
+           {filters.map((filter) => (
+             <FilterChip
+               key={filter}
+               label={filter}
+               selected={selectedFilter === filter}
+               onPress={() => setSelectedFilter(filter)}
+             />
+           ))}
+         </ScrollView>
+       </View>
+     )}
+
+     {viewMode === "calendar" ? (
+       <CalendarView
+         events={calendarEvents}
+         onEventPress={(event) => handleEventPress(event.id)}
+         selectedDate={selectedDate}
+         onDateChange={setSelectedDate}
+         onTimeSlotPress={handleTimeSlotPress}
+       />
+     ) : (
+       <ScrollView
+         style={styles.listContainer}
+         showsVerticalScrollIndicator={false}
+         refreshControl={
+           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+         }
+       >
+         <Text style={styles.sectionTitle}>Upcoming Events</Text>
+         {/* Only show content when not loading */}
+         {!loading && (
+           <>
+             {filteredEvents.length > 0 ? (
+               filteredEvents.map((event) => (
+                 <CompactEventCard
+                   key={event.id}
+                   id={event.id}
+                   title={event.title}
+                   date={new Date(event.date).toLocaleDateString("en-US", {
+                     weekday: "short",
+                     month: "short",
+                     day: "numeric",
+                   })}
+                   time={
+                     event.allDay
+                       ? "All day"
+                       : `${event.startTime} - ${event.endTime}`
+                   }
+                   location={event.location || "No location"}
+                   attendees={event.attendeeCount || 0}
+                   category={event.category}
+                   rsvpStatus={getUserRSVPStatus(event)}
+                   onPress={() => handleEventPress(event.id)}
+                   onRSVP={handleRSVP}
+                 />
+               ))
+             ) : (
+               <View style={styles.emptyState}>
+                 <Text style={styles.emptyText}>
+                   No events found in {selectedFilter} category
+                 </Text>
+               </View>
+             )}
+           </>
+         )}
+       </ScrollView>
+     )}
+
+     <FloatingActionButton
+       onEventPress={handleFloatingButtonPress}
+       onTaskPress={() => {}}
+       onReminderPress={() => {}}
+     />
+
+     <CreateEventModal
+       visible={createModalVisible}
+       onClose={() => setCreateModalVisible(false)}
+       onSave={handleCreateEvent}
+       initialDate={createModalDate}
+       initialTime={createModalTime}
+     />
+
+     {/* Add these modals at the end */}
+     <EventDetailModal
+       visible={showEventDetail}
+       event={selectedEvent}
+       onClose={() => {
+         setShowEventDetail(false);
+         setSelectedEvent(null);
+       }}
+       onEdit={handleEditEvent}
+       onDelete={handleDeleteEvent}
+       onRSVP={handleRSVP}
+       currentUserId={user?.id}
+       userRSVPStatus={
+         selectedEvent ? getUserRSVPStatus(selectedEvent) : "none"
+       }
+     />
+
+     <EditEventModal
+       visible={showEditModal}
+       event={selectedEvent}
+       onClose={() => {
+         setShowEditModal(false);
+         setSelectedEvent(null);
+       }}
+       onSave={handleSaveEdit}
+       loading={editLoading}
+     />
+   </SafeAreaView>
+ );
 }
