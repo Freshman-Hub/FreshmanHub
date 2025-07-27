@@ -20,7 +20,7 @@ import {
   X,
 } from "lucide-react-native";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Modal } from "@/components/ui/Modal";
+import { Modal } from "@/components/ui/Modal.1";
 
 interface PostOptionsMenuProps {
   postId: string;
