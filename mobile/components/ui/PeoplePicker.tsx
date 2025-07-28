@@ -8,14 +8,13 @@ import {
   StyleSheet,
   TextInput,
   ScrollView,
-  Alert,
 } from "react-native";
 import { X, Users, GraduationCap } from "lucide-react-native";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useUser } from "@/contexts/UserContext";
 import { Modal } from "@/components/ui/Modal";
 import { Avatar } from "@/components/ui/Avatar";
-import { UserService } from "@/services/user.service";
+// import { UserService } from "@/services/user.service";
 
 interface Person {
   id: string;
@@ -26,6 +25,7 @@ interface Person {
   role?: string;
   yearGroup?: string;
   userIds?: string[]; // For groups - contains list of user IDs
+  
 }
 
 interface PeoplePickerProps {
@@ -33,6 +33,8 @@ interface PeoplePickerProps {
   onClose: () => void;
   onSelect: (people: Person[]) => void;
   selectedPeople: Person[];
+  allUsers?: any[]; // Add this prop
+  loading?: boolean; // Add this prop
 }
 
 export function PeoplePicker({
@@ -40,63 +42,56 @@ export function PeoplePicker({
   onClose,
   onSelect,
   selectedPeople,
+  allUsers = [], // Receive users from parent
+  loading = false, // Receive loading state from parent
 }: PeoplePickerProps) {
   const { theme } = useTheme();
   const { user } = useUser();
   const [searchQuery, setSearchQuery] = useState("");
   const [currentSelection, setCurrentSelection] =
     useState<Person[]>(selectedPeople);
-  const [loading, setLoading] = useState(true);
-  const [, setAllUsers] = useState<any[]>([]);
   const [availablePeople, setAvailablePeople] = useState<Person[]>([]);
 
-  // Load users from backend
-  const loadUsers = useCallback(async () => {
-    try {
-      setLoading(true);
-      const { users, error } = await UserService.getAllUsers();
-
-      if (error) {
-        console.error("Error fetching users:", error);
-        Alert.alert("Error", "Failed to load users. Please try again.");
-        return;
-      }
-
-      setAllUsers(users);
-
-      // Create people list (exclude current user)
-      const people: Person[] = users
-        .filter((u) => u.id !== user?.id && u.isActive) // Exclude current user and inactive users
-        .map((u) => ({
-          id: u.id,
-          name:
-            `${u.firstName || ""} ${u.lastName || ""}`.trim() ||
-            u.email?.split("@")[0] ||
-            "Unknown User",
-          email: u.email,
-          type: "person" as const,
-          avatar: u.profileImage,
-          role: u.role,
-          yearGroup: u.yearGroup,
-        }));
-
-      // Create dynamic groups
-      const groups = createDynamicGroups(users);
-
-      setAvailablePeople([...people, ...groups]);
-    } catch (error) {
-      console.error("Error loading users:", error);
-      Alert.alert("Error", "Failed to load users. Please try again.");
-    } finally {
-      setLoading(false);
+  const setupPeopleAndGroups = useCallback(() => {
+    if (!allUsers.length) {
+      setAvailablePeople([]);
+      return;
     }
-  }, [user?.id]);
 
-  // Create dynamic groups based on users
+    // Create people list (exclude current user)
+    const people: Person[] = allUsers
+      .filter((u) => u.id !== user?.id && u.isActive) // Exclude current user and inactive users
+      .map((u) => ({
+        id: u.id,
+        name:
+          `${u.firstName || ""} ${u.lastName || ""}`.trim() ||
+          u.email?.split("@")[0] ||
+          "Unknown User",
+        email: u.email,
+        type: "person" as const,
+        avatar: u.profileImage,
+        role: u.role,
+        yearGroup: u.yearGroup,
+      }));
+
+    // Create dynamic groups
+    const groups = createDynamicGroups(allUsers);
+
+    setAvailablePeople([...people, ...groups]);
+  }, [allUsers, user?.id]);
+
+  useEffect(() => {
+    if (visible && allUsers.length > 0) {
+      setupPeopleAndGroups();
+      setCurrentSelection(selectedPeople);
+    }
+  }, [visible, allUsers, selectedPeople, setupPeopleAndGroups]);
+
+  // Create dynamic groups based on users (same function, just receives users as parameter)
   const createDynamicGroups = (users: any[]): Person[] => {
     const groups: Person[] = [];
 
-    // Class of 2027 - all users with yearGroup = "2027"
+    // Class groups
     const class2027Users = users.filter(
       (u) => u.yearGroup === "2027" && u.isActive
     );
@@ -109,7 +104,6 @@ export function PeoplePicker({
       });
     }
 
-    // Class of 2026 - all users with yearGroup = "2026"
     const class2026Users = users.filter(
       (u) => u.yearGroup === "2026" && u.isActive
     );
@@ -122,7 +116,6 @@ export function PeoplePicker({
       });
     }
 
-    // Class of 2025 - all users with yearGroup = "2025"
     const class2025Users = users.filter(
       (u) => u.yearGroup === "2025" && u.isActive
     );
@@ -135,7 +128,7 @@ export function PeoplePicker({
       });
     }
 
-    // Freshmen group - all users with role = "freshman"
+    // Role-based groups
     const freshmenUsers = users.filter(
       (u) => u.role === "freshman" && u.isActive
     );
@@ -148,7 +141,6 @@ export function PeoplePicker({
       });
     }
 
-    // Peer Coaches group - all users with role = "peer_coach"
     const peerCoachUsers = users.filter(
       (u) => u.role === "peer_coach" && u.isActive
     );
@@ -161,7 +153,6 @@ export function PeoplePicker({
       });
     }
 
-    // Student Leaders group - all users with role = "student_leader"
     const studentLeaderUsers = users.filter(
       (u) => u.role === "student_leader" && u.isActive
     );
@@ -174,7 +165,6 @@ export function PeoplePicker({
       });
     }
 
-    // Academic Advisors group - all users with role = "academic_advisor"
     const advisorUsers = users.filter(
       (u) => u.role === "academic_advisor" && u.isActive
     );
@@ -187,7 +177,6 @@ export function PeoplePicker({
       });
     }
 
-    // All Students group - freshmen + continuous + student_leader
     const allStudentUsers = users.filter(
       (u) =>
         (u.role === "freshman" ||
@@ -204,17 +193,22 @@ export function PeoplePicker({
       });
     }
 
+    // Everyone group - all active users (this should be first in the list for prominence)
+    const allActiveUsers = users.filter((u) => u.isActive);
+    if (allActiveUsers.length > 0) {
+      groups.unshift({
+        // Use unshift to put it at the beginning
+        id: "everyone",
+        name: `Everyone (${allActiveUsers.length} members)`,
+        type: "group",
+        userIds: allActiveUsers.map((u) => u.id),
+      });
+    }
+
     return groups;
   };
 
   // Load users when modal opens
-  useEffect(() => {
-    if (visible) {
-      loadUsers();
-      setCurrentSelection(selectedPeople);
-    }
-  }, [visible, selectedPeople, loadUsers]);
-
   const filteredPeople = availablePeople.filter((person) => {
     if (searchQuery === "") return true;
     const query = searchQuery.toLowerCase();
@@ -423,14 +417,13 @@ export function PeoplePicker({
             style={styles.content}
             showsVerticalScrollIndicator={false}
           >
+            {/* Rest of the component content remains exactly the same */}
             {/* Selected Assignees */}
             {assignees.length > 0 && (
               <>
                 <View style={styles.sectionTitle}>
                   <Users color="#666" size={16} style={styles.sectionIcon} />
-                  <Text
-                    style={{ fontSize: 16, fontWeight: "600", color: "#666" }}
-                  >
+                  <Text style={{ fontSize: 16, fontWeight: "600", color: "#666" }}>
                     Selected People ({assignees.length})
                   </Text>
                 </View>
@@ -471,14 +464,8 @@ export function PeoplePicker({
             {groups.length > 0 && (
               <>
                 <View style={styles.sectionTitle}>
-                  <GraduationCap
-                    color="#666"
-                    size={16}
-                    style={styles.sectionIcon}
-                  />
-                  <Text
-                    style={{ fontSize: 16, fontWeight: "600", color: "#666" }}
-                  >
+                  <GraduationCap color="#666" size={16} style={styles.sectionIcon} />
+                  <Text style={{ fontSize: 16, fontWeight: "600", color: "#666" }}>
                     Selected Groups ({groups.length})
                   </Text>
                 </View>
@@ -495,7 +482,7 @@ export function PeoplePicker({
                     <Avatar
                       initials={group.name.substring(0, 2)}
                       size={36}
-                      backgroundColor={theme.colors.accent}
+                      // backgroundColor={theme.colors.accent}
                     />
                     <View style={styles.personInfo}>
                       <Text style={styles.personName}>{group.name}</Text>
@@ -514,11 +501,7 @@ export function PeoplePicker({
 
             {/* Available Groups */}
             <View style={styles.sectionTitle}>
-              <GraduationCap
-                color="#666"
-                size={16}
-                style={styles.sectionIcon}
-              />
+              <GraduationCap color="#666" size={16} style={styles.sectionIcon} />
               <Text style={{ fontSize: 16, fontWeight: "600", color: "#666" }}>
                 Groups
               </Text>
@@ -538,7 +521,7 @@ export function PeoplePicker({
                   <Avatar
                     initials={group.name.substring(0, 2)}
                     size={36}
-                    backgroundColor={theme.colors.accent + "30"}
+                    // backgroundColor={theme.colors.accent + "30"}
                   />
                   <View style={styles.personInfo}>
                     <Text style={styles.personName}>{group.name}</Text>
