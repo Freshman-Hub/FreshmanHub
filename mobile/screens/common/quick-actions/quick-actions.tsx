@@ -5,14 +5,12 @@ import {
   View,
   Text,
   ScrollView,
-  TouchableOpacity,
   StyleSheet,
   Dimensions,
   TextInput,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
-  ArrowLeft,
   Users,
   UserCheck,
   Calendar,
@@ -30,7 +28,8 @@ import { useRouter } from "expo-router";
 
 // Import reusable components
 import { Header } from "@/components/ui/Header";
-import { FilterChip } from "@/components/ui/FilterChip";
+import { MenuCard } from "@/components/ui/MenuCard";
+
 
 const { width } = Dimensions.get("window");
 
@@ -61,7 +60,7 @@ const getActionsForRole = (role: string) => {
         description: "Manage peer coaches",
         icon: Users,
         color: "#059669",
-        route: "/coaches",
+        route: "(head-coach)/coach-head",
         category: "Management",
       },
       {
@@ -81,11 +80,11 @@ const getActionsForRole = (role: string) => {
         category: "Communication",
       },
       {
-        title: "Schedule Sessions",
+        title: "Sessions",
         description: "Manage coaching sessions",
         icon: Calendar,
         color: "#059669",
-        route: "(routes)/schedule-session",
+        route: "(routes)/sessions",
         category: "Management",
       },
       {
@@ -275,36 +274,24 @@ const getActionsForRole = (role: string) => {
   return actions[role as keyof typeof actions] || actions["student"];
 };
 
-const categories = [
-  "All",
-  "Management",
-  "Sessions",
-  "Communication",
-  "Analytics",
-  "Academic",
-  "Community",
-  "Support",
-];
-
 export default function QuickActionsScreen({
   userRole = "head-coach",
   userId,
 }: QuickActionsProps) {
   const { theme } = useTheme();
   const router = useRouter();
-  const [selectedCategory, setSelectedCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
 
   const allActions = getActionsForRole(userRole);
 
   const filteredActions = allActions.filter((action) => {
-    const matchesCategory =
-      selectedCategory === "All" || action.category === selectedCategory;
-    const matchesSearch =
-      searchQuery === "" ||
-      action.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      action.description.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
+    if (searchQuery === "") return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      action.title.toLowerCase().includes(query) ||
+      action.description.toLowerCase().includes(query) ||
+      action.category.toLowerCase().includes(query)
+    );
   });
 
   const styles = StyleSheet.create({
@@ -316,7 +303,7 @@ export default function QuickActionsScreen({
       paddingBottom: theme.spacing.xl,
     },
     section: {
-      paddingHorizontal: theme.spacing.md,
+      paddingHorizontal: theme.spacing.lg,
       paddingTop: theme.spacing.lg,
     },
     searchContainer: {
@@ -325,96 +312,100 @@ export default function QuickActionsScreen({
       flexDirection: "row",
       alignItems: "center",
       paddingHorizontal: theme.spacing.lg,
-      marginBottom: theme.spacing.lg,
+      marginBottom: theme.spacing.xl,
       borderWidth: 1,
       borderColor: theme.colors.border,
+      shadowColor: "#000",
+      shadowOffset: {
+        width: 0,
+        height: 2,
+      },
+      shadowOpacity: 0.05,
+      shadowRadius: 8,
+      elevation: 2,
     },
     searchInput: {
       flex: 1,
       color: theme.colors.text,
       fontSize: 16,
-      paddingVertical: theme.spacing.md,
+      paddingVertical: theme.spacing.lg,
       fontWeight: "500",
-    },
-    filtersContainer: {
-      marginBottom: theme.spacing.lg,
-    },
-    filtersScroll: {
-      flexDirection: "row",
-      gap: theme.spacing.xs,
-      paddingBottom: theme.spacing.xs,
+      marginLeft: theme.spacing.md,
     },
     actionsGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
       gap: theme.spacing.md,
+      justifyContent: "space-between",
+    },
+    menuCardWrapper: {
+      width: (width - theme.spacing.lg * 2 - theme.spacing.md) / 2,
     },
     actionCard: {
-      width: (width - theme.spacing.md * 2 - theme.spacing.md) / 2,
+      width: (width - theme.spacing.lg * 2 - theme.spacing.md) / 2,
       backgroundColor: theme.colors.surface,
       borderRadius: theme.borderRadius.xl,
-      padding: theme.spacing.lg,
+      padding: theme.spacing.xl,
       shadowColor: "#000",
       shadowOffset: {
         width: 0,
-        height: 4,
+        height: 2,
       },
-      shadowOpacity: 0.1,
-      shadowRadius: 12,
-      elevation: 5,
+      shadowOpacity: 0.05,
+      shadowRadius: 8,
+      elevation: 2,
       borderWidth: 1,
       borderColor: theme.colors.border,
-      minHeight: 140,
+      alignItems: "center",
+      justifyContent: "center",
+      minHeight: 120,
     },
     actionIcon: {
-      width: 48,
-      height: 48,
+      width: 56,
+      height: 56,
       borderRadius: theme.borderRadius.xl,
       alignItems: "center",
       justifyContent: "center",
       marginBottom: theme.spacing.md,
     },
     actionTitle: {
-      ...theme.typography.h6,
+      ...theme.typography.body,
       color: theme.colors.text,
-      fontWeight: "700",
-      marginBottom: theme.spacing.xs,
-    },
-    actionDescription: {
-      ...theme.typography.bodySmall,
-      color: theme.colors.textSecondary,
-      lineHeight: 18,
-      flex: 1,
-    },
-    actionCategory: {
-      ...theme.typography.captionSmall,
-      color: theme.colors.primary,
       fontWeight: "600",
-      marginTop: theme.spacing.sm,
+      textAlign: "center",
+      lineHeight: 20,
     },
     emptyState: {
       alignItems: "center",
       paddingVertical: theme.spacing.xxl,
+      flex: 1,
+      justifyContent: "center",
+    },
+    emptyStateIcon: {
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+      backgroundColor: theme.colors.border + "30",
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: theme.spacing.lg,
     },
     emptyStateText: {
       ...theme.typography.body,
       color: theme.colors.textSecondary,
       textAlign: "center",
-      marginTop: theme.spacing.md,
+      fontWeight: "500",
+      maxWidth: 250,
     },
   });
 
   const handleActionPress = (route: string) => {
-    router.push(route);
+    router.push(route as any);
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <Header
-        title="Quick Actions"
-        leftIcon={ArrowLeft}
-        onLeftPress={() => router.back()}
-      />
+      <Header title="Quick Actions" showBack={true} />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -429,59 +420,34 @@ export default function QuickActionsScreen({
               placeholder="Search actions..."
               placeholderTextColor={theme.colors.textSecondary}
               value={searchQuery}
-              onChangeText={setSearchQuery} // Change from onChange to onChangeText
+              onChangeText={setSearchQuery}
             />
-          </View>
-
-          {/* Category Filters */}
-          <View style={styles.filtersContainer}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.filtersScroll}
-            >
-              {categories.map((category) => (
-                <FilterChip
-                  key={category}
-                  label={category}
-                  selected={selectedCategory === category}
-                  onPress={() => setSelectedCategory(category)}
-                />
-              ))}
-            </ScrollView>
           </View>
 
           {/* Actions Grid */}
           {filteredActions.length > 0 ? (
             <View style={styles.actionsGrid}>
               {filteredActions.map((action, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={styles.actionCard}
-                  onPress={() => handleActionPress(action.route)}
-                  activeOpacity={0.8}
-                >
-                  <View
-                    style={[
-                      styles.actionIcon,
-                      { backgroundColor: action.color + "20" },
-                    ]}
-                  >
-                    <action.icon color={action.color} size={24} />
-                  </View>
-                  <Text style={styles.actionTitle}>{action.title}</Text>
-                  <Text style={styles.actionDescription}>
-                    {action.description}
-                  </Text>
-                  <Text style={styles.actionCategory}>{action.category}</Text>
-                </TouchableOpacity>
+                <View key={index} style={styles.menuCardWrapper}>
+                  <MenuCard
+                    title={action.title}
+                    description={action.description}
+                    icon={action.icon}
+                    color={action.color}
+                    onPress={() => handleActionPress(action.route)}
+                    size="medium"
+                    showDescription={false} // Only show icon and title
+                  />
+                </View>
               ))}
             </View>
           ) : (
             <View style={styles.emptyState}>
-              <Search color={theme.colors.textSecondary} size={48} />
+              <View style={styles.emptyStateIcon}>
+                <Search color={theme.colors.textSecondary} size={32} />
+              </View>
               <Text style={styles.emptyStateText}>
-                No actions found matching your search criteria
+                No actions found matching &quot;{searchQuery}&quot;
               </Text>
             </View>
           )}
