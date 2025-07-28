@@ -21,6 +21,7 @@ import {
   Copy,
   Share,
   FileText,
+  CheckCircle,
 } from "lucide-react-native";
 import { Avatar } from "@/components/ui/Avatar";
 import { Event } from "@/types/event.types";
@@ -30,14 +31,17 @@ import { User } from "@/types/user.types";
 
 interface EventDetailModalProps {
   visible: boolean;
-  event: Event | ContentItem | null; // Support both types
+  event: Event | ContentItem | null;
   onClose: () => void;
-  onEdit: (event: Event | ContentItem) => void; // Support both types
+  onEdit: (event: Event | ContentItem) => void;
   onDelete: (eventId: string) => void;
   onRSVP: (eventId: string, response: "yes" | "no" | "maybe") => void;
+  onCancel?: (eventId: string) => void; // Add this prop
+  onComplete?: (eventId: string) => void; // Add this prop
   currentUserId?: string;
   userRSVPStatus: "yes" | "no" | "maybe" | "none";
-  contentType?: "event" | "session"; // Add this prop
+  contentType?: "event" | "session";
+  attendeeProfiles?: User[]; // Add this prop
 }
 
 export function EventDetailModal({
@@ -47,40 +51,52 @@ export function EventDetailModal({
   onEdit,
   onDelete,
   onRSVP,
+  onCancel, // Add this
+  onComplete, // Add this
   currentUserId,
   userRSVPStatus,
-  contentType = "event", // Add this with default
+  contentType = "event",
 }: EventDetailModalProps) {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [attendeeProfiles, setAttendeeProfiles] = useState<User[]>([]);
-  const [loadingAttendees, setLoadingAttendees] = useState(false);
+  const [, setLoadingAttendees] = useState(false);
 
   // Fetch attendee profiles when modal opens or event changes
   useEffect(() => {
     const fetchAttendeeProfiles = async () => {
-      if (!visible || !event?.rsvpYes?.length) return;
+      if (!visible || !event) return;
+
+      // Get all people who have responded (yes, no, maybe)
+      const allRespondents = [
+        ...(event.rsvpYes || []),
+        ...(event.rsvpNo || []),
+        ...(event.rsvpMaybe || []),
+      ];
+
+      // Remove duplicates and filter out the organizer
+      const uniqueRespondents = [...new Set(allRespondents)].filter(
+        (id) => id !== event.userId
+      );
+
+      if (uniqueRespondents.length === 0) {
+        setAttendeeProfiles([]);
+        return;
+      }
 
       setLoadingAttendees(true);
       try {
-        // Get all attendee IDs (excluding the organizer)
-        const attendeeIds = event.rsvpYes.filter((id) => id !== event.userId);
+        const profiles: User[] = [];
 
-        if (attendeeIds.length > 0) {
-          const profiles: User[] = [];
-
-          // Fetch each user individually using existing service
-          for (const userId of attendeeIds.slice(0, 10)) {
-            // Limit to first 10
-            const { user, error } = await UserService.getUserById(userId);
-            if (user && !error) {
-              profiles.push(user);
-            }
+        // Fetch each user individually using existing service
+        for (const userId of uniqueRespondents.slice(0, 10)) {
+          // Limit to first 10
+          const { user, error } = await UserService.getUserById(userId);
+          if (user && !error) {
+            profiles.push(user);
           }
-
-          setAttendeeProfiles(profiles);
-        } else {
-          setAttendeeProfiles([]);
         }
+
+        setAttendeeProfiles(profiles);
       } catch (error) {
         console.error("Error fetching attendee profiles:", error);
         setAttendeeProfiles([]);
@@ -91,8 +107,7 @@ export function EventDetailModal({
 
     fetchAttendeeProfiles();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, event?.id, event?.rsvpYes]);
-
+  }, [visible, event?.id, event?.rsvpYes, event?.rsvpNo, event?.rsvpMaybe]); // Add all RSVP arrays as dependencies
   // Reset attendee profiles when modal closes
   useEffect(() => {
     if (!visible) {
@@ -136,6 +151,49 @@ export function EventDetailModal({
     Alert.alert("Copy", `${contentType} link copied to clipboard`);
   };
 
+  const handleCancel = () => {
+    setShowMoreMenu(false);
+    Alert.alert(
+      `Cancel ${contentType}`,
+      `Are you sure you want to cancel this ${contentType}?`,
+      [
+        { text: "No", style: "cancel" },
+        {
+          text: "Cancel " + contentType,
+          style: "destructive",
+          onPress: () => onCancel?.(event.id),
+        },
+      ]
+    );
+  };
+
+  const handleComplete = () => {
+    setShowMoreMenu(false);
+    Alert.alert(`Mark as Complete`, `Mark this ${contentType} as completed?`, [
+      { text: "No", style: "cancel" },
+      {
+        text: "Complete",
+        onPress: () => onComplete?.(event.id),
+      },
+    ]);
+  };
+
+  // Check if user can mark as complete (for sessions)
+  const canMarkComplete =
+    contentType === "session" &&
+    (isOwner ||
+      (event.category === "One-on-One" &&
+        event.invitedUsers?.includes(currentUserId || ""))) &&
+    event.status !== "completed" &&
+    event.status !== "cancelled";
+
+  // const isPastDue = () => {
+  //   if (!event.date) return false;
+  //   const eventDate = new Date(event.date);
+  //   const now = new Date();
+  //   return eventDate < now;
+  // };
+
   const formatDateTime = () => {
     if (!event.date) return "";
     const date = new Date(event.date);
@@ -149,29 +207,59 @@ export function EventDetailModal({
     return `${dateStr} • ${event.startTime} – ${event.endTime}`;
   };
 
-  // Update the attendees section with real names
+  // Update the attendees section to properly show flags and include all RSVP responses
   const renderAttendeesSection = () => {
+    // Get all people who have responded (yes, no, maybe)
+    const allRespondents = [
+      ...(event.rsvpYes || []),
+      ...(event.rsvpNo || []),
+      ...(event.rsvpMaybe || []),
+    ];
+
+    // Remove duplicates and filter out the organizer
+    const uniqueRespondents = [...new Set(allRespondents)].filter(
+      (id) => id !== event.userId
+    );
+
     const totalAttendees = event.rsvpYes?.length || 0;
+    const totalResponses = uniqueRespondents.length;
+
+    // Show attendee profiles for all respondents (not just "yes" responses)
     const visibleAttendees = attendeeProfiles.slice(0, 5);
-    const remainingCount = Math.max(
-      0,
-      totalAttendees - visibleAttendees.length - 1
-    ); // -1 for organizer
+
+    const getAttendeeFlag = (userId: string) => {
+      if (event.rsvpYes?.includes(userId)) {
+        return { text: "✓ Yes", color: "#4caf50" };
+      }
+      if (event.rsvpNo?.includes(userId)) {
+        return { text: "✗ No", color: "#f44336" };
+      }
+      if (event.rsvpMaybe?.includes(userId)) {
+        return { text: "? Maybe", color: "#ff9800" };
+      }
+      if (event.invitedUsers?.includes(userId)) {
+        return { text: "📧 Invited", color: "#2196f3" };
+      }
+      return null;
+    };
 
     return (
       <View style={styles.attendeesSection}>
         <View style={styles.attendeesHeader}>
           <Users color="#666" size={20} />
           <Text style={styles.attendeesCount}>
-            {totalAttendees}{" "}
+            {totalResponses}{" "}
             {contentType === "session" ? "participant" : "guest"}
-            {totalAttendees !== 1 ? "s" : ""}
+            {totalResponses !== 1 ? "s" : ""}
           </Text>
-          <Text style={styles.attendeesResponse}>{totalAttendees} yes</Text>
+          <Text style={styles.attendeesResponse}>
+            {totalAttendees} yes • {event.rsvpNo?.length || 0} no •{" "}
+            {event.rsvpMaybe?.length || 0} maybe
+          </Text>
         </View>
 
         <View style={styles.attendeesList}>
-          {/* Event Creator */}
+          {/* Event Creator/Host */}
           <View style={styles.attendeeItem}>
             <Avatar
               imageUrl={event.userAvatar}
@@ -186,22 +274,15 @@ export function EventDetailModal({
             <Text style={styles.attendeeName}>
               {event.userDisplayName || "Unknown User"}
             </Text>
-            <Text style={styles.attendeeRole}>
+            <Text style={[styles.attendeeFlag, { color: "#4caf50" }]}>
               {contentType === "session" ? "Host" : "Organizer"}
             </Text>
           </View>
 
-          {/* Show loading state */}
-          {loadingAttendees && (
-            <Text style={[styles.sectionText, { color: "#666", fontSize: 14 }]}>
-              Loading {contentType === "session" ? "participants" : "attendees"}
-              ...
-            </Text>
-          )}
-
-          {/* Real Attendee Profiles */}
-          {!loadingAttendees &&
-            visibleAttendees.map((attendee, index) => (
+          {/* All Respondent Profiles with flags */}
+          {visibleAttendees.map((attendee) => {
+            const flag = getAttendeeFlag(attendee.id);
+            return (
               <View key={attendee.id} style={styles.attendeeItem}>
                 <Avatar
                   imageUrl={attendee.profileImage}
@@ -218,49 +299,34 @@ export function EventDetailModal({
                     attendee.email ||
                     "Unknown User"}
                 </Text>
-                <View
-                  style={{
-                    width: 12,
-                    height: 12,
-                    borderRadius: 6,
-                    backgroundColor: "#4caf50",
-                  }}
-                />
+                {flag && (
+                  <Text style={[styles.attendeeFlag, { color: flag.color }]}>
+                    {flag.text}
+                  </Text>
+                )}
               </View>
-            ))}
+            );
+          })}
 
-          {/* Show remaining count */}
-          {!loadingAttendees && remainingCount > 0 && (
-            <Text
-              style={[
-                styles.sectionText,
-                { color: "#666", fontSize: 14, paddingLeft: 44 },
-              ]}
-            >
-              +{remainingCount} more
-            </Text>
-          )}
-
-          {/* Show message when no other attendees */}
-          {!loadingAttendees &&
-            attendeeProfiles.length === 0 &&
-            totalAttendees === 1 && (
-              <Text
-                style={[
-                  styles.sectionText,
-                  { color: "#666", fontSize: 14, paddingLeft: 44 },
-                ]}
-              >
-                No other{" "}
-                {contentType === "session" ? "participants" : "attendees"} yet
+          {/* Show remaining count if there are more */}
+          {totalResponses > 5 && (
+            <View style={styles.attendeeItem}>
+              <View style={[styles.moreIndicator, { width: 32, height: 32 }]}>
+                <Text style={styles.moreIndicatorText}>
+                  +{totalResponses - 5}
+                </Text>
+              </View>
+              <Text style={styles.attendeeName}>
+                {totalResponses - 5} more{" "}
+                {totalResponses - 5 === 1 ? "person" : "people"}
               </Text>
-            )}
+            </View>
+          )}
         </View>
       </View>
     );
   };
 
-  // ... Keep ALL your existing styles exactly as they are
   const styles = StyleSheet.create({
     fullScreenContainer: {
       flex: 1,
@@ -368,6 +434,30 @@ export function EventDetailModal({
       color: "#666",
       marginLeft: 12,
     },
+    attendeeFlag: {
+      fontSize: 12,
+      fontWeight: "600",
+      marginLeft: 8,
+    },
+    moreIndicator: {
+      borderRadius: 16,
+      backgroundColor: "#f5f5f5",
+      justifyContent: "center",
+      alignItems: "center",
+      borderWidth: 1,
+      borderColor: "#e0e0e0",
+    },
+    moreIndicatorText: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: "#666",
+    },
+    attendeesResponse: {
+      fontSize: 12, // Made smaller to fit more info
+      color: "#666",
+      marginLeft: 8,
+      flexShrink: 1, // Allow text to shrink if needed
+    },
     rsvpSection: {
       paddingVertical: 20,
       paddingHorizontal: 20,
@@ -448,11 +538,6 @@ export function EventDetailModal({
       backgroundColor: "rgba(0,0,0,0.1)",
       zIndex: 999,
     },
-    attendeesResponse: {
-      fontSize: 14,
-      color: "#666",
-      marginLeft: 8,
-    },
     descriptionSection: {
       paddingVertical: 16,
       borderTopWidth: 1,
@@ -501,34 +586,7 @@ export function EventDetailModal({
                 <Text style={styles.title} numberOfLines={1}>
                   {event.title}
                 </Text>
-                {/* Add status badge for sessions */}
-                {contentType === "session" && (event as ContentItem).status && (
-                  <View
-                    style={{
-                      paddingHorizontal: 8,
-                      paddingVertical: 4,
-                      borderRadius: 12,
-                      marginLeft: 8,
-                      backgroundColor:
-                        (event as ContentItem).status === "completed"
-                          ? "#4caf50"
-                          : (event as ContentItem).status === "cancelled"
-                            ? "#f44336"
-                            : "#2196f3",
-                    }}
-                  >
-                    <Text
-                      style={{
-                        fontSize: 10,
-                        fontWeight: "600",
-                        color: "white",
-                        textTransform: "uppercase",
-                      }}
-                    >
-                      {(event as ContentItem).status}
-                    </Text>
-                  </View>
-                )}
+               
               </View>
               <View style={styles.headerRight}>
                 {isOwner && (
@@ -656,7 +714,7 @@ export function EventDetailModal({
             )}
           </View>
 
-          {/* Keep your existing more menu exactly as is */}
+          {/* Updated more menu */}
           {showMoreMenu && (
             <TouchableOpacity
               style={styles.overlay}
@@ -687,6 +745,41 @@ export function EventDetailModal({
                         Delete
                       </Text>
                     </TouchableOpacity>
+
+                    {/* Add Cancel option */}
+                    {event.status !== "cancelled" &&
+                      event.status !== "completed" && (
+                        <TouchableOpacity
+                          style={styles.menuItem}
+                          onPress={handleCancel}
+                        >
+                          <X
+                            color="#ff9800"
+                            size={20}
+                            style={styles.menuIcon}
+                          />
+                          <Text style={[styles.menuText, { color: "#ff9800" }]}>
+                            Cancel
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+
+                    {/* Add Complete option for sessions */}
+                    {canMarkComplete && (
+                      <TouchableOpacity
+                        style={styles.menuItem}
+                        onPress={handleComplete}
+                      >
+                        <CheckCircle
+                          color="#4caf50"
+                          size={20}
+                          style={styles.menuIcon}
+                        />
+                        <Text style={[styles.menuText, { color: "#4caf50" }]}>
+                          Mark Complete
+                        </Text>
+                      </TouchableOpacity>
+                    )}
                   </>
                 )}
 
