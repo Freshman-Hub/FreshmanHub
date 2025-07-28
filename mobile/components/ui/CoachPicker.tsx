@@ -172,6 +172,7 @@ export function CoachPicker({
       color: theme.colors.textSecondary,
       textAlign: "center",
       marginTop: theme.spacing.md,
+      fontWeight: "500",
     },
   });
 
@@ -188,6 +189,7 @@ export function CoachPicker({
     return theme.colors.success;
   };
 
+  // Update the renderCoachItem function in CoachPicker.tsx to show available slots
   const renderCoachItem = ({ item: coach }: { item: Coach }) => {
     const isSelected = tempSelected?.id === coach.id;
     const currentStudents = coach.currentStudents || 0;
@@ -198,6 +200,7 @@ export function CoachPicker({
         style={[styles.coachItem, isSelected && styles.selectedCoachItem]}
         onPress={() => setTempSelected(coach)}
         activeOpacity={0.8}
+        disabled={availableSlots <= 0} // Disable if no slots available
       >
         <Avatar
           imageUrl={coach.avatar}
@@ -212,10 +215,17 @@ export function CoachPicker({
             <Text
               style={[
                 styles.capacityText,
-                { color: getCapacityColor(currentStudents, coach.capacity) },
+                {
+                  color:
+                    availableSlots <= 0
+                      ? theme.colors.error
+                      : getCapacityColor(currentStudents, coach.capacity),
+                },
               ]}
             >
-              {availableSlots} slots available
+              {availableSlots > 0
+                ? `${availableSlots} slots available`
+                : "No slots available"}
             </Text>
 
             {coach.rating && (
@@ -250,6 +260,11 @@ export function CoachPicker({
 
         <View style={styles.checkIcon}>
           {isSelected && <Check color={theme.colors.primary} size={24} />}
+          {availableSlots <= 0 && (
+            <Text style={{ color: theme.colors.error, fontSize: 12 }}>
+              Full
+            </Text>
+          )}
         </View>
       </TouchableOpacity>
     );
