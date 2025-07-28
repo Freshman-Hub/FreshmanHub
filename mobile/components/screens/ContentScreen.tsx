@@ -11,9 +11,13 @@ import {
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ArrowLeft, Calendar, List } from "lucide-react-native";
+import { ArrowLeft, Calendar, List, CalendarDays } from "lucide-react-native";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useUser } from "@/contexts/UserContext";
+
+import { UserService } from "@/services/user.service";
+import { User } from "@/types/user.types";
+
 
 // Import components
 import { Header } from "@/components/ui/Header";
@@ -25,6 +29,7 @@ import { EventDetailModal } from "@/components/modals/EventDetailModal";
 import { EditEventModal } from "@/components/modals/EditEventModal";
 import { FilterChip } from "@/components/ui/FilterChip";
 import { Loader } from "@/components/ui/Loader";
+import DateTimePicker from "@react-native-community/datetimepicker";
 
 // Import your existing services
 import { EventsService } from "@/services/events.service";
@@ -40,9 +45,7 @@ interface ContentScreenProps {
     userRole?: string
   ) => { label: string; value: string; color?: string }[];
   canUserCreate: (userRole?: string) => boolean;
-  getFloatingActions: (
-    userRole?: string
-  ) => { type: string; label: string }[];
+  getFloatingActions: (userRole?: string) => { type: string; label: string }[];
 }
 
 export function ContentScreen({
@@ -67,6 +70,11 @@ export function ContentScreen({
   const [createModalDate, setCreateModalDate] = useState<Date>();
   const [createModalTime, setCreateModalTime] = useState<string>();
 
+  // New states for the requested features
+  const [timeFilter, setTimeFilter] = useState<"upcoming" | "past">("upcoming");
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [filterDate, setFilterDate] = useState<Date | null>(null);
+
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [showEventDetail, setShowEventDetail] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -78,25 +86,97 @@ export function ContentScreen({
   const userCanCreate = canUserCreate(user?.role);
   const floatingActions = getFloatingActions(user?.role);
 
-  // Use your existing EventsService (we'll modify it slightly to handle collections)
+  const [attendeeProfiles, setAttendeeProfiles] = useState<
+    Record<string, User[]>
+  >({});
+
+  // Add function to load attendee profiles
+  const loadAttendeeProfiles = useCallback(
+    async (eventId: string, attendeeIds: string[]) => {
+      try {
+        const profiles: User[] = [];
+
+        for (const userId of attendeeIds.slice(0, 10)) {
+          const { user, error } = await UserService.getUserById(userId);
+          if (user && !error) {
+            profiles.push(user);
+          }
+        }
+
+        setAttendeeProfiles((prev) => ({
+          ...prev,
+          [eventId]: profiles,
+        }));
+      } catch (error) {
+        console.error("Error loading attendee profiles:", error);
+      }
+    },
+    []
+  );
+
+  // Filter events based on invitee status
+  const filterEventsByInvitee = (events: Event[]) => {
+    if (!user?.id) return [];
+
+    return events.filter((event) => {
+      // Show if user is creator
+      if (event.userId === user.id) return true;
+
+      // Show if user is in invitedUsers list
+      if (event.invitedUsers?.includes(user.id)) return true;
+
+      // Show if user is in attendees list
+      if (event.attendees?.includes(user.id)) return true;
+
+      // Special case: Head coach can see all sessions between peer coaches and freshmen
+      if (user.role === "head_of_coaches" && contentType === "session") {
+        return true; // Head coach sees all sessions
+      }
+
+      // For events (not sessions): only show if user is explicitly invited OR if it's a public event AND user is not restricted
+      if (contentType === "event" && event.isPublic) {
+        // Only show public events if they don't have an invitedUsers list (open to everyone)
+        // OR if the invitedUsers list is empty (open to everyone)
+        if (!event.invitedUsers || event.invitedUsers.length === 0) {
+          return true;
+        }
+        // If there's an invitedUsers list, only show if user is in it (already checked above)
+        return false;
+      }
+
+      // Sessions are always private - only show to invited users (already checked above)
+      return false;
+    });
+  };
+
+  // Use your existing EventsService
+  // Use your existing EventsService
   const loadEvents = useCallback(async () => {
     try {
       if (events.length === 0) {
         setLoading(true);
       }
 
-      // Use existing EventsService but pass collection name
       const { events: fetchedEvents, error } = await EventsService.getEvents(
         50,
         selectedFilter,
-        collectionName // We'll add this parameter
+        collectionName
       );
 
       if (error) {
         console.error("Error loading content:", error);
         Alert.alert("Error", `Failed to load ${contentType}s`);
-      } else {
-        setEvents(fetchedEvents);
+      } else if (fetchedEvents) {
+        // Filter events based on invitee status
+        const filteredEvents = filterEventsByInvitee(fetchedEvents);
+        setEvents(filteredEvents);
+
+        // Load attendee profiles for each event
+        filteredEvents.forEach((event) => {
+          if (event.rsvpYes?.length > 0) {
+            loadAttendeeProfiles(event.id, event.rsvpYes);
+          }
+        });
       }
     } catch (error) {
       console.error("Error loading content:", error);
@@ -104,8 +184,14 @@ export function ContentScreen({
     } finally {
       setLoading(false);
     }
-  }, [contentType, selectedFilter, events.length, collectionName]);
-
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    contentType,
+    selectedFilter,
+    collectionName,
+    user?.id,
+    loadAttendeeProfiles,
+  ]);
   useEffect(() => {
     loadEvents();
   }, [loadEvents]);
@@ -124,7 +210,7 @@ export function ContentScreen({
     }
   };
 
-  const handleEditEvent = (event: Event) => {
+  const handleEditEvent = (event: Event | any) => {
     setSelectedEvent(event);
     setShowEventDetail(false);
     setShowEditModal(true);
@@ -132,12 +218,11 @@ export function ContentScreen({
 
   const handleSaveEdit = async (
     eventId: string,
-    updatedData: Partial<CreateEventData>
+    updatedData: Partial<CreateEventData | any>
   ) => {
     try {
       setEditLoading(true);
 
-      // Use existing EventsService but pass collection name
       const { error } = await EventsService.updateEvent(
         eventId,
         updatedData,
@@ -171,7 +256,6 @@ export function ContentScreen({
     try {
       setDeleteLoading(true);
 
-      // Use existing EventsService but pass collection name
       const { error } = await EventsService.deleteEvent(
         eventId,
         collectionName
@@ -251,7 +335,6 @@ export function ContentScreen({
         })
       );
 
-      // Use existing EventsService but pass collection name
       const { error } = await EventsService.rsvpToEvent(
         eventId,
         user.id,
@@ -278,7 +361,6 @@ export function ContentScreen({
     }
 
     try {
-      // Use existing EventsService but pass collection name
       const { event, error } = await EventsService.createEvent(
         {
           title: eventData.title,
@@ -291,12 +373,13 @@ export function ContentScreen({
           category: eventData.category,
           color: eventData.color,
           repeat: eventData.repeat,
-          isPublic: true,
+          isPublic: contentType === "event", // Events public, sessions private
+          invitedUsers: eventData.attendeeIds || [],
         },
         user.id,
         `${user.firstName} ${user.lastName}`,
         user.profileImage,
-        collectionName // We'll add this parameter
+        collectionName as "events" | "sessions"
       );
 
       if (error) {
@@ -326,11 +409,42 @@ export function ContentScreen({
     return "none";
   };
 
-  const filteredEvents = events.filter((event) => {
-    const matchesFilter =
-      selectedFilter === "All" || event.category === selectedFilter;
-    return matchesFilter;
-  });
+  // Filter events by time and date
+  const getFilteredEvents = () => {
+    const now = new Date();
+    let filtered = events;
+
+    // Filter by category
+    if (selectedFilter !== "All") {
+      filtered = filtered.filter((event) => event.category === selectedFilter);
+    }
+
+    // Filter by time (upcoming/past)
+    filtered = filtered.filter((event) => {
+      const eventDate = new Date(event.date);
+      if (timeFilter === "upcoming") {
+        return eventDate >= now || event.status === "upcoming";
+      } else {
+        return eventDate < now || event.status === "completed";
+      }
+    });
+
+    // Filter by specific date if selected
+    if (filterDate) {
+      filtered = filtered.filter((event) => {
+        const eventDate = new Date(event.date);
+        return (
+          eventDate.getFullYear() === filterDate.getFullYear() &&
+          eventDate.getMonth() === filterDate.getMonth() &&
+          eventDate.getDate() === filterDate.getDate()
+        );
+      });
+    }
+
+    return filtered;
+  };
+
+  const filteredEvents = getFilteredEvents();
 
   const calendarEvents = filteredEvents
     .filter((event) => event.startTime !== undefined)
@@ -343,7 +457,7 @@ export function ContentScreen({
 
   const handleTimeSlotPress = (date: Date, time: string) => {
     if (!userCanCreate) {
-      return; // Do nothing if user can't create content
+      return;
     }
     setCreateModalDate(date);
     setCreateModalTime(time);
@@ -356,8 +470,18 @@ export function ContentScreen({
       setCreateModalTime(undefined);
       setCreateModalVisible(true);
     }
-    // Handle other action types (task, reminder, etc.)
     console.log(`Pressed: ${actionType}`);
+  };
+
+  const handleDatePickerChange = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      setFilterDate(selectedDate);
+    }
+  };
+
+  const clearDateFilter = () => {
+    setFilterDate(null);
   };
 
   const styles = StyleSheet.create({
@@ -403,15 +527,81 @@ export function ContentScreen({
       flexDirection: "row",
       gap: theme.spacing.xs,
     },
-    listContainer: {
+    timeToggleContainer: {
+      flexDirection: "row",
+      backgroundColor: theme.colors.surface,
+      borderRadius: theme.borderRadius.lg,
+      padding: 4,
+      marginHorizontal: theme.spacing.md,
+      marginBottom: theme.spacing.md,
+    },
+    timeToggleButton: {
       flex: 1,
+      paddingVertical: theme.spacing.sm,
+      borderRadius: theme.borderRadius.md,
+      alignItems: "center",
+    },
+    timeToggleButtonActive: {
+      backgroundColor: theme.colors.primary,
+    },
+    timeToggleText: {
+      ...theme.typography.button,
+      fontWeight: "600",
+      color: theme.colors.textSecondary,
+    },
+    timeToggleTextActive: {
+      color: "white",
+    },
+    sectionHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: theme.spacing.md,
       paddingHorizontal: theme.spacing.md,
     },
     sectionTitle: {
       ...theme.typography.h5,
       color: theme.colors.text,
       fontWeight: "700",
-      marginBottom: theme.spacing.md,
+      flex: 1,
+    },
+    dateFilterButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: theme.spacing.sm,
+      paddingVertical: theme.spacing.xs,
+      borderRadius: theme.borderRadius.md,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      gap: theme.spacing.xs,
+    },
+    dateFilterButtonActive: {
+      backgroundColor: theme.colors.primary,
+      borderColor: theme.colors.primary,
+    },
+    dateFilterText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      fontWeight: "500",
+    },
+    dateFilterTextActive: {
+      color: "white",
+    },
+    clearDateButton: {
+      marginLeft: theme.spacing.xs,
+      paddingHorizontal: theme.spacing.sm,
+      paddingVertical: theme.spacing.xs,
+    },
+    clearDateText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.primary,
+      fontWeight: "500",
+    },
+    listContainer: {
+      flex: 1,
+    },
+    listContent: {
+      paddingHorizontal: theme.spacing.md,
     },
     emptyState: {
       flex: 1,
@@ -438,8 +628,6 @@ export function ContentScreen({
         title={title}
         showSearch={true}
         onSearchPress={() => {}}
-        // showFilter={false}
-        // onFilterPress={() => {}}
         leftIcon={ArrowLeft}
         onLeftPress={() => router.back()}
       />
@@ -495,22 +683,61 @@ export function ContentScreen({
       </View>
 
       {viewMode === "list" && (
-        <View style={styles.filtersContainer}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.filtersScroll}
-          >
-            {filters.map((filter) => (
-              <FilterChip
-                key={filter}
-                label={filter}
-                selected={selectedFilter === filter}
-                onPress={() => setSelectedFilter(filter)}
-              />
-            ))}
-          </ScrollView>
-        </View>
+        <>
+          {/* Time Toggle */}
+          <View style={styles.timeToggleContainer}>
+            <TouchableOpacity
+              style={[
+                styles.timeToggleButton,
+                timeFilter === "upcoming" && styles.timeToggleButtonActive,
+              ]}
+              onPress={() => setTimeFilter("upcoming")}
+            >
+              <Text
+                style={[
+                  styles.timeToggleText,
+                  timeFilter === "upcoming" && styles.timeToggleTextActive,
+                ]}
+              >
+                Upcoming {contentType === "event" ? "Events" : "Sessions"}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.timeToggleButton,
+                timeFilter === "past" && styles.timeToggleButtonActive,
+              ]}
+              onPress={() => setTimeFilter("past")}
+            >
+              <Text
+                style={[
+                  styles.timeToggleText,
+                  timeFilter === "past" && styles.timeToggleTextActive,
+                ]}
+              >
+                Past {contentType === "event" ? "Events" : "Sessions"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Filters */}
+          <View style={styles.filtersContainer}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filtersScroll}
+            >
+              {filters.map((filter) => (
+                <FilterChip
+                  key={filter}
+                  label={filter}
+                  selected={selectedFilter === filter}
+                  onPress={() => setSelectedFilter(filter)}
+                />
+              ))}
+            </ScrollView>
+          </View>
+        </>
       )}
 
       {viewMode === "calendar" ? (
@@ -522,52 +749,98 @@ export function ContentScreen({
           onTimeSlotPress={handleTimeSlotPress}
         />
       ) : (
-        <ScrollView
-          style={styles.listContainer}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-        >
-          <Text style={styles.sectionTitle}>
-            {contentType === "event" ? "Upcoming Events" : "Upcoming Sessions"}
-          </Text>
-          {!loading && (
-            <>
-              {filteredEvents.length > 0 ? (
-                filteredEvents.map((event) => (
-                  <CompactEventCard
-                    key={event.id}
-                    id={event.id}
-                    title={event.title}
-                    date={new Date(event.date).toLocaleDateString("en-US", {
-                      weekday: "short",
-                      month: "short",
-                      day: "numeric",
-                    })}
-                    time={
-                      event.allDay
-                        ? "All day"
-                        : `${event.startTime} - ${event.endTime}`
-                    }
-                    location={event.location || "No location"}
-                    attendees={event.attendeeCount || 0}
-                    category={event.category}
-                    rsvpStatus={getUserRSVPStatus(event)}
-                    onPress={() => handleEventPress(event.id)}
-                    onRSVP={handleRSVP}
-                  />
-                ))
-              ) : (
-                <View style={styles.emptyState}>
-                  <Text style={styles.emptyText}>
-                    No {contentType}s found in {selectedFilter} category
-                  </Text>
-                </View>
+        <View style={styles.listContainer}>
+          {/* Section Header with Date Filter */}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>
+              {timeFilter === "upcoming"
+                ? `Upcoming ${contentType === "event" ? "Events" : "Sessions"}`
+                : `Past ${contentType === "event" ? "Events" : "Sessions"}`}
+            </Text>
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <TouchableOpacity
+                style={[
+                  styles.dateFilterButton,
+                  filterDate && styles.dateFilterButtonActive,
+                ]}
+                onPress={() => setShowDatePicker(true)}
+              >
+                <CalendarDays
+                  color={filterDate ? "white" : theme.colors.textSecondary}
+                  size={16}
+                />
+                <Text
+                  style={[
+                    styles.dateFilterText,
+                    filterDate && styles.dateFilterTextActive,
+                  ]}
+                >
+                  {filterDate
+                    ? filterDate.toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      })
+                    : "Date"}
+                </Text>
+              </TouchableOpacity>
+              {filterDate && (
+                <TouchableOpacity
+                  style={styles.clearDateButton}
+                  onPress={clearDateFilter}
+                >
+                  <Text style={styles.clearDateText}>Clear</Text>
+                </TouchableOpacity>
               )}
-            </>
-          )}
-        </ScrollView>
+            </View>
+          </View>
+
+          <ScrollView
+            style={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+          >
+            {!loading && (
+              <>
+                {filteredEvents.length > 0 ? (
+                  filteredEvents.map((event) => (
+                    <CompactEventCard
+                      key={event.id}
+                      id={event.id}
+                      title={event.title}
+                      date={new Date(event.date).toLocaleDateString("en-US", {
+                        weekday: "short",
+                        month: "short",
+                        day: "numeric",
+                      })}
+                      time={
+                        event.allDay
+                          ? "All day"
+                          : `${event.startTime} - ${event.endTime}`
+                      }
+                      location={event.location || "No location"}
+                      attendees={event.attendeeCount || 0}
+                      category={event.category}
+                      rsvpStatus={getUserRSVPStatus(event)}
+                      onPress={() => handleEventPress(event.id)}
+                      onRSVP={handleRSVP}
+                    />
+                  ))
+                ) : (
+                  <View style={styles.emptyState}>
+                    <Text style={styles.emptyText}>
+                      No {timeFilter} {contentType}s found
+                      {selectedFilter !== "All" &&
+                        ` in ${selectedFilter} category`}
+                      {filterDate && ` for ${filterDate.toLocaleDateString()}`}
+                    </Text>
+                  </View>
+                )}
+              </>
+            )}
+          </ScrollView>
+        </View>
       )}
 
       {userCanCreate && (
@@ -602,6 +875,9 @@ export function ContentScreen({
           selectedEvent ? getUserRSVPStatus(selectedEvent) : "none"
         }
         contentType={contentType}
+        attendeeProfiles={
+          selectedEvent ? attendeeProfiles[selectedEvent.id] || [] : []
+        } // Add this prop
       />
 
       <EditEventModal
@@ -616,6 +892,15 @@ export function ContentScreen({
         contentType={contentType}
         categoryOptions={categoryOptions}
       />
+
+      {showDatePicker && (
+        <DateTimePicker
+          value={filterDate || new Date()}
+          mode="date"
+          display="default"
+          onChange={handleDatePickerChange}
+        />
+      )}
     </SafeAreaView>
   );
 }
