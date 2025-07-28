@@ -11,7 +11,7 @@ import {
   Users,
   X,
 } from "lucide-react-native";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
   Modal as RNModal, // Add this import
@@ -24,7 +24,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-// Remove this import since we're using native Modal
+import { Avatar } from "@/components/ui/Avatar";
+
 // import { Modal } from "@/components/ui/Modal";
 import { CategoryInput } from "@/components/ui/CategoryInput";
 import { CustomSelect } from "@/components/ui/CustomSelect";
@@ -33,6 +34,7 @@ import { LocationInput } from "@/components/ui/LocationInput";
 import { PeoplePicker } from "@/components/ui/PeoplePicker";
 import { TimePickerModal } from "@/components/ui/TimePickerModal";
 import { Event } from "@/types/event.types";
+import { UserService } from "@/services/user.service";
 
 interface CreateEventModalProps {
   visible: boolean;
@@ -40,12 +42,19 @@ interface CreateEventModalProps {
   onSave: (event: any) => void;
   initialDate?: Date;
   initialTime?: string;
-  initialEvent?: Event;
+  initialEvent?: Event & { selectedPeople?: any[] }; // Fix: Add selectedPeople to the type
   isEditing?: boolean;
   loading?: boolean;
   contentType?: "event" | "session"; // Add this
   categoryOptions?: { label: string; value: string; color?: string }[]; // Add this
 }
+
+interface SelectedPersonCardProps {
+  person: any;
+  onRemove: (personId: string) => void;
+}
+
+
 
 export function CreateEventModal({
   visible,
@@ -78,7 +87,67 @@ export function CreateEventModal({
   const [showStartTimePicker, setShowStartTimePicker] = useState(false);
   const [showEndTimePicker, setShowEndTimePicker] = useState(false);
 
+  const [allUsers, setAllUsers] = useState<any[]>([]);
+  
+  const [loadingUsers, setLoadingUsers] = useState(false);
+
   const titleInputRef = useRef<TextInput>(null);
+
+  // Update the loadAllUsers function to properly preselect "Everyone" group
+  const loadAllUsers = useCallback(async () => {
+    try {
+      setLoadingUsers(true);
+
+      // Fetch all users first
+      const { users, error } = await UserService.getAllUsers();
+
+      if (error) {
+        console.error("Error loading users:", error);
+        setAllUsers([]);
+        return;
+      }
+
+      if (users) {
+        setAllUsers(users);
+
+        // Create the "Everyone" group with actual user count
+        const activeUsers = users.filter((user) => user.isActive);
+        const everyoneGroup = {
+          id: "everyone",
+          name: `Everyone (${activeUsers.length} members)`,
+          type: "group" as const,
+          userIds: activeUsers.map((user) => user.id),
+          description: "All users in the organization",
+        };
+
+        // Preselect "Everyone" group for new events/sessions (except coaching one-on-one)
+        if (!isEditing && !initialEvent?.selectedPeople) {
+          const isCoachingOneOnOne = initialEvent?.category === "One-on-One";
+          if (!isCoachingOneOnOne) {
+            setSelectedPeople([everyoneGroup]);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error setting up default selection:", error);
+      setAllUsers([]);
+    } finally {
+      setLoadingUsers(false);
+    }
+  }, [isEditing, initialEvent?.selectedPeople, initialEvent?.category]);
+
+  // Load users when modal opens
+  useEffect(() => {
+    if (visible && !isEditing) {
+      loadAllUsers();
+    }
+  }, [visible, isEditing, loadAllUsers]);
+
+  const handleRemovePerson = (personId: string) => {
+    setSelectedPeople((prev) =>
+      prev.filter((person) => person.id !== personId)
+    );
+  };
 
   useEffect(() => {
     if (visible && initialEvent && isEditing) {
@@ -96,6 +165,20 @@ export function CreateEventModal({
     } else if (visible && !isEditing) {
       resetForm();
 
+      // Handle preselected data from initialEvent
+      if (initialEvent) {
+        if (initialEvent.category) {
+          setCategory(initialEvent.category);
+        }
+        // Fix: Check if selectedPeople exists and is an array
+        if (
+          initialEvent.selectedPeople &&
+          Array.isArray(initialEvent.selectedPeople)
+        ) {
+          setSelectedPeople(initialEvent.selectedPeople);
+        }
+      }
+
       if (initialDate) {
         const dateStr = initialDate.toISOString().split("T")[0];
         setStartDate(dateStr);
@@ -112,7 +195,6 @@ export function CreateEventModal({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, initialEvent, isEditing, initialDate, initialTime]);
-
   const handleTitleFocus = () => {
     if (!isExpanded) {
       setIsExpanded(true);
@@ -309,7 +391,61 @@ export function CreateEventModal({
     );
   };
 
+  const newStyles = {
+    selectedPeopleContainer: {
+      marginTop: 8,
+      gap: 8,
+    },
+    selectedPeopleList: {
+      flexDirection: "row" as const,
+      flexWrap: "wrap" as const,
+      gap: 8,
+    },
+    selectedPersonCard: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      backgroundColor: "#f0f9ff",
+      borderRadius: 20,
+      paddingVertical: 6,
+      paddingHorizontal: 12,
+      borderWidth: 1,
+      borderColor: "#bae6fd",
+      gap: 8,
+      maxWidth: 220, // Increased from 180 to show full names
+      minWidth: 150,
+    },
+    selectedPersonName: {
+      fontSize: 14,
+      color: "#0369a1",
+      fontWeight: "500" as const,
+      flex: 1,
+    },
+    removePersonButton: {
+      padding: 2,
+    },
+    peopleCountText: {
+      fontSize: 14,
+      color: "#666",
+      marginTop: 4,
+      fontWeight: "500" as const,
+    },
+    selectAllButton: {
+      backgroundColor: "#e0f2fe",
+      borderRadius: 6,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      marginTop: 8,
+      alignSelf: "flex-start" as const,
+    },
+    selectAllButtonText: {
+      fontSize: 12,
+      color: "#0369a1",
+      fontWeight: "600" as const,
+    },
+  };
+
   const styles = StyleSheet.create({
+    ...newStyles,
     fullScreenContainer: {
       flex: 1,
       backgroundColor: "white",
@@ -559,78 +695,321 @@ export function CreateEventModal({
       fontWeight: "500",
       textAlign: "center",
     },
+    warningContainer: {
+      backgroundColor: "#fff3cd",
+      borderRadius: 6,
+      paddingHorizontal: 8,
+      paddingVertical: 6,
+      marginTop: 8,
+      borderWidth: 1,
+      borderColor: "#ffeaa7",
+    },
+    warningText: {
+      fontSize: 12,
+      color: "#856404",
+      fontWeight: "500",
+      lineHeight: 16,
+    },
+    statusContainer: {
+      marginTop: 12,
+    },
+    statusTitle: {
+      fontSize: 14,
+      color: "#666",
+      marginBottom: 8,
+      fontWeight: "500",
+    },
+    statusButtons: {
+      flexDirection: "row",
+      gap: 8,
+      flexWrap: "wrap",
+    },
+    statusButton: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: "#e0e0e0",
+      backgroundColor: "#f8f9fa",
+    },
+    statusButtonActive: {
+      backgroundColor: "#e3f2fd",
+      borderColor: "#2196f3",
+    },
+    statusButtonText: {
+      fontSize: 12,
+      color: "#333",
+      fontWeight: "500",
+    },
+    statusButtonTextActive: {
+      color: "#2196f3",
+    },
   });
 
-  // Compact modal content (when not expanded)
-  if (!isExpanded) {
+  const SelectedPersonCard = ({
+    person,
+    onRemove,
+  }: SelectedPersonCardProps) => {
+    // Get the display name - prioritize full name construction
+    const getDisplayName = () => {
+      if (person.type === "group") {
+        return person.name || "Group";
+      }
+
+      // For individuals, construct full name properly
+      if (person.firstName && person.lastName) {
+        return `${person.firstName} ${person.lastName}`;
+      }
+
+      if (person.name) {
+        return person.name;
+      }
+
+      if (person.email) {
+        return person.email;
+      }
+
+      return "Unknown User";
+    };
+
+    // Get initials for avatar
+    const getInitials = () => {
+      if (person.type === "group") {
+        return person.name?.charAt(0) || "G";
+      }
+
+      const displayName = getDisplayName();
+      return displayName
+        .split(" ")
+        .map((n: string) => n.charAt(0))
+        .join("")
+        .toUpperCase();
+    };
+
     return (
-      <>
-        <RNModal
-          visible={visible}
-          animationType="slide"
-          presentationStyle="fullScreen"
-          onRequestClose={handleClose}
-          statusBarTranslucent={false} // Set to false
-          hardwareAccelerated={true}
-        >
-          <SafeAreaView style={styles.fullScreenContainer}>
-            <View style={styles.container}>
-              <View style={styles.header}>
-                <TouchableOpacity
-                  style={styles.closeButton}
-                  onPress={handleClose}
-                >
-                  <X color="#666" size={24} />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.saveButton,
-                    !title.trim() && styles.saveButtonDisabled,
-                  ]}
-                  onPress={handleSave}
-                  disabled={!title.trim()}
-                >
-                  <Text style={styles.saveButtonText}>Save</Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.content}>
-                <TextInput
-                  ref={titleInputRef}
-                  style={styles.titleInput}
-                  value={title}
-                  onChangeText={setTitle}
-                  onFocus={handleTitleFocus}
-                  placeholder={`Add ${contentType} title`} // Dynamic placeholder
-                  placeholderTextColor="#999"
-                  autoFocus={true}
-                />
-
-                {formatDateTime() && (
-                  <Text style={styles.compactDateTime}>{formatDateTime()}</Text>
-                )}
-
-                <TouchableOpacity
-                  style={styles.addPeopleRow}
-                  onPress={() => setShowPeoplePicker(true)}
-                >
-                  <Users color="#666" size={20} style={styles.addPeopleIcon} />
-                  <Text style={styles.addPeopleText}>Add people</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </SafeAreaView>
-        </RNModal>
-
-        <PeoplePicker
-          visible={showPeoplePicker}
-          onClose={() => setShowPeoplePicker(false)}
-          onSelect={setSelectedPeople}
-          selectedPeople={selectedPeople}
+      <View style={styles.selectedPersonCard}>
+        <Avatar
+          imageUrl={person.avatar || person.profileImage}
+          initials={getInitials()}
+          size={24}
         />
-      </>
+        <Text style={styles.selectedPersonName} numberOfLines={1}>
+          {getDisplayName()}
+        </Text>
+        <TouchableOpacity
+          style={styles.removePersonButton}
+          onPress={() => onRemove(person.id)}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <X color="#666" size={16} />
+        </TouchableOpacity>
+      </View>
     );
-  }
+  };
+
+  const renderPeopleSection = () => (
+    <TouchableOpacity
+      style={styles.sectionRow}
+      onPress={() => setShowPeoplePicker(true)}
+    >
+      <Users color="#666" size={20} style={styles.sectionIcon} />
+      <View style={styles.sectionContent}>
+        <Text style={styles.sectionTitle}>Add people</Text>
+
+        {/* Show selection status */}
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <Text style={styles.peopleCountText}>
+            {selectedPeople.length > 0
+              ? selectedPeople.some(
+                  (p) => p.type === "group" && p.id === "everyone"
+                )
+                ? "Everyone selected"
+                : `${selectedPeople.length} ${selectedPeople.length === 1 ? "person" : "people"} selected`
+              : "No one selected"}
+          </Text>
+
+          {/* Show "Select Everyone" button if not already selected */}
+          {!selectedPeople.some(
+            (p) => p.type === "group" && p.id === "everyone"
+          ) && (
+            <TouchableOpacity
+              style={styles.selectAllButton}
+              onPress={() =>
+                setSelectedPeople([
+                  {
+                    id: "everyone",
+                    name: "Everyone",
+                    type: "group" as const,
+                    userIds: [],
+                    description: "All users in the organization",
+                  },
+                ])
+              }
+            >
+              <Text style={styles.selectAllButtonText}>Select Everyone</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Show selected people/groups as cards */}
+        {selectedPeople.length > 0 && (
+          <View style={styles.selectedPeopleContainer}>
+            <View style={styles.selectedPeopleList}>
+              {selectedPeople.slice(0, 10).map((person) => (
+                <SelectedPersonCard
+                  key={person.id}
+                  person={person}
+                  onRemove={handleRemovePerson}
+                />
+              ))}
+              {selectedPeople.length > 10 && (
+                <View
+                  style={[
+                    styles.selectedPersonCard,
+                    { backgroundColor: "#f3f4f6" },
+                  ]}
+                >
+                  <Text
+                    style={[styles.selectedPersonName, { color: "#6b7280" }]}
+                  >
+                    +{selectedPeople.length - 10} more
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* Warning message */}
+        <View style={styles.warningContainer}>
+          <Text style={styles.warningText}>
+            ⚠️ Only invited people and you will be able to see this{" "}
+            {contentType}
+          </Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+
+  // Update the compact view people section as well
+  const renderCompactPeopleSection = () => (
+    <TouchableOpacity
+      style={styles.addPeopleRow}
+      onPress={() => setShowPeoplePicker(true)}
+    >
+      <Users color="#666" size={20} style={styles.addPeopleIcon} />
+      <View style={{ flex: 1 }}>
+        <Text style={styles.addPeopleText}>Add people</Text>
+        {selectedPeople.length > 0 && (
+          <>
+            <Text style={styles.peopleCountText}>
+              {selectedPeople.some(
+                (p) => p.type === "group" && p.id === "everyone"
+              )
+                ? "Everyone selected"
+                : `${selectedPeople.length} ${selectedPeople.length === 1 ? "person" : "people"} selected`}
+            </Text>
+            <View style={[styles.selectedPeopleList, { marginTop: 8 }]}>
+              {selectedPeople.slice(0, 3).map((person) => (
+                <SelectedPersonCard
+                  key={person.id}
+                  person={person}
+                  onRemove={handleRemovePerson}
+                />
+              ))}
+              {selectedPeople.length > 3 && (
+                <View
+                  style={[
+                    styles.selectedPersonCard,
+                    { backgroundColor: "#f3f4f6" },
+                  ]}
+                >
+                  <Text
+                    style={[styles.selectedPersonName, { color: "#6b7280" }]}
+                  >
+                    +{selectedPeople.length - 3} more
+                  </Text>
+                </View>
+              )}
+            </View>
+          </>
+        )}
+      </View>
+    </TouchableOpacity>
+  );
+
+  // Compact modal content (when not expanded)
+if (!isExpanded) {
+  return (
+    <>
+      <RNModal
+        visible={visible}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={handleClose}
+        statusBarTranslucent={false}
+        hardwareAccelerated={true}
+      >
+        <SafeAreaView style={styles.fullScreenContainer}>
+          <View style={styles.container}>
+            <View style={styles.header}>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={handleClose}
+              >
+                <X color="#666" size={24} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.saveButton,
+                  !title.trim() && styles.saveButtonDisabled,
+                ]}
+                onPress={handleSave}
+                disabled={!title.trim()}
+              >
+                <Text style={styles.saveButtonText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.content}>
+              <TextInput
+                ref={titleInputRef}
+                style={styles.titleInput}
+                value={title}
+                onChangeText={setTitle}
+                onFocus={handleTitleFocus}
+                placeholder={`Add ${contentType} title`}
+                placeholderTextColor="#999"
+                autoFocus={true}
+              />
+              {formatDateTime() && (
+                <Text style={styles.compactDateTime}>{formatDateTime()}</Text>
+              )}
+              {/* Show compact people selection */}
+              {renderCompactPeopleSection()}
+            </View>
+          </View>
+        </SafeAreaView>
+      </RNModal>
+
+      <PeoplePicker
+        visible={showPeoplePicker}
+        onClose={() => setShowPeoplePicker(false)}
+        onSelect={setSelectedPeople}
+        selectedPeople={selectedPeople}
+        allUsers={allUsers}
+        loading={loadingUsers}
+      />
+    </>
+  );
+}
+
 
   // Expanded modal content
   return (
@@ -696,6 +1075,40 @@ export function CreateEventModal({
                 ))}
               </View>
 
+              {/* Add Status Update Section for Sessions */}
+              {contentType === "session" && isEditing && (
+                <View style={styles.statusContainer}>
+                  <Text style={styles.statusTitle}>Session Status</Text>
+                  <View style={styles.statusButtons}>
+                    {[
+                      { label: "Upcoming", value: "upcoming" },
+                      { label: "Ongoing", value: "ongoing" },
+                      { label: "Completed", value: "completed" },
+                      { label: "Cancelled", value: "cancelled" },
+                    ].map((status) => (
+                      <TouchableOpacity
+                        key={status.value}
+                        style={[
+                          styles.statusButton,
+                          category === status.value &&
+                            styles.statusButtonActive,
+                        ]}
+                        onPress={() => setCategory(status.value)}
+                      >
+                        <Text
+                          style={[
+                            styles.statusButtonText,
+                            category === status.value &&
+                              styles.statusButtonTextActive,
+                          ]}
+                        >
+                          {status.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              )}
               {/* Calendar - simplified, only show "My calendar" */}
               <View style={styles.calendarContainer}>
                 {calendars.map((cal) => (
@@ -718,7 +1131,6 @@ export function CreateEventModal({
                   </TouchableOpacity>
                 ))}
               </View>
-
               {/* Rest of the form remains the same */}
               <View style={styles.sectionRow}>
                 <Clock color="#666" size={20} style={styles.sectionIcon} />
@@ -775,14 +1187,12 @@ export function CreateEventModal({
                   )}
                 </View>
               </View>
-
               <View style={styles.sectionRow}>
                 <Globe color="#666" size={20} style={styles.sectionIcon} />
                 <View style={styles.sectionContent}>
                   <Text style={styles.sectionTitle}>Greenwich Mean Time</Text>
                 </View>
               </View>
-
               <View style={styles.sectionRow}>
                 <Repeat color="#666" size={20} style={styles.sectionIcon} />
                 <View style={styles.sectionContent}>
@@ -794,7 +1204,6 @@ export function CreateEventModal({
                   />
                 </View>
               </View>
-
               <View style={styles.sectionRow}>
                 <Palette color="#666" size={20} style={styles.sectionIcon} />
                 <View style={styles.sectionContent}>
@@ -814,7 +1223,6 @@ export function CreateEventModal({
                   </View>
                 </View>
               </View>
-
               {/* Add CategoryInput here - for event/session categories */}
               <View style={styles.sectionRow}>
                 <FileText color="#666" size={20} style={styles.sectionIcon} />
@@ -895,22 +1303,7 @@ export function CreateEventModal({
                 </View>
               </View>
 
-              <TouchableOpacity
-                style={styles.sectionRow}
-                onPress={() => setShowPeoplePicker(true)}
-              >
-                <Users color="#666" size={20} style={styles.sectionIcon} />
-                <View style={styles.sectionContent}>
-                  <Text style={styles.sectionTitle}>Add people</Text>
-                  {selectedPeople.length > 0 && (
-                    <Text style={styles.peopleCount}>
-                      {selectedPeople.length}{" "}
-                      {selectedPeople.length === 1 ? "person" : "people"}{" "}
-                      selected
-                    </Text>
-                  )}
-                </View>
-              </TouchableOpacity>
+              {renderPeopleSection()}
 
               <View style={styles.sectionRow}>
                 <MapPin color="#666" size={20} style={styles.sectionIcon} />
@@ -923,7 +1316,6 @@ export function CreateEventModal({
                   />
                 </View>
               </View>
-
               <View style={styles.sectionRow}>
                 <FileText color="#666" size={20} style={styles.sectionIcon} />
                 <View style={styles.sectionContent}>
@@ -943,14 +1335,15 @@ export function CreateEventModal({
           </View>
         </SafeAreaView>
       </RNModal>
-
       <PeoplePicker
         visible={showPeoplePicker}
         onClose={() => setShowPeoplePicker(false)}
         onSelect={setSelectedPeople}
         selectedPeople={selectedPeople}
+        allUsers={allUsers} // Pass the loaded users
+        loading={loadingUsers} // Pass the loading state
       />
-
+      
       <TimePickerModal
         visible={showStartTimePicker}
         onClose={() => setShowStartTimePicker(false)}
@@ -958,7 +1351,6 @@ export function CreateEventModal({
         initialTime={startTime}
         title="Start Time"
       />
-
       <TimePickerModal
         visible={showEndTimePicker}
         onClose={() => setShowEndTimePicker(false)}
