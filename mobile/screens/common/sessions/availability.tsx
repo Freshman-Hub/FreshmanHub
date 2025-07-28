@@ -1,36 +1,16 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  RefreshControl,
-  TouchableOpacity,
-  FlatList,
-} from "react-native";
+import { StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import {
-  ArrowLeft,
-  Calendar,
-  Clock,
-  Plus,
-  Edit3,
-  Trash2,
-  Save,
-  X,
-} from "lucide-react-native";
+import { ArrowLeft } from "lucide-react-native";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useRouter } from "expo-router";
 
 // Import reusable components
 import { Header } from "@/components/ui/Header";
-import { Button } from "@/components/ui/Button";
-import { Modal } from "@/components/ui/Modal";
-import { TextInput } from "@/components/ui/TextInput";
-import { FilterChip } from "@/components/ui/FilterChip";
-import { TimePicker } from "@/components/ui/TimePicker";
+import { CalendarView } from "@/components/ui/CalendarView";
+import { CreateEventModal } from "@/components/ui/CreateEventModal";
 
 interface AvailabilityProps {
   userRole?: "head-coach" | "peer-coach" | "advisor" | "student-leader";
@@ -43,9 +23,13 @@ interface TimeSlot {
   endTime: string;
   isRecurring: boolean;
   notes?: string;
+  date: string;
+  title: string;
+  category: string;
+  isRSVP: boolean;
 }
 
-// Mock availability data
+// Mock availability data converted to calendar events
 const mockAvailability: TimeSlot[] = [
   {
     id: "1",
@@ -54,6 +38,10 @@ const mockAvailability: TimeSlot[] = [
     endTime: "12:00",
     isRecurring: true,
     notes: "Academic support sessions",
+    date: "2024-01-29",
+    title: "Academic Support",
+    category: "Academic",
+    isRSVP: true,
   },
   {
     id: "2",
@@ -62,6 +50,10 @@ const mockAvailability: TimeSlot[] = [
     endTime: "17:00",
     isRecurring: true,
     notes: "Career guidance sessions",
+    date: "2024-01-30",
+    title: "Career Guidance",
+    category: "Academic",
+    isRSVP: true,
   },
   {
     id: "3",
@@ -70,6 +62,10 @@ const mockAvailability: TimeSlot[] = [
     endTime: "13:00",
     isRecurring: true,
     notes: "Personal development sessions",
+    date: "2024-01-31",
+    title: "Personal Development",
+    category: "Academic",
+    isRSVP: true,
   },
   {
     id: "4",
@@ -78,6 +74,10 @@ const mockAvailability: TimeSlot[] = [
     endTime: "18:00",
     isRecurring: true,
     notes: "Open office hours",
+    date: "2024-02-01",
+    title: "Office Hours",
+    category: "Academic",
+    isRSVP: true,
   },
   {
     id: "5",
@@ -86,17 +86,11 @@ const mockAvailability: TimeSlot[] = [
     endTime: "11:00",
     isRecurring: true,
     notes: "Wellness check sessions",
+    date: "2024-02-02",
+    title: "Wellness Check",
+    category: "Academic",
+    isRSVP: true,
   },
-];
-
-const daysOfWeek = [
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-  "Sunday",
 ];
 
 export default function AvailabilityScreen({
@@ -107,78 +101,57 @@ export default function AvailabilityScreen({
   const [refreshing, setRefreshing] = useState(false);
   const [availability, setAvailability] =
     useState<TimeSlot[]>(mockAvailability);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [editingSlot, setEditingSlot] = useState<TimeSlot | null>(null);
-  const [selectedDay, setSelectedDay] = useState("Monday");
-  const [startTime, setStartTime] = useState("");
-  const [endTime, setEndTime] = useState("");
-  const [notes, setNotes] = useState("");
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [createModalVisible, setCreateModalVisible] = useState(false);
+  const [createModalDate, setCreateModalDate] = useState<Date>();
+  const [createModalTime, setCreateModalTime] = useState<string>();
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     setTimeout(() => setRefreshing(false), 2000);
   }, []);
 
-  const resetForm = () => {
-    setSelectedDay("Monday");
-    setStartTime("");
-    setEndTime("");
-    setNotes("");
+  const handleEventPress = (event: any) => {
+    // Handle event press - could open edit modal
+    console.log("Event pressed:", event);
   };
 
-  const handleAddSlot = () => {
-    if (!startTime || !endTime) {
-      alert("Please select start and end times");
-      return;
-    }
+  const handleTimeSlotPress = (date: Date, time: string) => {
+    setCreateModalDate(date);
+    setCreateModalTime(time);
+    setCreateModalVisible(true);
+  };
 
-    const slot: TimeSlot = {
+  const handleCreateAvailability = (event: any) => {
+    const newSlot: TimeSlot = {
       id: Date.now().toString(),
-      day: selectedDay,
-      startTime,
-      endTime,
-      isRecurring: true,
-      notes,
+      day: new Date(event.date).toLocaleDateString("en-US", {
+        weekday: "long",
+      }),
+      startTime: event.startTime,
+      endTime: event.endTime,
+      isRecurring: event.repeat !== "Does not repeat",
+      notes: event.description,
+      date: event.date,
+      title: event.title,
+      category: event.category,
+      isRSVP: true,
     };
-    setAvailability([...availability, slot]);
-    setShowAddModal(false);
-    resetForm();
+    setAvailability([...availability, newSlot]);
   };
 
-  const handleEditSlot = (slot: TimeSlot) => {
-    setEditingSlot(slot);
-    setSelectedDay(slot.day);
-    setStartTime(slot.startTime);
-    setEndTime(slot.endTime);
-    setNotes(slot.notes || "");
-    setShowAddModal(true);
-  };
-
-  const handleUpdateSlot = () => {
-    if (!editingSlot || !startTime || !endTime) {
-      alert("Please fill in all required fields");
-      return;
-    }
-
-    const updatedAvailability = availability.map((slot) =>
-      slot.id === editingSlot.id
-        ? {
-            ...slot,
-            day: selectedDay,
-            startTime,
-            endTime,
-            notes,
-          }
-        : slot
+  const handleEventDrag = (
+    eventId: number,
+    newDate: string,
+    newTime: string
+  ) => {
+    setAvailability((prev) =>
+      prev.map((slot) =>
+        slot.id === eventId.toString()
+          ? { ...slot, date: newDate, startTime: newTime }
+          : slot
+      )
     );
-    setAvailability(updatedAvailability);
-    setShowAddModal(false);
-    setEditingSlot(null);
-    resetForm();
-  };
-
-  const handleDeleteSlot = (slotId: string) => {
-    setAvailability(availability.filter((slot) => slot.id !== slotId));
   };
 
   const styles = StyleSheet.create({
@@ -186,98 +159,35 @@ export default function AvailabilityScreen({
       flex: 1,
       backgroundColor: theme.colors.background,
     },
-    scrollContent: {
-      paddingBottom: theme.spacing.xl,
-    },
-    section: {
-      paddingHorizontal: theme.spacing.lg,
-      paddingTop: theme.spacing.lg,
-    },
-    sectionTitle: {
-      ...theme.typography.h6,
-      color: theme.colors.text,
-      fontWeight: "700",
-      marginBottom: theme.spacing.md,
-    },
-    addButton: {
-      marginBottom: theme.spacing.lg,
-    },
-    slotCard: {
+    viewToggle: {
+      flexDirection: "row",
       backgroundColor: theme.colors.surface,
-      borderRadius: theme.borderRadius.xl,
-      padding: theme.spacing.lg,
-      marginBottom: theme.spacing.md,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-    },
-    slotHeader: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "flex-start",
-      marginBottom: theme.spacing.md,
-    },
-    slotDay: {
-      ...theme.typography.h6,
-      color: theme.colors.text,
-      fontWeight: "700",
-      marginBottom: theme.spacing.xs,
-    },
-    slotTime: {
-      ...theme.typography.body,
-      color: theme.colors.textSecondary,
-      fontWeight: "600",
-      marginBottom: theme.spacing.sm,
-    },
-    slotNotes: {
-      ...theme.typography.bodySmall,
-      color: theme.colors.textSecondary,
-      fontStyle: "italic",
-    },
-    slotActions: {
-      flexDirection: "row",
-      gap: theme.spacing.sm,
-    },
-    actionButton: {
-      padding: theme.spacing.sm,
       borderRadius: theme.borderRadius.lg,
-      backgroundColor: theme.colors.background,
-    },
-    modalContent: {
-      padding: theme.spacing.lg,
-    },
-    modalTitle: {
-      ...theme.typography.h5,
-      color: theme.colors.text,
-      fontWeight: "700",
-      marginBottom: theme.spacing.lg,
-      textAlign: "center",
-    },
-    formGroup: {
-      marginBottom: theme.spacing.lg,
-    },
-    formLabel: {
-      ...theme.typography.body,
-      color: theme.colors.text,
-      fontWeight: "600",
+      padding: 4,
+      margin: theme.spacing.md,
       marginBottom: theme.spacing.sm,
     },
-    dayChips: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: theme.spacing.sm,
-      marginBottom: theme.spacing.md,
-    },
-    timeRow: {
-      flexDirection: "row",
-      gap: theme.spacing.md,
-    },
-    timeInput: {
+    viewButton: {
       flex: 1,
-    },
-    modalActions: {
       flexDirection: "row",
-      gap: theme.spacing.md,
-      marginTop: theme.spacing.lg,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: theme.spacing.sm,
+      borderRadius: theme.borderRadius.md,
+      gap: theme.spacing.sm,
+    },
+    viewButtonActive: {
+      backgroundColor: theme.colors.primary,
+    },
+    viewButtonText: {
+      ...theme.typography.button,
+      fontWeight: "600",
+    },
+    viewButtonTextActive: {
+      color: "white",
+    },
+    viewButtonTextInactive: {
+      color: theme.colors.textSecondary,
     },
     emptyState: {
       alignItems: "center",
@@ -291,50 +201,6 @@ export default function AvailabilityScreen({
     },
   });
 
-  const renderSlotCard = ({ item: slot }: { item: TimeSlot }) => (
-    <View style={styles.slotCard}>
-      <View style={styles.slotHeader}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.slotDay}>{slot.day}</Text>
-          <Text style={styles.slotTime}>
-            {new Date(`2000-01-01T${slot.startTime}`).toLocaleTimeString(
-              "en-US",
-              {
-                hour: "numeric",
-                minute: "2-digit",
-                hour12: true,
-              }
-            )}{" "}
-            -{" "}
-            {new Date(`2000-01-01T${slot.endTime}`).toLocaleTimeString(
-              "en-US",
-              {
-                hour: "numeric",
-                minute: "2-digit",
-                hour12: true,
-              }
-            )}
-          </Text>
-          {slot.notes && <Text style={styles.slotNotes}>{slot.notes}</Text>}
-        </View>
-        <View style={styles.slotActions}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => handleEditSlot(slot)}
-          >
-            <Edit3 color={theme.colors.primary} size={18} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => handleDeleteSlot(slot.id)}
-          >
-            <Trash2 color={theme.colors.error} size={18} />
-          </TouchableOpacity>
-        </View>
-      </View>
-    </View>
-  );
-
   return (
     <SafeAreaView style={styles.container}>
       <Header
@@ -343,125 +209,22 @@ export default function AvailabilityScreen({
         onLeftPress={() => router.back()}
       />
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Weekly Schedule</Text>
+      <CalendarView
+        events={availability}
+        onEventPress={handleEventPress}
+        selectedDate={selectedDate}
+        onDateChange={setSelectedDate}
+        onTimeSlotPress={handleTimeSlotPress}
+        onEventDrag={handleEventDrag}
+      />
 
-          <Button
-            title="Add Time Slot"
-            onPress={() => setShowAddModal(true)}
-            icon={Plus}
-            mode="contained"
-            style={styles.addButton}
-          />
-
-          {availability.length > 0 ? (
-            <FlatList
-              data={availability.sort(
-                (a, b) => daysOfWeek.indexOf(a.day) - daysOfWeek.indexOf(b.day)
-              )}
-              renderItem={renderSlotCard}
-              keyExtractor={(item) => item.id}
-              scrollEnabled={false}
-              showsVerticalScrollIndicator={false}
-            />
-          ) : (
-            <View style={styles.emptyState}>
-              <Calendar color={theme.colors.textSecondary} size={48} />
-              <Text style={styles.emptyStateText}>
-                No availability set yet.{"\n"}Add your first time slot to get
-                started.
-              </Text>
-            </View>
-          )}
-        </View>
-      </ScrollView>
-
-      {/* Add/Edit Modal */}
-      <Modal
-        visible={showAddModal}
-        onClose={() => {
-          setShowAddModal(false);
-          setEditingSlot(null);
-          resetForm();
-        }}
-        dismissable={true}
-      >
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>
-            {editingSlot ? "Edit Time Slot" : "Add Time Slot"}
-          </Text>
-
-          <View style={styles.formGroup}>
-            <Text style={styles.formLabel}>Day</Text>
-            <View style={styles.dayChips}>
-              {daysOfWeek.map((day) => (
-                <FilterChip
-                  key={day}
-                  label={day}
-                  selected={selectedDay === day}
-                  onPress={() => setSelectedDay(day)}
-                />
-              ))}
-            </View>
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={styles.formLabel}>Time</Text>
-            <View style={styles.timeRow}>
-              <TimePicker
-                value={startTime}
-                onSelect={setStartTime}
-                placeholder="Start time"
-                style={styles.timeInput}
-              />
-              <TimePicker
-                value={endTime}
-                onSelect={setEndTime}
-                placeholder="End time"
-                style={styles.timeInput}
-              />
-            </View>
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={styles.formLabel}>Notes (Optional)</Text>
-            <TextInput
-              placeholder="Add notes about this time slot"
-              value={notes}
-              onChangeText={setNotes}
-              multiline
-              numberOfLines={3}
-            />
-          </View>
-
-          <View style={styles.modalActions}>
-            <Button
-              title="Cancel"
-              onPress={() => {
-                setShowAddModal(false);
-                setEditingSlot(null);
-                resetForm();
-              }}
-              mode="outlined"
-              style={{ flex: 1 }}
-            />
-            <Button
-              title={editingSlot ? "Update" : "Add"}
-              onPress={editingSlot ? handleUpdateSlot : handleAddSlot}
-              icon={Save}
-              mode="contained"
-              style={{ flex: 1 }}
-            />
-          </View>
-        </View>
-      </Modal>
+      <CreateEventModal
+        visible={createModalVisible}
+        onClose={() => setCreateModalVisible(false)}
+        onSave={handleCreateAvailability}
+        initialDate={createModalDate}
+        initialTime={createModalTime}
+      />
     </SafeAreaView>
   );
 }
