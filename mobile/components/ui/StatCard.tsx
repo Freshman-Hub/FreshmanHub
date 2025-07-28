@@ -48,11 +48,13 @@ export function StatCard({ label, value, icon: IconComponent, color, style }: St
       textAlign: "center",
       fontWeight: "600",
     },
-  })
+  });
 
   return (
     <View style={[styles.container, style]}>
-      <IconComponent color={color} size={28} style={styles.icon} />
+      <View style={styles.icon}>
+        <IconComponent color={color} size={28} />
+      </View>
       <Text style={styles.value}>{value}</Text>
       <Text style={styles.label}>{label}</Text>
     </View>
