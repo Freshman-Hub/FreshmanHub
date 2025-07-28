@@ -121,16 +121,12 @@ export default function LoginScreen() {
           ) {
             // Admin users can access admin features
             router.replace("/(head-coach)");
-          } else if (user.role === "freshman") {
+          } else if (user.role === "peer_coach" || user.role === "freshman") { // TODO: Peer coach navigation will be rectified.
             // Freshman users
             router.replace("/(student-tabs)");
-          } else if (
-            user.role === "peer_coach" ||
-            user.role === "peer_advisor" ||
-            user.role === "buddy"
-          ) {
+          } else if (user.role === "peer_advisor" || user.role === "buddy") {
             // Coach/advisor users
-            router.replace("/(head-coach)");
+            router.replace("/(student-tabs)");
           } else {
             // Regular users (continuous, student_leader)
             router.replace("/(student-tabs)");
