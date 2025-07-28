@@ -22,7 +22,8 @@ export class EventsService {
     eventData: CreateEventData,
     userId: string,
     userDisplayName: string,
-    userAvatar?: string
+    userAvatar?: string,
+    collectionName: string = "events" // Add this parameter
   ): Promise<{ event: Event | null; error: string | null }> {
     try {
       const now = new Date().toISOString();
@@ -42,7 +43,7 @@ export class EventsService {
         updatedAt: now,
       };
 
-      const docRef = await addDoc(collection(db, "events"), newEvent);
+      const docRef = await addDoc(collection(db, collectionName), newEvent); // Use collectionName
 
       const event: Event = {
         id: docRef.id,
@@ -59,22 +60,21 @@ export class EventsService {
   // Get all events - NO orderBy to avoid indexes
   static async getEvents(
     limitCount: number = 50,
-    category?: string
+    category?: string,
+    collectionName: string = "events" // Add this parameter
   ): Promise<{ events: Event[]; error: string | null }> {
     try {
       let querySnapshot;
 
       if (category && category !== "All") {
-        // Query by category only - NO orderBy
         const q = query(
-          collection(db, "events"),
+          collection(db, collectionName), // Use collectionName
           where("category", "==", category),
           limit(limitCount)
         );
         querySnapshot = await getDocs(q);
       } else {
-        // Query all events - NO orderBy
-        const q = query(collection(db, "events"), limit(limitCount));
+        const q = query(collection(db, collectionName), limit(limitCount)); // Use collectionName
         querySnapshot = await getDocs(q);
       }
 
@@ -83,20 +83,18 @@ export class EventsService {
         ...doc.data(),
       })) as Event[];
 
-      // Sort by date on the client side
+      // Keep your existing sorting logic
       const sortedEvents = events.sort((a, b) => {
         const dateA = new Date(a.date);
         const dateB = new Date(b.date);
         const now = new Date();
 
-        // Show upcoming events first, then past events
         const isAUpcoming = dateA >= now;
         const isBUpcoming = dateB >= now;
 
         if (isAUpcoming && !isBUpcoming) return -1;
         if (!isAUpcoming && isBUpcoming) return 1;
 
-        // If both are upcoming or both are past, sort by date
         return dateA.getTime() - dateB.getTime();
       });
 
@@ -133,7 +131,8 @@ export class EventsService {
   // Update event
   static async updateEvent(
     eventId: string,
-    updateData: Partial<CreateEventData>
+    updateData: Partial<CreateEventData>,
+    collectionName: string = "events" // Add this parameter
   ): Promise<{ error: string | null }> {
     try {
       const cleanUpdateData: any = {
@@ -141,14 +140,13 @@ export class EventsService {
         updatedAt: new Date().toISOString(),
       };
 
-      // Remove undefined values
       Object.keys(cleanUpdateData).forEach((key) => {
         if (cleanUpdateData[key] === undefined) {
           delete cleanUpdateData[key];
         }
       });
 
-      await updateDoc(doc(db, "events", eventId), cleanUpdateData);
+      await updateDoc(doc(db, collectionName, eventId), cleanUpdateData); // Use collectionName
 
       return { error: null };
     } catch (error: any) {
@@ -158,9 +156,12 @@ export class EventsService {
   }
 
   // Delete event
-  static async deleteEvent(eventId: string): Promise<{ error: string | null }> {
+  static async deleteEvent(
+    eventId: string,
+    collectionName: string = "events" // Add this parameter
+  ): Promise<{ error: string | null }> {
     try {
-      await deleteDoc(doc(db, "events", eventId));
+      await deleteDoc(doc(db, collectionName, eventId)); // Use collectionName
       return { error: null };
     } catch (error: any) {
       console.error("Delete event error:", error);
@@ -172,10 +173,11 @@ export class EventsService {
   static async rsvpToEvent(
     eventId: string,
     userId: string,
-    response: "yes" | "no" | "maybe"
+    response: "yes" | "no" | "maybe",
+    collectionName: string = "events" // Add this parameter
   ): Promise<{ error: string | null }> {
     try {
-      const eventRef = doc(db, "events", eventId);
+      const eventRef = doc(db, collectionName, eventId); // Use collectionName
       const eventDoc = await getDoc(eventRef);
 
       if (!eventDoc.exists()) {
@@ -184,7 +186,7 @@ export class EventsService {
 
       const eventData = eventDoc.data() as Event;
 
-      // Remove user from all RSVP arrays first
+      // Keep your existing RSVP logic
       const updates: any = {
         rsvpYes: arrayRemove(userId),
         rsvpNo: arrayRemove(userId),
@@ -192,7 +194,6 @@ export class EventsService {
         updatedAt: new Date().toISOString(),
       };
 
-      // Add user to the appropriate RSVP array
       if (response === "yes") {
         updates.rsvpYes = arrayUnion(userId);
         if (!eventData.attendees?.includes(userId)) {
