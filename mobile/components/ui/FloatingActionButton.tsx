@@ -1,175 +1,124 @@
 "use client";
 
 import { useState } from "react";
-import { View, TouchableOpacity, StyleSheet, Animated } from "react-native";
-import {
-  Plus,
-  Calendar,
-  Clock,
-  Gift,
-} from "lucide-react-native";
+import { StyleSheet, View } from "react-native";
+import { FAB, Portal } from "react-native-paper";
+import { Calendar, Clock, Gift, Users, Plus, X } from "lucide-react-native";
 import { useTheme } from "@/contexts/ThemeContext";
 
+interface FloatingAction {
+  type: string;
+  label: string;
+  icon?: React.ComponentType<any>;
+  color?: string;
+}
+
 interface FloatingActionButtonProps {
-  onEventPress: () => void;
-  onTaskPress?: () => void;
-  onReminderPress?: () => void;
+  actions: FloatingAction[];
+  onActionPress: (actionType: string) => void;
 }
 
 export function FloatingActionButton({
-  onEventPress,
-  onTaskPress,
-  onReminderPress,
+  actions,
+  onActionPress,
 }: FloatingActionButtonProps) {
   const { theme } = useTheme();
   const [isExpanded, setIsExpanded] = useState(false);
-  const [animation] = useState(new Animated.Value(0));
 
-  const toggleExpanded = () => {
-    const toValue = isExpanded ? 0 : 1;
-    setIsExpanded(!isExpanded);
-
-    Animated.spring(animation, {
-      toValue,
-      useNativeDriver: true,
-      tension: 100,
-      friction: 8,
-    }).start();
+  const getIconForAction = (actionType: string) => {
+    switch (actionType) {
+      case "event":
+        return Calendar;
+      case "session":
+        return Users;
+      case "task":
+        return Clock;
+      case "reminder":
+        return Gift;
+      default:
+        return Calendar;
+    }
   };
 
-  const handleOptionPress = (action: () => void) => {
+  const getColorForAction = (actionType: string) => {
+    switch (actionType) {
+      case "event":
+        return theme.colors.primary;
+      case "session":
+        return "#f093fb"; // Purple for sessions
+      case "task":
+        return theme.colors.textSecondary;
+      case "reminder":
+        return theme.colors.warning;
+      default:
+        return theme.colors.primary;
+    }
+  };
+
+  const handleActionPress = (actionType: string) => {
     setIsExpanded(false);
-    Animated.spring(animation, {
-      toValue: 0,
-      useNativeDriver: true,
-      tension: 100,
-      friction: 8,
-    }).start();
-    action();
+    onActionPress(actionType);
   };
+
+  // Convert Lucide icons to render props for Paper
+  const createIconRenderProp =
+    (IconComponent: React.ComponentType<any>, color: string) => {
+    const IconWrapper = ({ size }: { size: number }) => (
+      <View style={{ alignItems: "center", justifyContent: "center" }}>
+        <IconComponent size={size} color={color} />
+      </View>
+    );
+    IconWrapper.displayName = 'IconWrapper';
+    return IconWrapper;
+  };
+
+  const fabActions = actions.map((action) => {
+    const IconComponent = action.icon || getIconForAction(action.type);
+    const iconColor = action.color || getColorForAction(action.type);
+
+    return {
+      icon: createIconRenderProp(IconComponent, iconColor),
+      label: action.label,
+      onPress: () => handleActionPress(action.type),
+      style: {
+        backgroundColor: theme.colors.surface,
+      },
+    };
+  });
 
   const styles = StyleSheet.create({
-    container: {
-      position: "absolute",
-      bottom: 20,
-      right: 20,
-      alignItems: "center",
-    },
-    mainButton: {
-      width: 56,
-      height: 56,
-      borderRadius: 28,
+    fab: {
       backgroundColor: theme.colors.primary,
-      justifyContent: "center",
-      alignItems: "center",
-      shadowColor: "#000",
-      shadowOffset: {
-        width: 0,
-        height: 4,
-      },
-      shadowOpacity: 0.3,
-      shadowRadius: 8,
-      elevation: 8,
     },
-    optionsContainer: {
-      position: "absolute",
-      bottom: 70,
-      alignItems: "center",
-      gap: 12,
+    fabGroup: {
+      paddingBottom: 16,
+      paddingRight: 16,
     },
-    optionButton: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
-      backgroundColor: theme.colors.surface,
-      justifyContent: "center",
-      alignItems: "center",
-      shadowColor: "#000",
-      shadowOffset: {
-        width: 0,
-        height: 2,
-      },
-      shadowOpacity: 0.2,
-      shadowRadius: 4,
-      elevation: 4,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-    },
-    backdrop: {
-      position: "absolute",
-      top: -1000,
-      left: -1000,
-      right: -1000,
-      bottom: -1000,
-      backgroundColor: "transparent",
-    },
-  });
-
-  const optionTranslateY = animation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [20, 0],
-  });
-
-  const optionOpacity = animation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 1],
-  });
-
-  const mainButtonRotation = animation.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0deg", "45deg"],
   });
 
   return (
-    <View style={styles.container}>
-      {isExpanded && (
-        <TouchableOpacity
-          style={styles.backdrop}
-          onPress={toggleExpanded}
-          activeOpacity={1}
-        />
-      )}
-
-      <Animated.View
-        style={[
-          styles.optionsContainer,
-          {
-            opacity: optionOpacity,
-            transform: [{ translateY: optionTranslateY }],
+    <Portal>
+      <FAB.Group
+        open={isExpanded}
+        visible={true}
+        icon={createIconRenderProp(isExpanded ? X : Plus, "white")}
+        actions={fabActions}
+        onStateChange={({ open }) => setIsExpanded(open)}
+        onPress={() => {
+          if (isExpanded) {
+            // Do nothing, let the group handle closing
+          }
+        }}
+        style={styles.fabGroup}
+        fabStyle={styles.fab}
+        theme={{
+          colors: {
+            primary: theme.colors.primary,
+            surface: theme.colors.surface,
+            onSurface: theme.colors.text,
           },
-        ]}
-      >
-        <TouchableOpacity
-          style={styles.optionButton}
-          onPress={() => handleOptionPress(onEventPress)}
-        >
-          <Calendar color={theme.colors.primary} size={24} />
-        </TouchableOpacity>
-
-        {onTaskPress && (
-          <TouchableOpacity
-            style={styles.optionButton}
-            onPress={() => handleOptionPress(onTaskPress)}
-          >
-            <Clock color={theme.colors.textSecondary} size={24} />
-          </TouchableOpacity>
-        )}
-
-        {onReminderPress && (
-          <TouchableOpacity
-            style={styles.optionButton}
-            onPress={() => handleOptionPress(onReminderPress)}
-          >
-            <Gift color={theme.colors.textSecondary} size={24} />
-          </TouchableOpacity>
-        )}
-      </Animated.View>
-
-      <TouchableOpacity style={styles.mainButton} onPress={toggleExpanded}>
-        <Animated.View style={{ transform: [{ rotate: mainButtonRotation }] }}>
-          <Plus color="white" size={28} />
-        </Animated.View>
-      </TouchableOpacity>
-    </View>
+        }}
+      />
+    </Portal>
   );
 }
