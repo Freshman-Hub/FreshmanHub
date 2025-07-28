@@ -40,7 +40,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="coach-head/index"
         options={{
-          title: "Coaching",
+          title: "Coaches",
           tabBarIcon: ({ color, size }) => (
             <GraduationCap color={color} size={size} />
           ),
