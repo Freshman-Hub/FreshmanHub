@@ -1,36 +1,36 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useTheme } from "@/contexts/ThemeContext";
 import {
-  View,
+  Clock,
+  FileText,
+  Globe,
+  MapPin,
+  Palette,
+  Repeat,
+  Users,
+  X,
+} from "lucide-react-native";
+import { useEffect, useRef, useState } from "react";
+import {
+  Alert,
+  Modal as RNModal, // Add this import
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-  Switch,
-  Modal as RNModal, // Add this import
-  SafeAreaView,
-  Alert, // Add this import
+  View,
 } from "react-native";
-import {
-  X,
-  Clock,
-  MapPin,
-  Users,
-  Globe,
-  Repeat,
-  Palette,
-  FileText,
-} from "lucide-react-native";
-import { useTheme } from "@/contexts/ThemeContext";
 // Remove this import since we're using native Modal
 // import { Modal } from "@/components/ui/Modal";
-import { LocationInput } from "@/components/ui/LocationInput";
-import { CustomSelect } from "@/components/ui/CustomSelect";
 import { CategoryInput } from "@/components/ui/CategoryInput";
-import { PeoplePicker } from "@/components/ui/PeoplePicker";
+import { CustomSelect } from "@/components/ui/CustomSelect";
 import { DatePicker } from "@/components/ui/DatePicker";
+import { LocationInput } from "@/components/ui/LocationInput";
+import { PeoplePicker } from "@/components/ui/PeoplePicker";
 import { TimePickerModal } from "@/components/ui/TimePickerModal";
 import { Event } from "@/types/event.types";
 
@@ -43,6 +43,8 @@ interface CreateEventModalProps {
   initialEvent?: Event;
   isEditing?: boolean;
   loading?: boolean;
+  contentType?: "event" | "session"; // Add this
+  categoryOptions?: { label: string; value: string; color?: string }[]; // Add this
 }
 
 export function CreateEventModal({
@@ -54,6 +56,7 @@ export function CreateEventModal({
   initialEvent,
   isEditing = false,
   loading = false,
+  contentType = "event",
 }: CreateEventModalProps) {
   const { theme } = useTheme();
   const [title, setTitle] = useState("");
@@ -107,12 +110,30 @@ export function CreateEventModal({
         setEndTime(`${endHour}:${minutes}`);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, initialEvent, isEditing, initialDate, initialTime]);
 
   const handleTitleFocus = () => {
     if (!isExpanded) {
       setIsExpanded(true);
     }
+  };
+
+  const expandGroupsToUserIds = (selectedPeople: any[], allUsers: any[]) => {
+    const userIds: string[] = [];
+
+    selectedPeople.forEach((person) => {
+      if (person.type === "person") {
+        // Individual person
+        userIds.push(person.id);
+      } else if (person.type === "group" && person.userIds) {
+        // Group - add all user IDs from the group
+        userIds.push(...person.userIds);
+      }
+    });
+
+    // Remove duplicates
+    return [...new Set(userIds)];
   };
 
   const handleSave = () => {
@@ -138,6 +159,8 @@ export function CreateEventModal({
       return;
     }
 
+    const attendeeIds = expandGroupsToUserIds(selectedPeople, []);
+
     const event = {
       id: Date.now(),
       title: title.trim(),
@@ -151,6 +174,7 @@ export function CreateEventModal({
       color: selectedColor,
       repeat: repeatOption,
       attendees: selectedPeople,
+      attendeeIds,
       isRSVP: true,
     };
 
@@ -165,7 +189,8 @@ export function CreateEventModal({
     setAllDay(false);
     setLocation("");
     setDescription("");
-    setCategory("Event");
+    // Set default category based on what's available
+    setCategory(categories[0]?.value || "Event");
     setSelectedCalendar("My calendar");
     setRepeatOption("Does not repeat");
     setSelectedColor("#4285f4");
@@ -175,18 +200,28 @@ export function CreateEventModal({
     setStartTime("16:00");
     setEndTime("17:00");
   };
-
   const handleClose = () => {
     resetForm();
     onClose();
   };
 
-  const categories = [
-    { label: "Event", value: "Event", color: "#e3f2fd" },
-    { label: "Task", value: "Task", color: "#e8f5e8" },
-    { label: "Working location", value: "Working location", color: "#fff3e0" },
-    { label: "Out of office", value: "Out of office", color: "#ffebee" },
-  ];
+  const getCategories = () => {
+    if (contentType === "session") {
+      // For sessions screen - show Session and Task chips
+      return [
+        { label: "Session", value: "Session", color: "#e3f2fd" },
+        { label: "Task", value: "Task", color: "#e8f5e8" },
+      ];
+    } else {
+      // For events screen - show Event and Task chips
+      return [
+        { label: "Event", value: "Event", color: "#e3f2fd" },
+        { label: "Task", value: "Task", color: "#e8f5e8" },
+      ];
+    }
+  };
+
+  const categories = getCategories();
 
   const calendars = [
     { label: "My calendar", value: "My calendar", color: "#4285f4" },
@@ -197,15 +232,6 @@ export function CreateEventModal({
     { label: "Does not repeat", value: "Does not repeat" },
     { label: "Weekly", value: "Weekly" },
     { label: "Monthly", value: "Monthly" },
-  ];
-
-  const categoryOptions = [
-    { label: "Cultural", value: "Cultural", color: "#667eea" },
-    { label: "Academic", value: "Academic", color: "#f093fb" },
-    { label: "Sports", value: "Sports", color: "#4facfe" },
-    { label: "Social", value: "Social", color: "#26de81" },
-    { label: "Workshop", value: "Workshop", color: "#ff9800" },
-    { label: "Meeting", value: "Meeting", color: "#9c27b0" },
   ];
 
   const colors = [
@@ -443,7 +469,7 @@ export function CreateEventModal({
       fontSize: 14,
       color: "#666",
       marginBottom: 8,
-      fontWeight: "500"
+      fontWeight: "500",
     },
     timeButton: {
       backgroundColor: "#f8f9fa",
@@ -483,10 +509,10 @@ export function CreateEventModal({
       flexWrap: "wrap",
     },
     colorOption: {
-      width: 32,
-      height: 32,
+      width: 28,
+      height: 28,
       borderRadius: 16,
-      borderWidth: 2,
+      borderWidth: 1,
       borderColor: "transparent",
     },
     colorOptionSelected: {
@@ -575,7 +601,7 @@ export function CreateEventModal({
                   value={title}
                   onChangeText={setTitle}
                   onFocus={handleTitleFocus}
-                  placeholder="Add title"
+                  placeholder={`Add ${contentType} title`} // Dynamic placeholder
                   placeholderTextColor="#999"
                   autoFocus={true}
                 />
@@ -649,11 +675,12 @@ export function CreateEventModal({
                 style={styles.titleInput}
                 value={title}
                 onChangeText={setTitle}
-                placeholder="Add title"
+                placeholder={`Add ${contentType} title`} // Dynamic placeholder
                 placeholderTextColor="#999"
                 autoFocus={true}
               />
 
+              {/* Categories - now uses dynamic categories */}
               <View style={styles.categoryContainer}>
                 {categories.map((cat) => (
                   <TouchableOpacity
@@ -669,6 +696,7 @@ export function CreateEventModal({
                 ))}
               </View>
 
+              {/* Calendar - simplified, only show "My calendar" */}
               <View style={styles.calendarContainer}>
                 {calendars.map((cal) => (
                   <TouchableOpacity
@@ -691,6 +719,7 @@ export function CreateEventModal({
                 ))}
               </View>
 
+              {/* Rest of the form remains the same */}
               <View style={styles.sectionRow}>
                 <Clock color="#666" size={20} style={styles.sectionIcon} />
                 <View style={styles.sectionContent}>
@@ -715,7 +744,6 @@ export function CreateEventModal({
                     </View>
                   </View>
 
-                  {/* Time section */}
                   {!allDay && (
                     <View style={styles.timeSection}>
                       <View style={styles.timeRow}>
@@ -742,7 +770,6 @@ export function CreateEventModal({
                         </View>
                       </View>
 
-                      {/* Add validation message */}
                       <TimeValidationMessage />
                     </View>
                   )}
@@ -788,14 +815,82 @@ export function CreateEventModal({
                 </View>
               </View>
 
+              {/* Add CategoryInput here - for event/session categories */}
               <View style={styles.sectionRow}>
                 <FileText color="#666" size={20} style={styles.sectionIcon} />
                 <View style={styles.sectionContent}>
                   <CategoryInput
                     value={category}
                     onSelect={setCategory}
-                    placeholder="Select category"
-                    options={categoryOptions}
+                    options={
+                      contentType === "session"
+                        ? // Session categories
+                          [
+                            {
+                              label: "Advising Session",
+                              value: "Advising Session",
+                              color: "#667eea",
+                            },
+                            {
+                              label: "Coaching Session",
+                              value: "Coaching Session",
+                              color: "#f093fb",
+                            },
+                            {
+                              label: "Buddy Session",
+                              value: "Buddy Session",
+                              color: "#4facfe",
+                            },
+                            {
+                              label: "Group Session",
+                              value: "Group Session",
+                              color: "#26de81",
+                            },
+                            {
+                              label: "One-on-One",
+                              value: "One-on-One",
+                              color: "#ff9800",
+                            },
+                            {
+                              label: "Workshop",
+                              value: "Workshop",
+                              color: "#9c27b0",
+                            },
+                          ] // Event categories
+                        : [
+                            {
+                              label: "Cultural",
+                              value: "Cultural",
+                              color: "#667eea",
+                            },
+                            {
+                              label: "Academic",
+                              value: "Academic",
+                              color: "#f093fb",
+                            },
+                            {
+                              label: "Sports",
+                              value: "Sports",
+                              color: "#4facfe",
+                            },
+                            {
+                              label: "Social",
+                              value: "Social",
+                              color: "#26de81",
+                            },
+                            {
+                              label: "Workshop",
+                              value: "Workshop",
+                              color: "#ff9800",
+                            },
+                            {
+                              label: "Meeting",
+                              value: "Meeting",
+                              color: "#9c27b0",
+                            },
+                          ]
+                    }
+                    placeholder={`Select ${contentType} category`}
                   />
                 </View>
               </View>
@@ -837,7 +932,7 @@ export function CreateEventModal({
                     style={styles.descriptionInput}
                     value={description}
                     onChangeText={setDescription}
-                    placeholder="Add event description..."
+                    placeholder={`Add ${contentType} description...`} // Dynamic placeholder
                     placeholderTextColor="#999"
                     multiline={true}
                     numberOfLines={4}
