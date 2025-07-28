@@ -8,8 +8,15 @@ import {
   StyleSheet,
   type ViewStyle,
 } from "react-native";
-import { Search, Filter, Plus } from "lucide-react-native";
+import {
+  Search,
+  Filter,
+  Plus,
+  ArrowLeft,
+  MessageCircle,
+} from "lucide-react-native";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useRouter } from "expo-router";
 
 interface HeaderProps {
   title: string;
@@ -17,13 +24,16 @@ interface HeaderProps {
   rightIcon?: React.ComponentType<{ color: string; size: number }>;
   onLeftPress?: () => void;
   onRightPress?: () => void;
+  showBack?: boolean;
   showSearch?: boolean;
   onSearchPress?: () => void;
+  showMessage?: boolean; // Add showMessage prop
+  onMessagePress?: () => void; // Add onMessagePress method
   showFilter?: boolean;
   onFilterPress?: () => void;
   showCreate?: boolean;
   onCreatePress?: () => void;
-  createIconType?: "post" | "event"; // For future use to differentiate between create post and create event
+  createIconType?: "post" | "event";
   style?: ViewStyle;
 }
 
@@ -33,8 +43,11 @@ export function Header({
   rightIcon: RightIcon,
   onLeftPress,
   onRightPress,
+  showBack = false,
   showSearch = false,
   onSearchPress,
+  showMessage = false, // Default to false
+  onMessagePress,
   showFilter = false,
   onFilterPress,
   showCreate = false,
@@ -43,6 +56,11 @@ export function Header({
   style,
 }: HeaderProps) {
   const { theme } = useTheme();
+  const router = useRouter();
+
+  // If showBack is true and no custom leftIcon or onLeftPress is provided, use default back button
+  const shouldShowBackButton = showBack && !LeftIcon && !onLeftPress;
+  const shouldShowCustomLeftButton = LeftIcon && onLeftPress;
 
   const styles = StyleSheet.create({
     container: {
@@ -88,7 +106,18 @@ export function Header({
 
   return (
     <View style={[styles.container, style]}>
-      {LeftIcon && onLeftPress && (
+      {/* Show back button if showBack is true and no custom left button */}
+      {shouldShowBackButton && (
+        <TouchableOpacity
+          style={styles.leftButton}
+          onPress={() => router.back()}
+        >
+          <ArrowLeft color={theme.colors.text} size={24} />
+        </TouchableOpacity>
+      )}
+
+      {/* Show custom left button if provided */}
+      {shouldShowCustomLeftButton && (
         <TouchableOpacity style={styles.leftButton} onPress={onLeftPress}>
           <LeftIcon color={theme.colors.text} size={24} />
         </TouchableOpacity>
@@ -100,6 +129,15 @@ export function Header({
         {showSearch && onSearchPress && (
           <TouchableOpacity style={styles.actionButton} onPress={onSearchPress}>
             <Search color={theme.colors.textSecondary} size={22} />
+          </TouchableOpacity>
+        )}
+
+        {showMessage && onMessagePress && (
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={onMessagePress}
+          >
+            <MessageCircle color={theme.colors.textSecondary} size={22} />
           </TouchableOpacity>
         )}
 
