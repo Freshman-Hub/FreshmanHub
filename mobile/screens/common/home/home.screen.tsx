@@ -10,6 +10,9 @@ import { CommunityHighlights } from "@/components/home/CommunityHighlights";
 import { OrientationProgress } from "@/components/home/OrientationProgress";
 import { TodaySchedule } from "@/components/home/TodaySchedule";
 import { useTheme } from "@/contexts/ThemeContext";
+import { Header } from "@/components/ui/Header";
+import { Bell, Menu } from "lucide-react-native";
+import { router } from "expo-router";
 
 export default function HomeScreen() {
   const { theme } = useTheme();
@@ -38,6 +41,18 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+      <Header
+        title=""
+        leftIcon={Menu} // Add hamburger menu
+        onLeftPress={() => router.push("/(routes)/menu")} // Navigate to menu
+        rightIcon={Bell}
+        onRightPress={() => router.push("/notifications")}
+        // showSearch={false}
+        // onSearchPress={() => router.push("/(routes)/chat")}
+        showMessage={true}
+        onMessagePress={() => router.push("/(routes)/chat")}
+        style={{ backgroundColor: "transparent", borderBottomWidth: 0 }}
+      />
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
