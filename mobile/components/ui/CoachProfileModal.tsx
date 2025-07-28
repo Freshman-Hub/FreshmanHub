@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -26,8 +26,8 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useRouter } from "expo-router";
 
 // Import services
-import { UserService } from "@/services/user.service";
-import { EventsService } from "@/services/events.service";
+// import { UserService } from "@/services/user.service";
+// import { EventsService } from "@/services/events.service";
 
 // Import reusable components
 import { Avatar } from "@/components/ui/Avatar";
@@ -52,132 +52,50 @@ interface CoachProfileModalProps {
     phone?: string;
     department?: string;
     bio?: string;
+    country?: string; // Add country
+    yearGroup?: string; // Add yearGroup
+    // Add these new properties
+    detailedStats?: {
+      totalStudents: number;
+      successRate: number;
+      rating: number;
+      totalSessions: number;
+    };
+    assignedStudents?: any[];
+    recentSessions?: any[];
   } | null;
   userRole?: "head_of_coaches" | "peer_coach" | "advisor" | "student_leader";
 }
+
 
 export function CoachProfileModal({
   visible,
   onClose,
   coach,
-  userRole = "head_of_coaches",
+  // userRole = "head_of_coaches",
 }: CoachProfileModalProps) {
   const { theme } = useTheme();
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [coachStats, setCoachStats] = useState({
-    totalStudents: 0,
-    successRate: 94, // Mock for now
-    rating: 4.8, // Mock for now
-    totalSessions: 0,
-  });
-  const [assignedStudents, setAssignedStudents] = useState<any[]>([]);
-  const [recentSessions, setRecentSessions] = useState<any[]>([]);
+   const coachStats = coach?.detailedStats || {
+     totalStudents: 0,
+     successRate: 94,
+     rating: 4.8,
+     totalSessions: 0,
+   };
+  
+   const assignedStudents = coach?.assignedStudents || [];
+   const recentSessions = coach?.recentSessions || [];
 
-  // Load coach detailed data
-  const loadCoachDetails = useCallback(async () => {
-    if (!coach?.id) return;
-
-    try {
-      setLoading(true);
-
-      // Fetch all users to find assigned students
-      const { users, error: usersError } = await UserService.getAllUsers();
-      if (usersError) {
-        console.error("Error fetching users:", usersError);
-        return;
-      }
-
-      // Find students assigned to this coach
-      const students = users.filter(
-        (user) => user.role === "freshman" && user.assignedCoach === coach.id
-      );
-
-      // Fetch sessions by this coach
-      const { events: allSessions, error: sessionsError } =
-        await EventsService.getEvents(100, undefined, "sessions");
-
-      if (sessionsError) {
-        console.error("Error fetching sessions:", sessionsError);
-        return;
-      }
-
-      // Filter sessions created by this coach
-      const coachSessions = allSessions.filter(
-        (session) => session.userId === coach.id
-      );
-
-      // Get recent sessions (last 10)
-      const recentSessions = coachSessions
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-        .slice(0, 5)
-        .map((session) => ({
-          id: session.id,
-          title: session.title || "Coaching Session",
-          type: session.category || "Session",
-          date: session.date,
-          time: session.startTime || "Time TBD",
-          student:
-            session.attendees?.length > 0
-              ? "Group Session"
-              : "Individual Session",
-        }));
-
-      // Process assigned students data
-      const processedStudents = students.map((student) => {
-        // Calculate mock progress and GPA for now
-        const progress = Math.floor(Math.random() * 40) + 60; // 60-100%
-        const gpa = (Math.random() * 1.5 + 2.5).toFixed(1); // 2.5-4.0
-
-        return {
-          id: student.id,
-          name:
-            `${student.firstName || ""} ${student.lastName || ""}`.trim() ||
-            student.email?.split("@")[0] ||
-            "Unknown",
-          avatar: student.profileImage,
-          progress: progress,
-          status:
-            progress >= 80
-              ? "excellent"
-              : progress >= 65
-                ? "good"
-                : "needs-attention",
-          lastSession: "2 days ago", // Mock for now
-          gpa: parseFloat(gpa),
-          year: student.yearGroup || "Freshman",
-          major: student.major || "Undeclared",
-        };
-      });
-
-      setAssignedStudents(processedStudents);
-      setRecentSessions(recentSessions);
-      setCoachStats({
-        totalStudents: students.length,
-        successRate: 94, // Mock for now
-        rating: 4.8, // Mock for now
-        totalSessions: coachSessions.length,
-      });
-    } catch (error) {
-      console.error("Error loading coach details:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [coach?.id]);
-
-  // Load data when coach changes
-  useEffect(() => {
-    if (visible && coach) {
-      loadCoachDetails();
-    }
-  }, [visible, coach, loadCoachDetails]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await loadCoachDetails();
-    setRefreshing(false);
-  }, [loadCoachDetails]);
+    // If you need to refresh, you can call a refresh function passed from parent
+    // For now, just simulate refresh
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 1000);
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -202,19 +120,6 @@ export function CoachProfileModal({
         return theme.colors.warning;
       default:
         return theme.colors.textSecondary;
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "active":
-        return "Available";
-      case "busy":
-        return "In Session";
-      case "offline":
-        return "Offline";
-      default:
-        return "Unknown";
     }
   };
 
@@ -259,11 +164,68 @@ export function CoachProfileModal({
     profileAvatar: {
       marginBottom: theme.spacing.md,
     },
+    nameWithStatus: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: theme.spacing.xs,
+    },
+    statusDotSmall: {
+      width: 15,
+      height: 15,
+      borderRadius: 25,
+    },
     profileName: {
       ...theme.typography.h4,
       color: theme.colors.text,
       fontWeight: "700",
       marginBottom: theme.spacing.xs,
+    },
+    profileDetailsContainer: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      marginVertical: theme.spacing.lg,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      width: "100%",
+    },
+    profileDetailRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      paddingVertical: theme.spacing.sm,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border + "30",
+    },
+    profileDetailLabel: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      fontWeight: "600",
+      flex: 1,
+    },
+    profileDetailValue: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      fontWeight: "600",
+      flex: 2,
+      textAlign: "right",
+    },
+    studentCountry: {
+      ...theme.typography.captionSmall,
+      color: theme.colors.textSecondary,
+      fontWeight: "500",
+      marginTop: 2,
+    },
+    viewStudentButton: {
+      padding: theme.spacing.sm,
+      borderRadius: theme.borderRadius.md,
+      backgroundColor: theme.colors.primary + "10",
+    },
+    lastSessionText: {
+      ...theme.typography.captionSmall,
+      color: theme.colors.textSecondary,
+      fontWeight: "500",
+      marginTop: theme.spacing.xs,
     },
     profileDetails: {
       ...theme.typography.body,
@@ -353,6 +315,7 @@ export function CoachProfileModal({
     studentInfo: {
       flex: 1,
       marginLeft: theme.spacing.md,
+      marginRight: theme.spacing.sm,
     },
     studentName: {
       ...theme.typography.body,
@@ -364,14 +327,10 @@ export function CoachProfileModal({
       ...theme.typography.bodySmall,
       color: theme.colors.textSecondary,
       fontWeight: "500",
-    },
-    studentGPA: {
-      ...theme.typography.bodySmall,
-      fontWeight: "600",
-      marginTop: theme.spacing.xs,
+      marginTop: 2,
     },
     progressContainer: {
-      marginBottom: theme.spacing.sm,
+      marginTop: theme.spacing.md,
     },
     progressHeader: {
       flexDirection: "row",
@@ -454,58 +413,57 @@ export function CoachProfileModal({
     },
   });
 
-  const renderStudentItem = ({ item: student }: { item: any }) => {
-    const progressColor = getProgressColor(student.status);
-    const gpaColor =
-      student.gpa >= 3.5
-        ? theme.colors.success
-        : student.gpa >= 3.0
-          ? theme.colors.warning
-          : theme.colors.error;
+const renderStudentItem = ({ item: student }: { item: any }) => {
+  const progressColor = getProgressColor(student.status);
 
-    return (
-      <View style={styles.studentItem}>
-        <View style={styles.studentHeader}>
-          <Avatar
-            imageUrl={student.avatar}
-            initials={student.name.charAt(0)}
-            size={45}
-          />
-          <View style={styles.studentInfo}>
-            <Text style={styles.studentName}>{student.name}</Text>
-            <Text style={styles.studentDetails}>
-              {student.year} • {student.major}
-            </Text>
-            <Text style={[styles.studentGPA, { color: gpaColor }]}>
-              GPA: {student.gpa}
-            </Text>
-          </View>
-          <TouchableOpacity
-            onPress={() => console.log("View student profile:", student.id)}
-          >
-            <Eye color={theme.colors.primary} size={20} />
-          </TouchableOpacity>
+  return (
+    <View style={styles.studentItem}>
+      <View style={styles.studentHeader}>
+        <Avatar
+          imageUrl={student.avatar}
+          initials={student.name.charAt(0)}
+          size={50}
+        />
+        <View style={styles.studentInfo}>
+          <Text style={styles.studentName}>{student.name}</Text>
+          <Text style={styles.studentDetails}>
+            {student.year} • {student.major}
+          </Text>
+          {student.country && (
+            <Text style={styles.studentCountry}>📍 {student.country}</Text>
+          )}
         </View>
-        <View style={styles.progressContainer}>
-          <View style={styles.progressHeader}>
-            <Text style={styles.progressLabel}>Progress</Text>
-            <Text style={styles.progressValue}>{student.progress}%</Text>
-          </View>
-          <View style={styles.progressBar}>
-            <View
-              style={[
-                styles.progressFill,
-                {
-                  backgroundColor: progressColor,
-                  width: `${student.progress}%`,
-                },
-              ]}
-            />
-          </View>
-        </View>
+        <TouchableOpacity
+          style={styles.viewStudentButton}
+          onPress={() => console.log("View student profile:", student.id)}
+        >
+          <Eye color={theme.colors.primary} size={20} />
+        </TouchableOpacity>
       </View>
-    );
-  };
+      <View style={styles.progressContainer}>
+        <View style={styles.progressHeader}>
+          <Text style={styles.progressLabel}>Academic Progress</Text>
+          <Text style={styles.progressValue}>{student.progress}%</Text>
+        </View>
+        <View style={styles.progressBar}>
+          <View
+            style={[
+              styles.progressFill,
+              {
+                backgroundColor: progressColor,
+                width: `${student.progress}%`,
+              },
+            ]}
+          />
+        </View>
+        <Text style={styles.lastSessionText}>
+          Last session: {student.lastSession}
+        </Text>
+      </View>
+    </View>
+  );
+};
+
 
   const renderSessionItem = ({ item: session }: { item: any }) => {
     return (
@@ -543,167 +501,174 @@ export function CoachProfileModal({
             </TouchableOpacity>
           </View>
 
-          {loading ? (
-            <View style={styles.loadingContainer}>
-              <Text style={styles.loadingText}>Loading coach details...</Text>
-            </View>
-          ) : (
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.scrollContent}
-              refreshControl={
-                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-              }
-            >
-              {/* Profile Header */}
-              <View style={styles.profileHeader}>
-                <View style={styles.profileAvatar}>
-                  <Avatar
-                    imageUrl={coach.avatar}
-                    initials={coach.name.charAt(0)}
-                    size={80}
-                  />
-                </View>
-                <Text style={styles.profileName}>{coach.name}</Text>
-                <Text style={styles.profileDetails}>
-                  {coach.year} • {coach.major}
-                </Text>
+          {/* Remove loading state - data is already available */}
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+          >
+            {/* Profile Header */}
+            <View style={styles.profileHeader}>
+              <View style={styles.profileAvatar}>
+                <Avatar
+                  imageUrl={coach.avatar}
+                  initials={coach.name.charAt(0)}
+                  size={80}
+                />
+              </View>
+              {/* Coach name with status dot */}
+              <View style={styles.nameWithStatus}>
+                <Text style={styles.profileName}>{coach.name} { "  "}</Text>
                 <View
                   style={[
-                    styles.statusContainer,
-                    { backgroundColor: getStatusColor(coach.status) + "20" },
+                    styles.statusDotSmall,
+                    { backgroundColor: getStatusColor(coach.status) },
                   ]}
-                >
-                  <View
-                    style={[
-                      styles.statusDot,
-                      { backgroundColor: getStatusColor(coach.status) },
-                    ]}
-                  />
-                  <Text
-                    style={[
-                      styles.statusText,
-                      { color: getStatusColor(coach.status) },
-                    ]}
-                  >
-                    {getStatusText(coach.status)}
-                  </Text>
-                </View>
-                <View style={styles.ratingContainer}>
-                  <Star
-                    color={theme.colors.warning}
-                    size={20}
-                    fill={theme.colors.warning}
-                  />
-                  <Text style={styles.ratingText}>
-                    {coachStats.rating} Rating
-                  </Text>
-                </View>
-                <View style={styles.actionButtons}>
-                  <Button
-                    title="Assign Student"
-                    onPress={() => {
-                      onClose();
-                      router.push("(routes)/assign-freshman");
-                    }}
-                    icon={UserPlus}
-                    mode="contained"
-                    style={{ flex: 1 }}
-                  />
-                  <Button
-                    title="Message"
-                    onPress={() => console.log("Message coach:", coach.email)}
-                    icon={MessageCircle}
-                    mode="outlined"
-                    style={{ flex: 1 }}
-                  />
-                </View>
+                />
               </View>
 
-              {/* Performance Overview */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Performance Overview</Text>
-                <View style={styles.statsGrid}>
-                  <StatCard
-                    label="Total Students"
-                    value={coachStats.totalStudents.toString()}
-                    icon={Users}
-                    color={theme.colors.primary}
-                    style={{ flex: 1 }}
-                  />
-                  <StatCard
-                    label="Success Rate"
-                    value={`${coachStats.successRate}%`}
-                    icon={TrendingUp}
-                    color={theme.colors.success}
-                    style={{ flex: 1 }}
-                  />
-                  <StatCard
-                    label="Rating"
-                    value={coachStats.rating.toString()}
-                    icon={Star}
-                    color={theme.colors.warning}
-                    style={{ flex: 1 }}
-                  />
-                  <StatCard
-                    label="Sessions"
-                    value={coachStats.totalSessions.toString()}
-                    icon={Calendar}
-                    color={theme.colors.info}
-                    style={{ flex: 1 }}
-                  />
-                </View>
-              </View>
-
-              {/* About */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>About</Text>
-                <View style={styles.aboutCard}>
-                  <Text style={styles.aboutText}>
-                    {coach.bio || "No bio available for this coach."}
+              {/* Enhanced profile details with better formatting */}
+              <View style={styles.profileDetailsContainer}>
+                <View style={styles.profileDetailRow}>
+                  <Text style={styles.profileDetailLabel}>Class</Text>
+                  <Text style={styles.profileDetailValue}>
+                    {coach.yearGroup || coach.year || "N/A"}
                   </Text>
                 </View>
+
+                <View style={styles.profileDetailRow}>
+                  <Text style={styles.profileDetailLabel}>Major</Text>
+                  <Text style={styles.profileDetailValue}>
+                    {coach.major || "N/A"}
+                  </Text>
+                </View>
+
+                {coach.country && (
+                  <View style={styles.profileDetailRow}>
+                    <Text style={styles.profileDetailLabel}>Country</Text>
+                    <Text style={styles.profileDetailValue}>
+                      📍 {coach.country}
+                    </Text>
+                  </View>
+                )}
+
+                {/* {coach.department && (
+                  <View style={styles.profileDetailRow}>
+                    <Text style={styles.profileDetailLabel}>Department</Text>
+                    <Text style={styles.profileDetailValue}>
+                      {coach.department}
+                    </Text>
+                  </View>
+                )} */}
               </View>
 
-              {/* Assigned Students */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>
-                  Assigned Students ({assignedStudents.length})
+
+              <View style={styles.actionButtons}>
+                <Button
+                  title="Assign Student"
+                  onPress={() => {
+                    onClose();
+                    router.push("(routes)/assign-freshman");
+                  }}
+                  icon={UserPlus}
+                  mode="contained"
+                  style={{ flex: 1 }}
+                />
+                <Button
+                  title="Message"
+                  onPress={() => console.log("Message coach:", coach.email)}
+                  icon={MessageCircle}
+                  mode="outlined"
+                  style={{ flex: 1 }}
+                />
+              </View>
+            </View>
+
+            {/* Performance Overview */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Performance Overview</Text>
+              <View style={styles.statsGrid}>
+                <StatCard
+                  label="Total Students"
+                  value={coachStats.totalStudents.toString()}
+                  icon={Users}
+                  color={theme.colors.primary}
+                  style={{ flex: 1 }}
+                />
+                <StatCard
+                  label="Success Rate"
+                  value={`${coachStats.successRate}%`}
+                  icon={TrendingUp}
+                  color={theme.colors.success}
+                  style={{ flex: 1 }}
+                />
+                <StatCard
+                  label="Rating"
+                  value={coachStats.rating.toString()}
+                  icon={Star}
+                  color={theme.colors.warning}
+                  style={{ flex: 1 }}
+                />
+                <StatCard
+                  label="Sessions"
+                  value={coachStats.totalSessions.toString()}
+                  icon={Calendar}
+                  color={theme.colors.info}
+                  style={{ flex: 1 }}
+                />
+              </View>
+            </View>
+
+            {/* About */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>About</Text>
+              <View style={styles.aboutCard}>
+                <Text style={styles.aboutText}>
+                  {coach.bio || "No bio available for this coach."}
                 </Text>
-                {assignedStudents.length > 0 ? (
-                  <FlatList
-                    data={assignedStudents}
-                    renderItem={renderStudentItem}
-                    keyExtractor={(item) => item.id.toString()}
-                    scrollEnabled={false}
-                    showsVerticalScrollIndicator={false}
-                  />
-                ) : (
-                  <Text style={styles.emptyStateText}>
-                    No students assigned to this coach yet.
-                  </Text>
-                )}
               </View>
+            </View>
 
-              {/* Recent Sessions */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Recent Sessions</Text>
-                {recentSessions.length > 0 ? (
-                  <FlatList
-                    data={recentSessions}
-                    renderItem={renderSessionItem}
-                    keyExtractor={(item) => item.id.toString()}
-                    scrollEnabled={false}
-                    showsVerticalScrollIndicator={false}
-                  />
-                ) : (
-                  <Text style={styles.emptyStateText}>
-                    No recent sessions found.
-                  </Text>
-                )}
-              </View>
-            </ScrollView>
-          )}
+            {/* Assigned Students */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>
+                Assigned Students ({assignedStudents.length})
+              </Text>
+              {assignedStudents.length > 0 ? (
+                <FlatList
+                  data={assignedStudents}
+                  renderItem={renderStudentItem}
+                  keyExtractor={(item) => item.id.toString()}
+                  scrollEnabled={false}
+                  showsVerticalScrollIndicator={false}
+                />
+              ) : (
+                <Text style={styles.emptyStateText}>
+                  No students assigned to this coach yet.
+                </Text>
+              )}
+            </View>
+
+            {/* Recent Sessions */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Recent Sessions</Text>
+              {recentSessions.length > 0 ? (
+                <FlatList
+                  data={recentSessions}
+                  renderItem={renderSessionItem}
+                  keyExtractor={(item) => item.id.toString()}
+                  scrollEnabled={false}
+                  showsVerticalScrollIndicator={false}
+                />
+              ) : (
+                <Text style={styles.emptyStateText}>
+                  No recent sessions found.
+                </Text>
+              )}
+            </View>
+          </ScrollView>
         </View>
       </SafeAreaView>
     </RNModal>
