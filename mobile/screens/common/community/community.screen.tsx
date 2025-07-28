@@ -106,12 +106,12 @@ import { Loader } from "@/components/ui/Loader";
 //   },
 // ];
 
-const trendingTopics = [
-  { id: 5, name: "#FreshmanLife", posts: 234 },
-  { id: 6, name: "#StudyTips", posts: 189 },
-  { id: 7, name: "#CampusEvents", posts: 156 },
-  { id: 8, name: "#AshesiPride", posts: 142 },
-];
+// const trendingTopics = [
+//   { id: 5, name: "#FreshmanLife", posts: 234 },
+//   { id: 6, name: "#StudyTips", posts: 189 },
+//   { id: 7, name: "#CampusEvents", posts: 156 },
+//   { id: 8, name: "#AshesiPride", posts: 142 },
+// ];
 
 // const communityStats = [
 //   { label: "Active Members", value: "2.4K", icon: Users, color: "#3b82f6" },
