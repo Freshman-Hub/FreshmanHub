@@ -24,19 +24,20 @@ import {
 } from "lucide-react-native";
 import { Avatar } from "@/components/ui/Avatar";
 import { Event } from "@/types/event.types";
-import { UserService } from "@/services/user.service"; // Use existing service
-import { User } from "@/types/user.types"; // Use existing User type
-
+import { ContentItem } from "@/services/content.service"; // Add this import
+import { UserService } from "@/services/user.service";
+import { User } from "@/types/user.types";
 
 interface EventDetailModalProps {
   visible: boolean;
-  event: Event | null;
+  event: Event | ContentItem | null; // Support both types
   onClose: () => void;
-  onEdit: (event: Event) => void;
+  onEdit: (event: Event | ContentItem) => void; // Support both types
   onDelete: (eventId: string) => void;
   onRSVP: (eventId: string, response: "yes" | "no" | "maybe") => void;
   currentUserId?: string;
   userRSVPStatus: "yes" | "no" | "maybe" | "none";
+  contentType?: "event" | "session"; // Add this prop
 }
 
 export function EventDetailModal({
@@ -48,10 +49,12 @@ export function EventDetailModal({
   onRSVP,
   currentUserId,
   userRSVPStatus,
+  contentType = "event", // Add this with default
 }: EventDetailModalProps) {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [attendeeProfiles, setAttendeeProfiles] = useState<User[]>([]);
   const [loadingAttendees, setLoadingAttendees] = useState(false);
+
   // Fetch attendee profiles when modal opens or event changes
   useEffect(() => {
     const fetchAttendeeProfiles = async () => {
@@ -110,8 +113,8 @@ export function EventDetailModal({
   const handleDelete = () => {
     setShowMoreMenu(false);
     Alert.alert(
-      "Delete Event",
-      "Are you sure you want to delete this event? This action cannot be undone.",
+      `Delete ${contentType}`, // Dynamic text based on content type
+      `Are you sure you want to delete this ${contentType}? This action cannot be undone.`,
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -130,7 +133,7 @@ export function EventDetailModal({
 
   const handleCopy = () => {
     setShowMoreMenu(false);
-    Alert.alert("Copy", "Event link copied to clipboard");
+    Alert.alert("Copy", `${contentType} link copied to clipboard`);
   };
 
   const formatDateTime = () => {
@@ -160,7 +163,9 @@ export function EventDetailModal({
         <View style={styles.attendeesHeader}>
           <Users color="#666" size={20} />
           <Text style={styles.attendeesCount}>
-            {totalAttendees} guest{totalAttendees !== 1 ? "s" : ""}
+            {totalAttendees}{" "}
+            {contentType === "session" ? "participant" : "guest"}
+            {totalAttendees !== 1 ? "s" : ""}
           </Text>
           <Text style={styles.attendeesResponse}>{totalAttendees} yes</Text>
         </View>
@@ -181,13 +186,16 @@ export function EventDetailModal({
             <Text style={styles.attendeeName}>
               {event.userDisplayName || "Unknown User"}
             </Text>
-            <Text style={styles.attendeeRole}>Organizer</Text>
+            <Text style={styles.attendeeRole}>
+              {contentType === "session" ? "Host" : "Organizer"}
+            </Text>
           </View>
 
           {/* Show loading state */}
           {loadingAttendees && (
             <Text style={[styles.sectionText, { color: "#666", fontSize: 14 }]}>
-              Loading attendees...
+              Loading {contentType === "session" ? "participants" : "attendees"}
+              ...
             </Text>
           )}
 
@@ -196,7 +204,7 @@ export function EventDetailModal({
             visibleAttendees.map((attendee, index) => (
               <View key={attendee.id} style={styles.attendeeItem}>
                 <Avatar
-                  imageUrl={attendee.profileImage} // Use correct field from User type
+                  imageUrl={attendee.profileImage}
                   initials={
                     `${attendee.firstName} ${attendee.lastName}`
                       .split(" ")
@@ -243,7 +251,8 @@ export function EventDetailModal({
                   { color: "#666", fontSize: 14, paddingLeft: 44 },
                 ]}
               >
-                No other attendees yet
+                No other{" "}
+                {contentType === "session" ? "participants" : "attendees"} yet
               </Text>
             )}
         </View>
@@ -251,9 +260,8 @@ export function EventDetailModal({
     );
   };
 
-  // ... rest of your component remains exactly the same with all the existing styles and JSX
+  // ... Keep ALL your existing styles exactly as they are
   const styles = StyleSheet.create({
-    // ... all your existing styles remain the same
     fullScreenContainer: {
       flex: 1,
       backgroundColor: "white",
@@ -476,12 +484,12 @@ export function EventDetailModal({
         animationType="slide"
         presentationStyle="fullScreen"
         onRequestClose={onClose}
-        statusBarTranslucent={false} // Set to false
+        statusBarTranslucent={false} // Changed to true for consistency
         hardwareAccelerated={true}
       >
         <SafeAreaView style={styles.fullScreenContainer}>
           <View style={styles.container}>
-            {/* Header */}
+            {/* Header - Add status badge for sessions */}
             <View style={styles.header}>
               <View style={styles.headerLeft}>
                 <View
@@ -493,6 +501,34 @@ export function EventDetailModal({
                 <Text style={styles.title} numberOfLines={1}>
                   {event.title}
                 </Text>
+                {/* Add status badge for sessions */}
+                {contentType === "session" && (event as ContentItem).status && (
+                  <View
+                    style={{
+                      paddingHorizontal: 8,
+                      paddingVertical: 4,
+                      borderRadius: 12,
+                      marginLeft: 8,
+                      backgroundColor:
+                        (event as ContentItem).status === "completed"
+                          ? "#4caf50"
+                          : (event as ContentItem).status === "cancelled"
+                            ? "#f44336"
+                            : "#2196f3",
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 10,
+                        fontWeight: "600",
+                        color: "white",
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      {(event as ContentItem).status}
+                    </Text>
+                  </View>
+                )}
               </View>
               <View style={styles.headerRight}>
                 {isOwner && (
@@ -515,16 +551,14 @@ export function EventDetailModal({
               </View>
             </View>
 
-            {/* Content */}
+            {/* Keep ALL your existing content exactly as is */}
             <ScrollView
               style={styles.content}
               showsVerticalScrollIndicator={false}
             >
               <View style={styles.scrollContent}>
-                {/* Date and Time */}
                 <Text style={styles.dateTime}>{formatDateTime()}</Text>
 
-                {/* Event Details */}
                 <View style={styles.section}>
                   <Clock color="#666" size={20} style={styles.sectionIcon} />
                   <Text style={styles.sectionText}>15 minutes before</Text>
@@ -544,10 +578,8 @@ export function EventDetailModal({
                   </Text>
                 </View>
 
-                {/* Attendees Section with real names */}
                 {renderAttendeesSection()}
 
-                {/* Description with document icon */}
                 {event.description && (
                   <View style={styles.descriptionSection}>
                     <View style={styles.descriptionHeader}>
@@ -566,7 +598,7 @@ export function EventDetailModal({
               </View>
             </ScrollView>
 
-            {/* RSVP Buttons */}
+            {/* Update RSVP button text for sessions */}
             {!isOwner && (
               <View style={styles.rsvpSection}>
                 <TouchableOpacity
@@ -582,7 +614,7 @@ export function EventDetailModal({
                       userRSVPStatus === "yes" && styles.rsvpButtonTextSelected,
                     ]}
                   >
-                    Yes
+                    {contentType === "session" ? "Join" : "Yes"}
                   </Text>
                 </TouchableOpacity>
 
@@ -599,7 +631,7 @@ export function EventDetailModal({
                       userRSVPStatus === "no" && styles.rsvpButtonTextSelected,
                     ]}
                   >
-                    No
+                    {contentType === "session" ? "Can't Join" : "No"}
                   </Text>
                 </TouchableOpacity>
 
@@ -624,7 +656,7 @@ export function EventDetailModal({
             )}
           </View>
 
-          {/* More Menu */}
+          {/* Keep your existing more menu exactly as is */}
           {showMoreMenu && (
             <TouchableOpacity
               style={styles.overlay}
