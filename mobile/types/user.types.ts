@@ -22,6 +22,7 @@ export interface User {
   firstName: string;
   lastName: string;
   email: string;
+  bio?: string;
   role: UserRole;
   studentId?: string;
   yearGroup?: string;
