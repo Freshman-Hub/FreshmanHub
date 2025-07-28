@@ -6,6 +6,8 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import "react-native-reanimated";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Provider as PaperProvider } from 'react-native-paper'; // Add this import
+
 
 function LayoutContent() {
   const { isAuthenticated, loading, user } = useUser();
@@ -48,14 +50,14 @@ function LayoutContent() {
           case "sle":
             router.replace("/(head-coach)");
             break;
-          case "peer_coach":
           case "peer_advisor":
           case "buddy":
-            router.replace("/(head-coach)");
+            router.replace("/(student-tabs)");
             break;
           case "freshman":
             router.replace("/(student-tabs)");
             break;
+          case "peer_coach": // TODO: will fix this later
           case "continuous":
             router.replace("/(student-tabs)");
             break;
@@ -114,10 +116,12 @@ export default function RootLayout() {
   if (!loaded) return null;
 
   return (
+    <PaperProvider>
     <UserProvider>
       <ThemeProvider>
         <LayoutContent />
       </ThemeProvider>
     </UserProvider>
+    </PaperProvider>
   );
 }
