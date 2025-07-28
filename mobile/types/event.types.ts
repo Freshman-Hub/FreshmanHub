@@ -10,7 +10,7 @@ export interface Event {
   category: string;
   color: string;
   repeat: string;
-
+  status?: "upcoming" | "ongoing" | "completed" | "cancelled";
   // Creator info
   userId: string;
   userDisplayName: string;
@@ -20,6 +20,7 @@ export interface Event {
   // Event stats
   attendees: string[]; // Array of user IDs
   attendeeCount: number;
+  invitedUsers: string[]; // Remove invitees, keep only this
 
   // RSVP responses
   rsvpYes: string[];
@@ -52,5 +53,6 @@ export interface CreateEventData {
   color: string;
   repeat: string;
   isPublic: boolean;
-  invitedUsers?: string[];
+  invitedUsers: string[];
+  status?: "upcoming" | "ongoing" | "completed" | "cancelled";
 }
