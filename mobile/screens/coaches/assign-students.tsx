@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -19,9 +19,14 @@ import {
   UserCheck,
   Zap,
   Shuffle,
+  ArrowLeft,
 } from "lucide-react-native";
 import { useTheme } from "@/contexts/ThemeContext";
-import { useRouter } from "expo-router";
+import { router } from "expo-router";
+import { useUser } from "@/contexts/UserContext";
+
+// Import services
+import { UserService } from "@/services/user.service";
 
 // Import reusable components
 import { Header } from "@/components/ui/Header";
@@ -32,190 +37,135 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { CoachPicker } from "@/components/ui/CoachPicker";
 
-// Mock data for freshmen
-const freshmenData = [
-  {
-    id: 1,
-    name: "Emily Chen",
-    email: "emily.chen@student.edu",
-    avatar:
-      "https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=400",
-    major: "Computer Science",
-    country: "Canada",
-    assignedCoach: null,
-    joinDate: "2025-07-01",
-    gpa: 3.4,
-    needsSupport: ["Academic", "Time Management"],
-  },
-  {
-    id: 2,
-    name: "Marcus Johnson",
-    email: "marcus.johnson@student.edu",
-    avatar:
-      "https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=400",
-    major: "Engineering",
-    country: "USA",
-    assignedCoach: "Sarah Johnson",
-    joinDate: "2025-07-02",
-    gpa: 2.8,
-    needsSupport: ["Study Skills", "Career"],
-  },
-  {
-    id: 3,
-    name: "Sophia Martinez",
-    email: "sophia.martinez@student.edu",
-    avatar:
-      "https://images.pexels.com/photos/1181686/pexels-photo-1181686.jpeg?auto=compress&cs=tinysrgb&w=400",
-    major: "Psychology",
-    country: "Mexico",
-    assignedCoach: null,
-    joinDate: "2025-07-01",
-    gpa: 3.7,
-    needsSupport: ["Personal Development"],
-  },
-  {
-    id: 4,
-    name: "David Kim",
-    email: "david.kim@student.edu",
-    avatar:
-      "https://images.pexels.com/photos/1043471/pexels-photo-1043471.jpeg?auto=compress&cs=tinysrgb&w=400",
-    major: "Business",
-    country: "South Korea",
-    assignedCoach: "David Wilson",
-    joinDate: "2025-07-02",
-    gpa: 3.5,
-    needsSupport: ["Academic", "Wellness"],
-  },
-  {
-    id: 5,
-    name: "Isabella Rodriguez",
-    email: "isabella.rodriguez@student.edu",
-    avatar:
-      "https://images.pexels.com/photos/1181424/pexels-photo-1181424.jpeg?auto=compress&cs=tinysrgb&w=400",
-    major: "Biology",
-    country: "Spain",
-    assignedCoach: null,
-    joinDate: "2025-07-01",
-    gpa: 3.2,
-    needsSupport: ["Academic Support"],
-  },
-  {
-    id: 6,
-    name: "Ahmed Hassan",
-    email: "ahmed.hassan@student.edu",
-    avatar:
-      "https://images.pexels.com/photos/1043471/pexels-photo-1043471.jpeg?auto=compress&cs=tinysrgb&w=400",
-    major: "Mathematics",
-    country: "Egypt",
-    assignedCoach: "Lisa Thompson",
-    joinDate: "2025-07-01",
-    gpa: 3.9,
-    needsSupport: ["Career Guidance"],
-  },
-  {
-    id: 7,
-    name: "Priya Patel",
-    email: "priya.patel@student.edu",
-    avatar:
-      "https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=400",
-    major: "Computer Science",
-    country: "India",
-    assignedCoach: null,
-    joinDate: "2025-07-03",
-    gpa: 3.1,
-    needsSupport: ["Academic", "Social"],
-  },
-  {
-    id: 8,
-    name: "Jean-Luc Dubois",
-    email: "jean.dubois@student.edu",
-    avatar:
-      "https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=400",
-    major: "Art History",
-    country: "France",
-    assignedCoach: null,
-    joinDate: "2025-07-03",
-    gpa: 3.6,
-    needsSupport: ["Creative Development"],
-  },
-];
+const filterOptions = ["All", "Unassigned", "Assigned"];
 
-// Mock available coaches with enhanced data
-const availableCoaches = [
-  {
-    id: 1,
-    name: "Sarah Johnson",
-    capacity: 8,
-    currentStudents: 5,
-    avatar:
-      "https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=400",
-    rating: 4.9,
-    specialties: ["Academic Support", "Tech Career", "Time Management"],
-  },
-  {
-    id: 2,
-    name: "David Wilson",
-    capacity: 10,
-    currentStudents: 4,
-    avatar:
-      "https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=400",
-    rating: 4.7,
-    specialties: ["Psychology", "Wellness", "Study Skills"],
-  },
-  {
-    id: 3,
-    name: "Lisa Thompson",
-    capacity: 6,
-    currentStudents: 3,
-    avatar:
-      "https://images.pexels.com/photos/1181686/pexels-photo-1181686.jpeg?auto=compress&cs=tinysrgb&w=400",
-    rating: 4.8,
-    specialties: ["Business", "Leadership", "Career Guidance"],
-  },
-  {
-    id: 4,
-    name: "Alex Kim",
-    capacity: 12,
-    currentStudents: 2,
-    avatar:
-      "https://images.pexels.com/photos/1043471/pexels-photo-1043471.jpeg?auto=compress&cs=tinysrgb&w=400",
-    rating: 4.6,
-    specialties: ["Engineering", "Problem Solving", "Academic"],
-  },
-  {
-    id: 5,
-    name: "Maria Garcia",
-    capacity: 8,
-    currentStudents: 6,
-    avatar:
-      "https://images.pexels.com/photos/1181424/pexels-photo-1181424.jpeg?auto=compress&cs=tinysrgb&w=400",
-    rating: 4.9,
-    specialties: ["Education", "Personal Development", "Social Skills"],
-  },
-];
+// TODO: Coach capacity might change - currently set to 15
+const COACH_MAX_CAPACITY = 15;
 
-const filterOptions = ["All", "Unassigned", "Assigned", "High Priority"];
 
 export default function AssignFreshmanScreen() {
   const { theme } = useTheme();
-  const router = useRouter();
+  // const router = useRouter();
+  const { user } = useUser();
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchMode, setIsSearchMode] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
   const [activeFilter, setActiveFilter] = useState("All");
-  const [freshmen, setFreshmen] = useState(freshmenData);
-  const [selectedFreshmen, setSelectedFreshmen] = useState<number[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Real data from backend
+  const [freshmen, setFreshmen] = useState<any[]>([]);
+  const [coaches, setCoaches] = useState<any[]>([]);
+  const [selectedFreshmen, setSelectedFreshmen] = useState<string[]>([]);
   const [showCoachPicker, setShowCoachPicker] = useState(false);
   const [assignmentType, setAssignmentType] = useState<"bulk" | "single">(
     "bulk"
   );
   const [currentFreshman, setCurrentFreshman] = useState<any>(null);
 
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 2000);
+  // Load data from backend
+  const loadAssignmentData = useCallback(async () => {
+    try {
+      setLoading(true);
+
+      // Fetch all users
+      const { users, error: usersError } = await UserService.getAllUsers();
+      if (usersError) {
+        console.error("Error fetching users:", usersError);
+        Alert.alert("Error", "Failed to load users. Please try again.");
+        return;
+      }
+
+      // Process freshmen
+      const freshmenData = users
+        .filter((u) => u.role === "freshman")
+        .map((freshman) => {
+          // Find assigned coach name
+          const assignedCoach = users.find(
+            (coach) => coach.id === freshman.assignedCoach
+          );
+
+          return {
+            id: freshman.id,
+            name:
+              `${freshman.firstName || ""} ${freshman.lastName || ""}`.trim() ||
+              freshman.email?.split("@")[0] ||
+              "Unknown",
+            email: freshman.email,
+            avatar: freshman.profileImage,
+            major: freshman.major || "Undeclared",
+            country: freshman.country || "Unknown",
+            assignedCoach: assignedCoach
+              ? `${assignedCoach.firstName} ${assignedCoach.lastName}`.trim()
+              : null,
+            assignedCoachId: freshman.assignedCoach || null,
+            joinDate:
+              freshman.createdAt?.toDate()?.toISOString().split("T")[0] ||
+              "2025-07-01",
+            yearGroup: freshman.yearGroup || "Freshman",
+            gender: freshman.gender || "Unknown",
+            phoneNumber: freshman.phoneNumber,
+            studentId: freshman.studentId,
+            // Mock GPA and needs support for now - can be added to user schema later
+            gpa: Math.random() * 1.5 + 2.5, // 2.5-4.0
+            needsSupport: ["Academic", "Time Management"], // Mock data for now
+          };
+        });
+
+      // Process coaches with capacity tracking
+      const coachesData = users
+        .filter((u) => u.role === "peer_coach" && u.isActive)
+        .map((coach) => {
+          // Count assigned students
+          const assignedStudents = users.filter(
+            (student) =>
+              student.role === "freshman" && student.assignedCoach === coach.id
+          );
+
+          return {
+            id: coach.id,
+            name:
+              `${coach.firstName || ""} ${coach.lastName || ""}`.trim() ||
+              coach.email?.split("@")[0] ||
+              "Unknown",
+            capacity: COACH_MAX_CAPACITY,
+            currentStudents: assignedStudents.length,
+            avatar: coach.profileImage,
+            email: coach.email,
+            year: coach.yearGroup || "N/A",
+            major: coach.major || "N/A",
+            department: coach.department,
+            // Mock rating and specialties for now
+            rating: Math.random() * 0.5 + 4.5, // 4.5-5.0
+            specialties: [
+              "Academic Support",
+              "Career Guidance",
+              "Personal Development",
+            ], // Mock
+          };
+        });
+
+      setFreshmen(freshmenData);
+      setCoaches(coachesData);
+    } catch (error) {
+      console.error("Error loading assignment data:", error);
+      Alert.alert("Error", "Failed to load data. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  // Load data on component mount
+  useEffect(() => {
+    loadAssignmentData();
+  }, [loadAssignmentData]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadAssignmentData();
+    setRefreshing(false);
+  }, [loadAssignmentData]);
 
   const handleSearchPress = () => {
     setIsSearchMode(true);
@@ -240,18 +190,17 @@ export default function AssignFreshmanScreen() {
       searchQuery === "" ||
       freshman.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       freshman.major.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      freshman.country.toLowerCase().includes(searchQuery.toLowerCase());
+      freshman.country.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      freshman.email.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesFilter = (() => {
       switch (activeFilter) {
         case "All":
           return true;
         case "Unassigned":
-          return !freshman.assignedCoach;
+          return !freshman.assignedCoachId;
         case "Assigned":
-          return !!freshman.assignedCoach;
-        case "High Priority":
-          return freshman.gpa < 3.0;
+          return !!freshman.assignedCoachId;
         default:
           return true;
       }
@@ -260,7 +209,7 @@ export default function AssignFreshmanScreen() {
     return matchesSearch && matchesFilter;
   });
 
-  const handleFreshmanSelect = (freshmanId: number) => {
+  const handleFreshmanSelect = (freshmanId: string) => {
     setSelectedFreshmen((prev) => {
       if (prev.includes(freshmanId)) {
         return prev.filter((id) => id !== freshmanId);
@@ -288,71 +237,139 @@ export default function AssignFreshmanScreen() {
     setShowCoachPicker(true);
   };
 
-  const handleCoachSelect = (coach: any) => {
-    if (assignmentType === "bulk") {
-      // Bulk assignment
-      const updatedFreshmen = freshmen.map((freshman) => {
-        if (selectedFreshmen.includes(freshman.id)) {
-          return { ...freshman, assignedCoach: coach.name };
+  const handleCoachSelect = async (coach: any) => {
+    try {
+      if (assignmentType === "bulk") {
+        // Check if coach has capacity for all selected students
+        const availableSlots = coach.capacity - coach.currentStudents;
+        if (selectedFreshmen.length > availableSlots) {
+          Alert.alert(
+            "Insufficient Capacity",
+            `${coach.name} only has ${availableSlots} available slots, but you selected ${selectedFreshmen.length} students.`
+          );
+          return;
         }
-        return freshman;
-      });
-      setFreshmen(updatedFreshmen);
-      setSelectedFreshmen([]);
-      Alert.alert(
-        "Assignment Successful! 🎉",
-        `${selectedFreshmen.length} student${selectedFreshmen.length > 1 ? "s" : ""} assigned to ${coach.name}`
-      );
-    } else {
-      // Single assignment
-      const updatedFreshmen = freshmen.map((f) =>
-        f.id === currentFreshman.id ? { ...f, assignedCoach: coach.name } : f
-      );
-      setFreshmen(updatedFreshmen);
-      Alert.alert(
-        "Assignment Successful! 🎉",
-        `${currentFreshman.name} has been assigned to ${coach.name}`
-      );
+
+        // Bulk assignment
+        let successCount = 0;
+        let errorCount = 0;
+
+        for (const freshmanId of selectedFreshmen) {
+          const { error } = await UserService.updateUser(
+            freshmanId,
+            { assignedCoach: coach.id },
+            user?.id || ""
+          );
+
+          if (error) {
+            errorCount++;
+            console.error(`Error assigning student ${freshmanId}:`, error);
+          } else {
+            successCount++;
+          }
+        }
+
+        // Update local state
+        const updatedFreshmen = freshmen.map((freshman: any) => {
+          if (selectedFreshmen.includes(freshman.id)) {
+            return {
+              ...freshman,
+              assignedCoach: coach.name,
+              assignedCoachId: coach.id,
+            };
+          }
+          return freshman;
+        });
+        setFreshmen(updatedFreshmen);
+        setSelectedFreshmen([]);
+
+        if (errorCount === 0) {
+          Alert.alert(
+            "Assignment Successful! 🎉",
+            `${successCount} student${successCount > 1 ? "s" : ""} assigned to ${coach.name}`
+          );
+        } else {
+          Alert.alert(
+            "Partial Success",
+            `${successCount} students assigned successfully. ${errorCount} assignments failed.`
+          );
+        }
+      } else {
+        // Single assignment - check capacity
+        if (coach.currentStudents >= coach.capacity) {
+          Alert.alert(
+            "Coach at Capacity",
+            `${coach.name} already has ${coach.capacity} students assigned.`
+          );
+          return;
+        }
+
+        // Single assignment
+        const { error } = await UserService.updateUser(
+          currentFreshman.id,
+          { assignedCoach: coach.id },
+          user?.id || ""
+        );
+
+        if (error) {
+          Alert.alert("Error", "Failed to assign student. Please try again.");
+          console.error("Assignment error:", error);
+          return;
+        }
+
+        // Update local state
+        const updatedFreshmen = freshmen.map((f) =>
+          f.id === currentFreshman.id
+            ? { ...f, assignedCoach: coach.name, assignedCoachId: coach.id }
+            : f
+        );
+        setFreshmen(updatedFreshmen);
+
+        Alert.alert(
+          "Assignment Successful! 🎉",
+          `${currentFreshman.name} has been assigned to ${coach.name}`
+        );
+      }
+
+      // Refresh data to get updated counts
+      await loadAssignmentData();
+    } catch (error) {
+      console.error("Assignment error:", error);
+      Alert.alert("Error", "Failed to assign student(s). Please try again.");
     }
+
     setShowCoachPicker(false);
     setCurrentFreshman(null);
   };
 
   const handleAutoAssign = () => {
+    // TODO: Implement smart auto-assignment algorithm
+    console.log("Auto Assignment requested");
     Alert.alert(
       "Auto Assignment",
-      "Automatically assign unassigned students based on their needs and coach specialties?",
+      "Automatically assign unassigned students based on coach capacity and availability?",
       [
         { text: "Cancel", style: "cancel" },
         {
           text: "Assign",
           onPress: () => {
-            // Auto-assign logic here
-            const unassignedFreshmen = freshmen.filter((f) => !f.assignedCoach);
-            let assignmentCount = 0;
-
-            const updatedFreshmen = freshmen.map((freshman) => {
-              if (
-                !freshman.assignedCoach &&
-                assignmentCount < unassignedFreshmen.length
-              ) {
-                // Simple round-robin assignment
-                const coachIndex = assignmentCount % availableCoaches.length;
-                const selectedCoach = availableCoaches[coachIndex];
-                assignmentCount++;
-                return { ...freshman, assignedCoach: selectedCoach.name };
-              }
-              return freshman;
-            });
-
-            setFreshmen(updatedFreshmen);
+            console.log("Auto assignment logic would run here");
             Alert.alert(
-              "Auto Assignment Complete! 🎉",
-              `${assignmentCount} students have been automatically assigned.`
+              "Feature Coming Soon",
+              "Auto assignment will be implemented in a future update."
             );
           },
         },
       ]
+    );
+  };
+
+  const handleSmartMatch = () => {
+    // TODO: Implement AI-powered smart matching
+    console.log("Smart Match requested");
+    Alert.alert(
+      "Smart Match",
+      "This feature will use AI to match students with coaches based on compatibility, needs, and specialties."
     );
   };
 
@@ -362,12 +379,9 @@ export default function AssignFreshmanScreen() {
 
   const getStats = () => {
     const total = freshmen.length;
-    const assigned = freshmen.filter((f) => f.assignedCoach).length;
+    const assigned = freshmen.filter((f) => f.assignedCoachId).length;
     const unassigned = total - assigned;
-    const highPriority = freshmen.filter(
-      (f) => f.gpa < 3.0 && !f.assignedCoach
-    ).length;
-    return { total, assigned, unassigned, highPriority };
+    return { total, assigned, unassigned };
   };
 
   const getGPAColor = (gpa: number) => {
@@ -375,6 +389,12 @@ export default function AssignFreshmanScreen() {
     if (gpa >= 3.0) return theme.colors.warning;
     return theme.colors.error;
   };
+
+  // Filter coaches to show only those with available capacity
+  const availableCoaches = coaches.map((coach) => ({
+    ...coach,
+    availableSlots: coach.capacity - coach.currentStudents,
+  }));
 
   const stats = getStats();
 
@@ -446,7 +466,7 @@ export default function AssignFreshmanScreen() {
     filterRow: {
       flexDirection: "row",
       gap: theme.spacing.sm,
-      marginBottom: theme.spacing.md,
+      marginBottom: theme.spacing.sm,
     },
     selectionControls: {
       flexDirection: "row",
@@ -456,7 +476,6 @@ export default function AssignFreshmanScreen() {
       paddingHorizontal: theme.spacing.md,
       backgroundColor: theme.colors.primary + "10",
       borderRadius: theme.borderRadius.lg,
-      marginBottom: theme.spacing.md,
     },
     selectionText: {
       ...theme.typography.body,
@@ -569,6 +588,7 @@ export default function AssignFreshmanScreen() {
       color: theme.colors.textSecondary,
       textAlign: "center",
       marginTop: theme.spacing.md,
+      fontWeight:"500"
     },
     searchResultsContainer: {
       paddingHorizontal: theme.spacing.md,
@@ -583,6 +603,19 @@ export default function AssignFreshmanScreen() {
       color: theme.colors.textSecondary,
       textAlign: "center",
       fontStyle: "italic",
+      fontWeight: "500",
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      paddingVertical: theme.spacing.xl,
+    },
+    loadingText: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      marginTop: theme.spacing.md,
+      fontWeight: "500",
     },
   });
 
@@ -609,7 +642,7 @@ export default function AssignFreshmanScreen() {
                 <Text
                   style={[styles.gpaText, { color: getGPAColor(freshman.gpa) }]}
                 >
-                  GPA: {freshman.gpa}
+                  GPA: {freshman.gpa.toFixed(1)}
                 </Text>
               </View>
               {freshman.needsSupport && freshman.needsSupport.length > 0 && (
@@ -649,7 +682,7 @@ export default function AssignFreshmanScreen() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={
-                  freshman.assignedCoach
+                  freshman.assignedCoachId
                     ? styles.reassignButton
                     : styles.assignButton
                 }
@@ -657,7 +690,7 @@ export default function AssignFreshmanScreen() {
                 activeOpacity={0.8}
               >
                 <Text style={styles.buttonText}>
-                  {freshman.assignedCoach ? "Reassign" : "Assign"}
+                  {freshman.assignedCoachId ? "Reassign" : "Assign"}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -691,7 +724,7 @@ export default function AssignFreshmanScreen() {
     if (assignmentType === "bulk") {
       return "Select Coach for Students";
     }
-    return currentFreshman?.assignedCoach ? "Reassign Coach" : "Assign Coach";
+    return currentFreshman?.assignedCoachId ? "Reassign Coach" : "Assign Coach";
   };
 
   const getPickerSubtitle = () => {
@@ -705,8 +738,27 @@ export default function AssignFreshmanScreen() {
     return currentFreshman ? `Student: ${currentFreshman.name}` : "";
   };
 
+  if (loading) {
+    return (
+      <SafeAreaView
+        style={styles.container}
+        edges={["top", "left", "right", "bottom"]}
+      >
+        <Header title="Assign Freshmen" />
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>
+            Loading students and coaches...
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+    <SafeAreaView
+      style={styles.container}
+      edges={["top", "left", "right", "bottom"]}
+    >
       {isSearchMode ? (
         <>
           <FullSearchHeader
@@ -724,7 +776,8 @@ export default function AssignFreshmanScreen() {
         <>
           <Header
             title="Assign Freshmen"
-            showBack={true}
+            leftIcon={ArrowLeft}
+            onLeftPress={() => router.back()}
             showSearch={true}
             onSearchPress={handleSearchPress}
           />
@@ -746,15 +799,6 @@ export default function AssignFreshmanScreen() {
                 <Text style={styles.summaryNumber}>{stats.assigned}</Text>
                 <Text style={styles.summaryLabel}>Assigned</Text>
               </View>
-              <View style={styles.summaryDivider} />
-              <View style={styles.summaryItem}>
-                <Text
-                  style={[styles.summaryNumber, { color: theme.colors.error }]}
-                >
-                  {stats.highPriority}
-                </Text>
-                <Text style={styles.summaryLabel}>High Priority</Text>
-              </View>
             </View>
 
             {/* Controls */}
@@ -768,7 +812,10 @@ export default function AssignFreshmanScreen() {
                   <Zap color={theme.colors.primary} size={20} />
                   <Text style={styles.quickActionText}>Auto Assign</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.quickActionButton}>
+                <TouchableOpacity
+                  style={styles.quickActionButton}
+                  onPress={handleSmartMatch}
+                >
                   <Shuffle color={theme.colors.textSecondary} size={20} />
                   <Text style={styles.quickActionText}>Smart Match</Text>
                 </TouchableOpacity>
