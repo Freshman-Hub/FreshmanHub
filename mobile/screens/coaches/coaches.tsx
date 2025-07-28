@@ -66,86 +66,144 @@ export default function ViewCoachesScreen() {
     studentsHelped: 0,
   });
 
-  // Load coaches data
-  const loadCoachesData = useCallback(async () => {
-    try {
-      setLoading(true);
+ const loadCoachesData = useCallback(async () => {
+   try {
+     setLoading(true);
 
-      // Fetch all users
-      const { users, error: usersError } = await UserService.getAllUsers();
-      if (usersError) {
-        console.error("Error fetching users:", usersError);
-        return;
-      }
+     // Fetch all users
+     const { users, error: usersError } = await UserService.getAllUsers();
+     if (usersError) {
+       console.error("Error fetching users:", usersError);
+       return;
+     }
 
-      setAllUsers(users);
+     setAllUsers(users);
 
-      // Filter for peer coaches
-      const peerCoaches = users.filter((user) => user.role === "peer_coach");
+     // Filter for peer coaches
+     const peerCoaches = users.filter((user) => user.role === "peer_coach");
 
-      // Fetch sessions to determine coach activity
-      const { events: allSessions, error: sessionsError } =
-        await EventsService.getEvents(100, undefined, "sessions");
+     // Fetch sessions to determine coach activity
+     const { events: allSessions, error: sessionsError } =
+       await EventsService.getEvents(100, undefined, "sessions");
 
-      if (!sessionsError) {
-        setSessions(allSessions);
-      }
+     if (!sessionsError) {
+       setSessions(allSessions);
+     }
 
-      // Process coaches data with activity status
-      const processedCoaches = peerCoaches.map((coach) => {
-        // Calculate activity status based on recent sessions or last login
-        const status = determineCoachStatus(coach, allSessions || []);
+     // Process coaches data with activity status AND detailed info for modal
+     const processedCoaches = peerCoaches.map((coach) => {
+       // Calculate activity status based on recent sessions or last login
+       const status = determineCoachStatus(coach, allSessions || []);
 
-        // Count assigned students (freshmen assigned to this coach)
-        const assignedStudents = users.filter(
-          (student) =>
-            student.role === "freshman" && student.assignedCoach === coach.id
-        ).length;
+       // Count assigned students (freshmen assigned to this coach)
+       const assignedStudents = users.filter(
+         (student) =>
+           student.role === "freshman" && student.assignedCoach === coach.id
+       );
 
-        return {
-          id: coach.id,
-          name:
-            `${coach.firstName || ""} ${coach.lastName || ""}`.trim() ||
-            coach.email?.split("@")[0] ||
-            "Unknown",
-          email: coach.email,
-          avatar: coach.profileImage,
-          status: status,
-          year: coach.yearGroup || "N/A",
-          major: coach.major || "N/A",
-          studentsCount: assignedStudents,
-          lastActive: getLastActiveText(coach, allSessions || []),
-          isActive: coach.isActive,
-          phone: coach.phoneNumber,
-          department: coach.department,
-          bio: coach.bio,
-        };
-      });
+       // Get coach's sessions
+       const coachSessions = (allSessions || []).filter(
+         (session) => session.userId === coach.id
+       );
 
-      setCoaches(processedCoaches);
+       // Get recent sessions (last 5) for modal
+       const recentSessions = coachSessions
+         .sort(
+           (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+         )
+         .slice(0, 5)
+         .map((session) => ({
+           id: session.id,
+           title: session.title || "Coaching Session",
+           type: session.category || "Session",
+           date: session.date,
+           time: session.startTime || "Time TBD",
+           student:
+             session.attendees?.length > 0
+               ? "Group Session"
+               : "Individual Session",
+         }));
 
-      // Calculate summary stats
-      const totalCoaches = processedCoaches.length;
-      const availableCoaches = processedCoaches.filter(
-        (coach) => coach.status === "active" && coach.isActive
-      ).length;
+       // Process assigned students with mock data for modal
+       const processedStudents = assignedStudents.map((student) => {
+         const progress = Math.floor(Math.random() * 40) + 60; // 60-100%
 
-      // Count unique students helped (all freshmen assigned to any coach)
-      const studentsHelped = users.filter(
-        (user) => user.role === "freshman" && user.assignedCoach
-      ).length;
+         return {
+           id: student.id,
+           name:
+             `${student.firstName || ""} ${student.lastName || ""}`.trim() ||
+             student.email?.split("@")[0] ||
+             "Unknown",
+           avatar: student.profileImage,
+           progress: progress,
+           status:
+             progress >= 80
+               ? "excellent"
+               : progress >= 65
+                 ? "good"
+                 : "needs-attention",
+           lastSession: "2 days ago", // Mock for now
+           year: student.yearGroup || "Freshman",
+           major: student.major || "Undeclared",
+           country: student.country || "N/A", // Add country
+         };
+       });
 
-      setSummaryStats({
-        totalCoaches,
-        availableCoaches,
-        studentsHelped,
-      });
-    } catch (error) {
-      console.error("Error loading coaches data:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+       return {
+         id: coach.id,
+         name:
+           `${coach.firstName || ""} ${coach.lastName || ""}`.trim() ||
+           coach.email?.split("@")[0] ||
+           "Unknown",
+         email: coach.email,
+         avatar: coach.profileImage,
+         status: status,
+         year: coach.yearGroup || "N/A",
+         yearGroup: coach.yearGroup, // Add explicit yearGroup
+         major: coach.major || "N/A",
+         country: coach.country || "United States", 
+         studentsCount: assignedStudents.length,
+         lastActive: getLastActiveText(coach, allSessions || []),
+         isActive: coach.isActive,
+         phone: coach.phoneNumber,
+         department: coach.department,
+         bio: coach.bio,
+         // Add detailed data for modal
+         detailedStats: {
+           totalStudents: assignedStudents.length,
+           successRate: 94, // Mock for now
+           rating: 4.8, // Mock for now
+           totalSessions: coachSessions.length,
+         },
+         assignedStudents: processedStudents,
+         recentSessions: recentSessions,
+       };
+     });
+
+     setCoaches(processedCoaches);
+
+     // Calculate summary stats
+     const totalCoaches = processedCoaches.length;
+     const availableCoaches = processedCoaches.filter(
+       (coach) => coach.status === "active" && coach.isActive
+     ).length;
+
+     // Count unique students helped (all freshmen assigned to any coach)
+     const studentsHelped = users.filter(
+       (user) => user.role === "freshman" && user.assignedCoach
+     ).length;
+
+     setSummaryStats({
+       totalCoaches,
+       availableCoaches,
+       studentsHelped,
+     });
+   } catch (error) {
+     console.error("Error loading coaches data:", error);
+   } finally {
+     setLoading(false);
+   }
+ }, []);
 
   // Determine coach status based on recent activity
   const determineCoachStatus = (coach: any, sessions: any[]) => {
@@ -644,7 +702,14 @@ export default function ViewCoachesScreen() {
           setSelectedCoach(null);
         }}
         coach={selectedCoach}
-        userRole={user?.role as "advisor" | "student_leader" | "peer_coach" | "head_of_coaches" | undefined}
+        userRole={
+          user?.role as
+            | "advisor"
+            | "student_leader"
+            | "peer_coach"
+            | "head_of_coaches"
+            | undefined
+        }
       />
     </SafeAreaView>
   );
