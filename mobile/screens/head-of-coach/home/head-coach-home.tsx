@@ -1,72 +1,50 @@
 "use client";
 
-import { useState } from "react";
+import { useTheme } from "@/contexts/ThemeContext";
+import { useUser } from "@/contexts/UserContext";
+import { useRouter } from "expo-router";
 import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  RefreshControl,
+  AlertTriangle,
+  ArrowRight,
+  Award,
+  BarChart3,
+  Bell,
+  Calendar,
+  CheckCircle,
+  Menu,
+  MessageSquare,
+  Target,
+  UserCheck,
+  Users,
+} from "lucide-react-native";
+import { useCallback, useEffect, useState } from "react";
+import {
   Dimensions,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import {
-  Users,
-  Calendar,
-  Bell,
-  MessageSquare,
-  UserCheck,
-  BarChart3,
-  AlertTriangle,
-  CheckCircle,
-  Target,
-  Award,
-  ArrowRight,
-} from "lucide-react-native";
-import { useTheme } from "@/contexts/ThemeContext";
-import { useRouter } from "expo-router";
+
+// Import services
+import { PerformanceModal } from "@/components/ui/PerformanceModal";
+import { EventsService } from "@/services/events.service";
+import { UserService } from "@/services/user.service";
 
 // Import reusable components
-import { Header } from "@/components/ui/Header";
-import { StatCard } from "@/components/ui/StatCard";
 import { Avatar } from "@/components/ui/Avatar";
 import { FilterChip } from "@/components/ui/FilterChip";
+import { Header } from "@/components/ui/Header";
+import { StatCard } from "@/components/ui/StatCard";
+import { MenuCard } from "@/components/ui/MenuCard";
+
 
 const { width } = Dimensions.get("window");
 
-// Mock data - in real app, this would come from API
-const dashboardStats = [
-  {
-    label: "Total Freshmen",
-    value: "342",
-    icon: Users,
-    color: "#3b82f6",
-    change: "+12",
-  },
-  {
-    label: "Active Coaches",
-    value: "28",
-    icon: UserCheck,
-    color: "#059669",
-    change: "+3",
-  },
-  {
-    label: "Sessions Today",
-    value: "47",
-    icon: Calendar,
-    color: "#dc2626",
-    change: "+8",
-  },
-  {
-    label: "Completion Rate",
-    value: "94%",
-    icon: Target,
-    color: "#7c3aed",
-    change: "+2%",
-  },
-];
-
+// Keep mock data for features not yet implemented
 const quickActions = [
   {
     title: "Assign Students",
@@ -80,7 +58,7 @@ const quickActions = [
     description: "Manage peer coaches",
     icon: Users,
     color: "#059669",
-    route: "/coaches",
+    route: "(head-coach)/coach-head",
   },
   {
     title: "Session Analytics",
@@ -137,36 +115,6 @@ const recentActivity = [
   },
 ];
 
-const upcomingSessions = [
-  {
-    id: 1,
-    student: "Sarah Mensah",
-    coach: "Michael Osei",
-    time: "10:00 AM",
-    type: "Academic Support",
-    avatar:
-      "https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=400",
-  },
-  {
-    id: 2,
-    student: "Kwame Nkrumah",
-    coach: "Ama Asante",
-    time: "2:00 PM",
-    type: "Career Guidance",
-    avatar:
-      "https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=400",
-  },
-  {
-    id: 3,
-    student: "Akosua Frimpong",
-    coach: "John Mensah",
-    time: "4:30 PM",
-    type: "Personal Development",
-    avatar:
-      "https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=400",
-  },
-];
-
 const performanceMetrics = [
   { label: "Avg Session Rating", value: "4.8", unit: "/5", color: "#059669" },
   { label: "Response Time", value: "12", unit: "min", color: "#3b82f6" },
@@ -174,28 +122,249 @@ const performanceMetrics = [
   { label: "Coach Retention", value: "89", unit: "%", color: "#dc2626" },
 ];
 
-const currentUser = {
-  name: "Dr. Patricia Mensah",
-  role: "Head of Coaches",
-  avatar:
-    "https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=400",
-  department: "Student Success Center",
-};
-
 export default function HeadCoachHomeScreen() {
   const { theme } = useTheme();
   const router = useRouter();
+  const { user } = useUser();
   const [refreshing, setRefreshing] = useState(false);
   const [selectedTimeFilter, setSelectedTimeFilter] = useState("Today");
-  const [notifications, setNotifications] = useState(12);
+  const [loading, setLoading] = useState(true);
+  const [showPerformanceModal, setShowPerformanceModal] = useState(false);
+
+  const [allUsers, setAllUsers] = useState<any[]>([]); // Add this state
+
+  // State for real data
+  const [dashboardStats, setDashboardStats] = useState([
+    {
+      label: "Total Freshmen",
+      value: "0",
+      icon: Users,
+      color: "#3b82f6",
+      change: "+0",
+    },
+    {
+      label: "Active Coaches",
+      value: "0",
+      icon: UserCheck,
+      color: "#059669",
+      change: "+0",
+    },
+    {
+      label: "Sessions Today",
+      value: "0",
+      icon: Calendar,
+      color: "#dc2626",
+      change: "+0",
+    },
+    {
+      label: "Completion Rate",
+      value: "0%",
+      icon: Target,
+      color: "#7c3aed",
+      change: "+0%",
+    },
+  ]);
+
+  const [upcomingSessions, setUpcomingSessions] = useState<
+    {
+      id: string;
+      student: string;
+      coach: string;
+      time: string;
+      type: string;
+      avatar: string;
+    }[]
+  >([]);
 
   const timeFilters = ["Today", "This Week", "This Month", "All Time"];
 
-  const onRefresh = () => {
+  // Load dashboard data
+
+  const loadDashboardData = useCallback(async () => {
+    if (!user?.id) return;
+
+    try {
+      setLoading(true);
+
+      // Fetch all users
+      const { users, error: usersError } = await UserService.getAllUsers();
+      if (usersError) {
+        console.error("Error fetching users:", usersError);
+        return;
+      }
+
+      setAllUsers(users); // Store all users for the modal
+
+      // Count freshmen
+      const freshmenCount = users.filter((u) => u.role === "freshman").length;
+
+      // Count active coaches
+      const coachesCount = users.filter(
+        (u) => u.role === "peer_coach" && u.isActive
+      ).length;
+
+      // Get today's sessions where user is attendee or organizer
+      const { events: allSessions, error: sessionsError } =
+        await EventsService.getEvents(
+          100, // Get more to filter properly
+          undefined,
+          "sessions" // Use sessions collection
+        );
+
+      if (sessionsError) {
+        console.error("Error fetching sessions:", sessionsError);
+        return;
+      }
+
+      // Filter sessions for today where user is involved
+      const today = new Date().toISOString().split("T")[0];
+      const todaySessions = allSessions.filter((session) => {
+        const sessionDate = session.date.split("T")[0];
+        const isToday = sessionDate === today;
+        const isInvolved =
+          session.userId === user.id ||
+          session.attendees?.includes(user.id) ||
+          session.rsvpYes?.includes(user.id);
+        return isToday && isInvolved;
+      });
+
+      // Get upcoming sessions (next 3) where user is attendee OR organizer
+      const now = new Date();
+      // Add detailed logging for each session
+      const userUpcomingSessions = allSessions
+        .map((session, index) => {
+          return session;
+        })
+        .filter((session) => {
+          // Properly combine date and time
+          let sessionDateTime;
+
+          if (session.startTime && session.date) {
+            // Combine date and startTime properly
+            const dateStr = session.date.includes("T")
+              ? session.date.split("T")[0]
+              : session.date;
+            sessionDateTime = new Date(
+              `${dateStr}T${session.startTime}:00.000Z`
+            );
+          } else {
+            // Fallback to just date if no time
+            sessionDateTime = new Date(session.date);
+          }
+
+          const isUpcoming = sessionDateTime > now;
+
+          // Check if user is involved as organizer OR attendee
+          const isOrganizer = session.userId === user.id;
+          const isAttendee =
+            session.attendees?.includes(user.id) ||
+            session.rsvpYes?.includes(user.id);
+
+          const shouldInclude = isUpcoming && (isOrganizer || isAttendee);
+          return shouldInclude;
+        })
+        .sort((a, b) => {
+          // Sort by proper combined date-time
+          const aDateTime = a.startTime
+            ? new Date(`${a.date.split("T")[0]}T${a.startTime}:00.000Z`)
+            : new Date(a.date);
+          const bDateTime = b.startTime
+            ? new Date(`${b.date.split("T")[0]}T${b.startTime}:00.000Z`)
+            : new Date(b.date);
+
+          return aDateTime.getTime() - bDateTime.getTime();
+        })
+        .slice(0, 3)
+        .map((session) => {
+          // Determine if the head coach is the organizer or attendee
+          const isOrganizer = session.userId === user.id;
+
+          return {
+            id: session.id,
+            student: session.userDisplayName || "Unknown Student",
+            coach: isOrganizer
+              ? session.title || "Session" // Show session title instead of "You (Organizer)"
+              : session.userDisplayName || "Unknown Coach",
+            time: session.startTime || "Time TBD",
+            type: session.category || "Session",
+            avatar:
+              session.userAvatar ||
+              "https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=400",
+          };
+        });
+
+      // Update dashboard stats
+      setDashboardStats([
+        {
+          label: "Total Freshmen",
+          value: freshmenCount.toString(),
+          icon: Users,
+          color: "#3b82f6",
+          change: "+0", // TODO: Calculate change from previous period
+        },
+        {
+          label: "Active Coaches",
+          value: coachesCount.toString(),
+          icon: UserCheck,
+          color: "#059669",
+          change: "+0", // TODO: Calculate change from previous period
+        },
+        {
+          label: "Sessions Today",
+          value: todaySessions.length.toString(),
+          icon: Calendar,
+          color: "#dc2626",
+          change: "+0", // TODO: Calculate change from previous day
+        },
+        {
+          label: "Completion Rate",
+          value: "0%", // Keep as 0% as requested
+          icon: Target,
+          color: "#7c3aed",
+          change: "+0%",
+        },
+      ]);
+
+      setUpcomingSessions(userUpcomingSessions);
+    } catch (error) {
+      console.error("Error loading dashboard data:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id]);
+
+  // Load data on component mount
+  useEffect(() => {
+    loadDashboardData();
+  }, [loadDashboardData]);
+
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    // Simulate API call
-    setTimeout(() => setRefreshing(false), 2000);
+    await loadDashboardData();
+    setRefreshing(false);
+  }, [loadDashboardData]);
+
+  // Get greeting based on time
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 17) return "Good afternoon";
+    return "Good evening";
   };
+
+  // Get user's first name for greeting
+  const getDisplayName = () => {
+    if (!user) return "User";
+    const firstName = user.firstName || user.email?.split("@")[0] || "User";
+    return firstName;
+  };
+
+  const totalUsers = parseInt(
+    dashboardStats.find((stat) => stat.label === "Total Freshmen")?.value || "0"
+  );
+  const activeCoaches = parseInt(
+    dashboardStats.find((stat) => stat.label === "Active Coaches")?.value || "0"
+  );
 
   const styles = StyleSheet.create({
     container: {
@@ -248,6 +417,13 @@ export default function HeadCoachHomeScreen() {
     statCardWrapper: {
       width: (width - theme.spacing.md * 2 - theme.spacing.sm) / 2,
     },
+    loadingText: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      textAlign: "center",
+      marginVertical: theme.spacing.lg,
+      fontWeight: "500",
+    },
     quickActionsSection: {
       paddingHorizontal: theme.spacing.md,
       paddingTop: theme.spacing.lg,
@@ -272,6 +448,7 @@ export default function HeadCoachHomeScreen() {
       flexDirection: "row",
       flexWrap: "wrap",
       gap: theme.spacing.md,
+      justifyContent: "space-between",
     },
     quickActionCard: {
       width: (width - theme.spacing.md * 2 - theme.spacing.md) / 2,
@@ -297,6 +474,9 @@ export default function HeadCoachHomeScreen() {
       justifyContent: "center",
       marginBottom: theme.spacing.md,
     },
+    menuCardWrapper: {
+      width: (width - theme.spacing.md * 2 - theme.spacing.md) / 2,
+    },
     quickActionTitle: {
       ...theme.typography.h6,
       color: theme.colors.text,
@@ -307,6 +487,7 @@ export default function HeadCoachHomeScreen() {
       ...theme.typography.bodySmall,
       color: theme.colors.textSecondary,
       lineHeight: 18,
+      fontWeight: "500",
     },
     performanceSection: {
       paddingHorizontal: theme.spacing.md,
@@ -401,6 +582,7 @@ export default function HeadCoachHomeScreen() {
       ...theme.typography.bodySmall,
       color: theme.colors.textSecondary,
       marginBottom: theme.spacing.xs,
+      fontWeight: "500",
     },
     activityTime: {
       ...theme.typography.captionSmall,
@@ -445,6 +627,7 @@ export default function HeadCoachHomeScreen() {
       ...theme.typography.bodySmall,
       color: theme.colors.textSecondary,
       marginBottom: theme.spacing.xs,
+      fontWeight: "500",
     },
     sessionTime: {
       ...theme.typography.captionSmall,
@@ -454,16 +637,28 @@ export default function HeadCoachHomeScreen() {
     sessionArrow: {
       marginLeft: theme.spacing.md,
     },
+    emptySessionsText: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      textAlign: "center",
+      fontStyle: "italic",
+      marginVertical: theme.spacing.lg,
+      fontWeight: "500",
+    },
   });
 
   return (
     <SafeAreaView style={styles.container}>
       <Header
         title=""
+        leftIcon={Menu} // Add hamburger menu
+        onLeftPress={() => router.push("/(routes)/menu")} // Navigate to menu
         rightIcon={Bell}
         onRightPress={() => router.push("/notifications")}
-        showSearch={true}
-        onSearchPress={() => router.push("/search")}
+        // showSearch={false}
+        // onSearchPress={() => router.push("/(routes)/chat")}
+        showMessage={true}
+        onMessagePress={() => router.push("/(routes)/chat")}
         style={{ backgroundColor: "transparent", borderBottomWidth: 0 }}
       />
 
@@ -478,15 +673,19 @@ export default function HeadCoachHomeScreen() {
         <View style={styles.welcomeSection}>
           <View style={styles.welcomeContent}>
             <View style={styles.welcomeText}>
-              <Text style={styles.welcomeTitle}>Good morning, Dr. Mensah!</Text>
+              <Text style={styles.welcomeTitle}>
+                {getGreeting()}, {getDisplayName()}!
+              </Text>
               <Text style={styles.welcomeSubtitle}>
                 Ready to support our coaching community today?
               </Text>
             </View>
             <View style={styles.welcomeAvatar}>
               <Avatar
-                imageUrl={currentUser.avatar}
-                initials={currentUser.name.charAt(0)}
+                imageUrl={user?.profileImage}
+                initials={
+                  user?.firstName?.charAt(0) || user?.email?.charAt(0) || "U"
+                }
                 size={60}
               />
             </View>
@@ -495,6 +694,9 @@ export default function HeadCoachHomeScreen() {
 
         {/* Stats Section */}
         <View style={styles.statsSection}>
+          {loading && (
+            <Text style={styles.loadingText}>Loading dashboard data...</Text>
+          )}
           <View style={styles.statsGrid}>
             {dashboardStats.map((stat, index) => (
               <View key={index} style={styles.statCardWrapper}>
@@ -514,7 +716,7 @@ export default function HeadCoachHomeScreen() {
         <View style={styles.performanceSection}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Performance Overview</Text>
-            <TouchableOpacity onPress={() => router.push("/performance")}>
+            <TouchableOpacity onPress={() => setShowPerformanceModal(true)}>
               <Text style={styles.sectionAction}>View Details</Text>
             </TouchableOpacity>
           </View>
@@ -550,25 +752,17 @@ export default function HeadCoachHomeScreen() {
           </View>
           <View style={styles.quickActionsGrid}>
             {quickActions.map((action, index) => (
-              <TouchableOpacity
-                key={index}
-                style={styles.quickActionCard}
-                onPress={() => router.push(action.route)}
-                activeOpacity={0.8}
-              >
-                <View
-                  style={[
-                    styles.quickActionIcon,
-                    { backgroundColor: action.color + "20" },
-                  ]}
-                >
-                  <action.icon color={action.color} size={24} />
-                </View>
-                <Text style={styles.quickActionTitle}>{action.title}</Text>
-                <Text style={styles.quickActionDescription}>
-                  {action.description}
-                </Text>
-              </TouchableOpacity>
+              <View key={index} style={styles.menuCardWrapper}>
+                <MenuCard
+                  title={action.title}
+                  description={action.description}
+                  icon={action.icon}
+                  color={action.color}
+                  onPress={() => router.push(action.route as any)}
+                  size="medium"
+                  showDescription={false} // Only show icon and title
+                />
+              </View>
             ))}
           </View>
         </View>
@@ -638,34 +832,57 @@ export default function HeadCoachHomeScreen() {
             </TouchableOpacity>
           </View>
 
-          {upcomingSessions.map((session) => (
-            <TouchableOpacity
-              key={session.id}
-              style={styles.sessionItem}
-              activeOpacity={0.8}
-            >
-              <Avatar
-                imageUrl={session.avatar}
-                initials={session.student.charAt(0)}
-                size={45}
-                style={styles.sessionAvatar}
-              />
-              <View style={styles.sessionContent}>
-                <Text style={styles.sessionStudent}>{session.student}</Text>
-                <Text style={styles.sessionDetails}>
-                  with Coach {session.coach} • {session.type}
-                </Text>
-                <Text style={styles.sessionTime}>{session.time}</Text>
-              </View>
-              <ArrowRight
-                color={theme.colors.textSecondary}
-                size={20}
-                style={styles.sessionArrow}
-              />
-            </TouchableOpacity>
-          ))}
+          {upcomingSessions.length > 0 ? (
+            upcomingSessions.map((session) => (
+              <TouchableOpacity
+                key={session.id}
+                style={styles.sessionItem}
+                activeOpacity={0.8}
+              >
+                <Avatar
+                  imageUrl={session.avatar}
+                  initials={session.student.charAt(0)}
+                  size={45}
+                  style={styles.sessionAvatar}
+                />
+                <View style={styles.sessionContent}>
+                  <Text style={styles.sessionStudent}>{session.student}</Text>
+                  <Text style={styles.sessionDetails}>
+                    {session.coach} • {session.type}
+                  </Text>
+                  <Text style={styles.sessionTime}>{session.time}</Text>
+                </View>
+                <ArrowRight
+                  color={theme.colors.textSecondary}
+                  size={20}
+                  style={styles.sessionArrow}
+                />
+              </TouchableOpacity>
+            ))
+          ) : (
+            <Text style={styles.emptySessionsText}>
+              No upcoming sessions found
+            </Text>
+          )}
         </View>
       </ScrollView>
+      <PerformanceModal
+        visible={showPerformanceModal}
+        onClose={() => setShowPerformanceModal(false)}
+        userRole={
+          user?.role as
+            | "student_leader"
+            | "peer_coach"
+            | "head_of_coaches"
+            | "academic_advisor"
+            | undefined
+        }
+        dashboardStats={dashboardStats}
+        upcomingSessions={upcomingSessions}
+        totalUsers={totalUsers}
+        activeCoaches={activeCoaches}
+        availableCoaches={allUsers} // Pass all users to the modal
+      />
     </SafeAreaView>
   );
 }
