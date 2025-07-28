@@ -17,16 +17,18 @@ import { db } from "@/firebase/config/firebaseConfig";
 import { Event, CreateEventData } from "@/types/event.types";
 
 export class EventsService {
-  // Create a new event
   static async createEvent(
     eventData: CreateEventData,
     userId: string,
     userDisplayName: string,
     userAvatar?: string,
-    collectionName: string = "events" // Add this parameter
-  ): Promise<{ event: Event | null; error: string | null }> {
+    contentType: "events" | "sessions" = "events"
+  ): Promise<{ event?: Event; error?: string }> {
     try {
       const now = new Date().toISOString();
+
+      // For one-on-one sessions, ensure privacy
+      const isPrivateSession = eventData.category === "One-on-One";
 
       const newEvent = {
         ...eventData,
@@ -36,24 +38,27 @@ export class EventsService {
         userVerified: false,
         attendees: [userId],
         attendeeCount: 1,
+        invitedUsers: eventData.invitedUsers || [], // Use invitedUsers consistently
         rsvpYes: [userId],
         rsvpNo: [],
         rsvpMaybe: [],
+        status: eventData.status || "upcoming",
+        isPublic: !isPrivateSession, // One-on-one sessions are private
         createdAt: now,
         updatedAt: now,
       };
 
-      const docRef = await addDoc(collection(db, collectionName), newEvent); // Use collectionName
+      const docRef = await addDoc(collection(db, contentType), newEvent);
 
-      const event: Event = {
-        id: docRef.id,
-        ...newEvent,
+      return {
+        event: {
+          id: docRef.id,
+          ...newEvent,
+        } as unknown as Event,
       };
-
-      return { event, error: null };
-    } catch (error: any) {
-      console.error("Create event error:", error);
-      return { event: null, error: error.message };
+    } catch (error) {
+      console.error(`Error creating ${contentType.slice(0, -1)}:`, error);
+      return { error: `Failed to create ${contentType.slice(0, -1)}` };
     }
   }
 
@@ -329,6 +334,41 @@ export class EventsService {
     } catch (error: any) {
       console.error("Search events error:", error);
       return { events: [], error: error.message };
+    }
+  }
+
+  // Add this method to check and auto-complete past events
+  static async autoCompletePastEvents(
+    collectionName: "events" | "sessions" = "events"
+  ) {
+    try {
+      const now = new Date();
+      const { events, error } = await this.getEvents(
+        100,
+        "All",
+        collectionName
+      );
+
+      if (error || !events) return;
+
+      const pastEvents = events.filter((event) => {
+        const eventDate = new Date(event.date);
+        return eventDate < now && event.status === "upcoming";
+      });
+
+      // Update past events to completed
+      for (const event of pastEvents) {
+        await this.updateEvent(
+          event.id,
+          { status: "completed" },
+          collectionName
+        );
+      }
+
+      return { updated: pastEvents.length };
+    } catch (error) {
+      console.error("Error auto-completing past events:", error);
+      return { error: "Failed to auto-complete past events" };
     }
   }
 }
