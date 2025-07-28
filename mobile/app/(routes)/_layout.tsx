@@ -75,33 +75,19 @@ export default function RoutesLayout() {
 
       {/* Events */}
       <Stack.Screen
-        name="event/[id]"
-        options={{
-          title: "Event Details",
-          headerShown: false, // Custom header with image
-        }}
-      />
-      <Stack.Screen
-        name="create-event/index"
-        options={{
-          title: "Create Event",
-          presentation: "modal",
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
         name="events/index"
         options={{
           title: "My Events",
           headerShown: false,
         }}
       />
-      {/* <Stack.Screen
-        name="event-attendees/[id]"
+      <Stack.Screen
+        name="assign-freshman/index"
         options={{
-          title: "Attendees",
+          title: "Assign Freshers",
+          headerShown: false,
         }}
-      /> */}
+      />
 
       {/* Notifications */}
       <Stack.Screen
@@ -111,12 +97,21 @@ export default function RoutesLayout() {
           headerShown: false,
         }}
       />
-      {/* <Stack.Screen
-        name="notification-settings"
+      <Stack.Screen
+        name="quick-actions/index"
         options={{
-          title: "Notification Settings",
+          title: "Quick Actions",
+          headerShown: false,
         }}
-      /> */}
+      />
+
+      <Stack.Screen
+        name="menu/index"
+        options={{
+          title: "Quick Actions",
+          headerShown: false,
+        }}
+      />
 
       {/* Campus Resources */}
       {/* <Stack.Screen
@@ -193,13 +188,14 @@ export default function RoutesLayout() {
         options={{
           title: "Course Details",
         }}
-      />
-      <Stack.Screen
-        name="schedule"
-        options={{
-          title: "My Schedule",
-        }}
       /> */}
+      <Stack.Screen
+        name="sessions/index"
+        options={{
+          title: "Sessions",
+          headerShown: false,
+        }}
+      />
 
       {/* Community & Groups */}
       {/* <Stack.Screen
