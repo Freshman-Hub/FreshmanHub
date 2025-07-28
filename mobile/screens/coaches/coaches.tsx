@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -13,14 +13,23 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   Users,
-  UserPlus,
+  // UserPlus,
   CheckCircle,
   Clock,
   AlertCircle,
   Eye,
+  ArrowLeft,
 } from "lucide-react-native";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useRouter } from "expo-router";
+import { useUser } from "@/contexts/UserContext";
+
+// Import services
+import { UserService } from "@/services/user.service";
+import { EventsService } from "@/services/events.service";
+
+import { CoachProfileModal } from "@/components/ui/CoachProfileModal";
+
 
 // Import reusable components
 import { Header } from "@/components/ui/Header";
@@ -30,86 +39,172 @@ import { FilterChip } from "@/components/ui/FilterChip";
 import { Card } from "@/components/ui/Card";
 import { CoachOptionsMenu } from "@/components/ui/CoachOptionsMenu";
 
-// Mock data for peer coaches
-const coachesData = [
-  {
-    id: 1,
-    name: "Sarah Johnson",
-    email: "sarah.johnson@student.edu",
-    avatar:
-      "https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=400",
-    status: "active",
-    year: "Junior",
-    major: "Computer Science",
-    studentsCount: 5,
-    lastActive: "2 min ago",
-  },
-  {
-    id: 2,
-    name: "David Wilson",
-    email: "david.wilson@student.edu",
-    avatar:
-      "https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=400",
-    status: "busy",
-    year: "Senior",
-    major: "Psychology",
-    studentsCount: 4,
-    lastActive: "In session",
-  },
-  {
-    id: 3,
-    name: "Lisa Thompson",
-    email: "lisa.thompson@student.edu",
-    avatar:
-      "https://images.pexels.com/photos/1181686/pexels-photo-1181686.jpeg?auto=compress&cs=tinysrgb&w=400",
-    status: "active",
-    year: "Sophomore",
-    major: "Business",
-    studentsCount: 6,
-    lastActive: "5 min ago",
-  },
-  {
-    id: 4,
-    name: "Alex Kim",
-    email: "alex.kim@student.edu",
-    avatar:
-      "https://images.pexels.com/photos/1043471/pexels-photo-1043471.jpeg?auto=compress&cs=tinysrgb&w=400",
-    status: "offline",
-    year: "Junior",
-    major: "Engineering",
-    studentsCount: 3,
-    lastActive: "2 hours ago",
-  },
-  {
-    id: 5,
-    name: "Maria Garcia",
-    email: "maria.garcia@student.edu",
-    avatar:
-      "https://images.pexels.com/photos/1181424/pexels-photo-1181424.jpeg?auto=compress&cs=tinysrgb&w=400",
-    status: "active",
-    year: "Senior",
-    major: "Education",
-    studentsCount: 7,
-    lastActive: "1 min ago",
-  },
-];
-
 const filterOptions = ["All", "Available", "Busy", "Offline"];
 
 export default function ViewCoachesScreen() {
   const { theme } = useTheme();
   const router = useRouter();
+  const { user } = useUser();
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchMode, setIsSearchMode] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
   const [activeFilter, setActiveFilter] = useState("All");
-  const [coaches, setCoaches] = useState(coachesData);
+  const [loading, setLoading] = useState(true);
 
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 2000);
+    const [showCoachProfileModal, setShowCoachProfileModal] = useState(false);
+    const [selectedCoach, setSelectedCoach] = useState<any>(null);
+
+
+  // State for real data
+  const [coaches, setCoaches] = useState<any[]>([]);
+  const [, setAllUsers] = useState<any[]>([]);
+  const [, setSessions] = useState<any[]>([]);
+  const [summaryStats, setSummaryStats] = useState({
+    totalCoaches: 0,
+    availableCoaches: 0,
+    studentsHelped: 0,
+  });
+
+  // Load coaches data
+  const loadCoachesData = useCallback(async () => {
+    try {
+      setLoading(true);
+
+      // Fetch all users
+      const { users, error: usersError } = await UserService.getAllUsers();
+      if (usersError) {
+        console.error("Error fetching users:", usersError);
+        return;
+      }
+
+      setAllUsers(users);
+
+      // Filter for peer coaches
+      const peerCoaches = users.filter((user) => user.role === "peer_coach");
+
+      // Fetch sessions to determine coach activity
+      const { events: allSessions, error: sessionsError } =
+        await EventsService.getEvents(100, undefined, "sessions");
+
+      if (!sessionsError) {
+        setSessions(allSessions);
+      }
+
+      // Process coaches data with activity status
+      const processedCoaches = peerCoaches.map((coach) => {
+        // Calculate activity status based on recent sessions or last login
+        const status = determineCoachStatus(coach, allSessions || []);
+
+        // Count assigned students (freshmen assigned to this coach)
+        const assignedStudents = users.filter(
+          (student) =>
+            student.role === "freshman" && student.assignedCoach === coach.id
+        ).length;
+
+        return {
+          id: coach.id,
+          name:
+            `${coach.firstName || ""} ${coach.lastName || ""}`.trim() ||
+            coach.email?.split("@")[0] ||
+            "Unknown",
+          email: coach.email,
+          avatar: coach.profileImage,
+          status: status,
+          year: coach.yearGroup || "N/A",
+          major: coach.major || "N/A",
+          studentsCount: assignedStudents,
+          lastActive: getLastActiveText(coach, allSessions || []),
+          isActive: coach.isActive,
+          phone: coach.phoneNumber,
+          department: coach.department,
+          bio: coach.bio,
+        };
+      });
+
+      setCoaches(processedCoaches);
+
+      // Calculate summary stats
+      const totalCoaches = processedCoaches.length;
+      const availableCoaches = processedCoaches.filter(
+        (coach) => coach.status === "active" && coach.isActive
+      ).length;
+
+      // Count unique students helped (all freshmen assigned to any coach)
+      const studentsHelped = users.filter(
+        (user) => user.role === "freshman" && user.assignedCoach
+      ).length;
+
+      setSummaryStats({
+        totalCoaches,
+        availableCoaches,
+        studentsHelped,
+      });
+    } catch (error) {
+      console.error("Error loading coaches data:", error);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  // Determine coach status based on recent activity
+  const determineCoachStatus = (coach: any, sessions: any[]) => {
+    if (!coach.isActive) return "offline";
+
+    // Check if coach has ongoing sessions (sessions starting within the hour)
+    const now = new Date();
+    const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
+
+    const ongoingSessions = sessions.filter((session) => {
+      if (session.userId !== coach.id) return false;
+
+      const sessionDateTime = new Date(session.date);
+      return sessionDateTime >= now && sessionDateTime <= oneHourFromNow;
+    });
+
+    if (ongoingSessions.length > 0) return "busy";
+
+    // For now, assume active coaches are available
+    // In the future, you could check last login time, etc.
+    return "active";
+  };
+
+  // Get last active text
+  const getLastActiveText = (coach: any, sessions: any[]) => {
+    if (!coach.isActive) return "Offline";
+
+    // Find the most recent session by this coach
+    const coachSessions = sessions
+      .filter((session) => session.userId === coach.id)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    if (coachSessions.length > 0) {
+      const lastSession = coachSessions[0];
+      const sessionDate = new Date(lastSession.date);
+      const now = new Date();
+      const diffInHours = Math.floor(
+        (now.getTime() - sessionDate.getTime()) / (1000 * 60 * 60)
+      );
+
+      if (diffInHours < 1) return "Active now";
+      if (diffInHours < 24) return `${diffInHours}h ago`;
+      if (diffInHours < 168) return `${Math.floor(diffInHours / 24)}d ago`;
+      return "Over a week ago";
+    }
+
+    return "Recently joined";
+  };
+
+  // Load data on component mount
+  useEffect(() => {
+    loadCoachesData();
+  }, [loadCoachesData]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadCoachesData();
+    setRefreshing(false);
+  }, [loadCoachesData]);
 
   const handleSearchPress = () => {
     setIsSearchMode(true);
@@ -131,9 +226,11 @@ export default function ViewCoachesScreen() {
 
   const filteredCoaches = coaches.filter((coach) => {
     if (activeFilter === "All") return true;
-    if (activeFilter === "Available") return coach.status === "active";
+    if (activeFilter === "Available")
+      return coach.status === "active" && coach.isActive;
     if (activeFilter === "Busy") return coach.status === "busy";
-    if (activeFilter === "Offline") return coach.status === "offline";
+    if (activeFilter === "Offline")
+      return coach.status === "offline" || !coach.isActive;
     return true;
   });
 
@@ -290,6 +387,7 @@ export default function ViewCoachesScreen() {
       color: theme.colors.textSecondary,
       textAlign: "center",
       marginTop: theme.spacing.md,
+      fontWeight: "500",
     },
     searchResultsContainer: {
       paddingHorizontal: theme.spacing.md,
@@ -304,16 +402,29 @@ export default function ViewCoachesScreen() {
       color: theme.colors.textSecondary,
       textAlign: "center",
       fontStyle: "italic",
+      fontWeight: "500",
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      paddingVertical: theme.spacing.xl,
+    },
+    loadingText: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      marginTop: theme.spacing.md,
+      fontWeight: "500",
     },
   });
 
   const handleCoachAction = (action: string, coach: any) => {
     switch (action) {
       case "assign":
-        router.push(`/assign-students?coachId=${coach.id}`);
+        router.push("(routes)/assign-freshman");
         break;
       case "call":
-        console.log("Calling", coach.name);
+        console.log("Calling", coach.name, "at", coach.phone);
         break;
       case "message":
         console.log("Messaging", coach.name);
@@ -325,7 +436,9 @@ export default function ViewCoachesScreen() {
         router.push(`/schedule-session?coachId=${coach.id}`);
         break;
       case "profile":
-        router.push(`/coach-profile/${coach.id}`);
+        // Open modal instead of navigating
+        setSelectedCoach(coach);
+        setShowCoachProfileModal(true);
         break;
       default:
         console.log("Action:", action, "for", coach.name);
@@ -339,7 +452,10 @@ export default function ViewCoachesScreen() {
         <View style={styles.coachCardContent}>
           <Avatar
             imageUrl={coach.avatar}
-            initials={coach.name.charAt(0)}
+            initials={coach.name
+              .split(" ")
+              .map((n: string) => n.charAt(0))
+              .join("")}
             size={45}
           />
           <View style={styles.coachInfo}>
@@ -355,11 +471,11 @@ export default function ViewCoachesScreen() {
                   { color: getStatusColor(coach.status) },
                 ]}
               >
-                {getStatusText(coach.status)}
+                {getStatusText(coach.status)} • {coach.lastActive}
               </Text>
             </View>
             <Text style={styles.studentsCount}>
-              {coach.studentsCount} students
+              {coach.studentsCount} students assigned
             </Text>
           </View>
           <View style={styles.coachActions}>
@@ -391,15 +507,19 @@ export default function ViewCoachesScreen() {
       {searchQuery.length === 0 ? (
         <View style={styles.searchSuggestions}>
           <Text style={styles.suggestionText}>
-            Search for peer coaches by name or major...
+            Search for peer coaches by name, major, or department...
           </Text>
         </View>
       ) : (
         <FlatList
           data={filteredCoaches.filter(
-            (coach) =>
+            (coach: any) =>
               coach.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-              coach.major.toLowerCase().includes(searchQuery.toLowerCase())
+              coach.major.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              coach.department
+                ?.toLowerCase()
+                .includes(searchQuery.toLowerCase()) ||
+              coach.email.toLowerCase().includes(searchQuery.toLowerCase())
           )}
           renderItem={renderCoachCard}
           keyExtractor={(item) => item.id.toString()}
@@ -409,6 +529,17 @@ export default function ViewCoachesScreen() {
       )}
     </View>
   );
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+        <Header title="Peer Coaches" />
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading coaches...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
@@ -430,30 +561,33 @@ export default function ViewCoachesScreen() {
           <Header
             title="Peer Coaches"
             showSearch={true}
+            leftIcon={ArrowLeft}
+            onLeftPress={() => router.back()}
             onSearchPress={handleSearchPress}
-            rightComponent={
-              <TouchableOpacity onPress={() => router.push("/add-coach")}>
-                <UserPlus color={theme.colors.primary} size={24} />
-              </TouchableOpacity>
-            }
           />
 
           <View style={styles.content}>
             {/* Summary Stats */}
             <View style={styles.summaryContainer}>
               <View style={styles.summaryItem}>
-                <Text style={styles.summaryNumber}>5</Text>
+                <Text style={styles.summaryNumber}>
+                  {summaryStats.totalCoaches}
+                </Text>
                 <Text style={styles.summaryLabel}>Total Coaches</Text>
               </View>
               <View style={styles.summaryDivider} />
               <View style={styles.summaryItem}>
-                <Text style={styles.summaryNumber}>3</Text>
+                <Text style={styles.summaryNumber}>
+                  {summaryStats.availableCoaches}
+                </Text>
                 <Text style={styles.summaryLabel}>Available</Text>
               </View>
               <View style={styles.summaryDivider} />
               <View style={styles.summaryItem}>
-                <Text style={styles.summaryNumber}>25</Text>
-                <Text style={styles.summaryLabel}>Students Helped</Text>
+                <Text style={styles.summaryNumber}>
+                  {summaryStats.studentsHelped}
+                </Text>
+                <Text style={styles.summaryLabel}>Students Assigned</Text>
               </View>
             </View>
 
@@ -501,6 +635,17 @@ export default function ViewCoachesScreen() {
           </View>
         </>
       )}
+
+      {/* Add Coach Profile Modal */}
+      <CoachProfileModal
+        visible={showCoachProfileModal}
+        onClose={() => {
+          setShowCoachProfileModal(false);
+          setSelectedCoach(null);
+        }}
+        coach={selectedCoach}
+        userRole={user?.role as "advisor" | "student_leader" | "peer_coach" | "head_of_coaches" | undefined}
+      />
     </SafeAreaView>
   );
 }
