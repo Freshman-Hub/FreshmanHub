@@ -19,6 +19,7 @@ interface Event {
   endTime: string;
   date: string;
   category: string;
+  color?: string; // Add color property
   isRSVP: boolean;
 }
 
@@ -68,8 +69,15 @@ export function CalendarView({
     return events.filter((event) => event.date === dateString && event.isRSVP);
   };
 
-  const getCategoryColor = (category: string) => {
-    switch (category.toLowerCase()) {
+  // Update to use event's color property with fallback to category colors
+  const getEventColor = (event: Event) => {
+    // Use the event's selected color if available
+    if (event.color) {
+      return event.color;
+    }
+
+    // Fallback to category-based colors if no color is set
+    switch (event.category.toLowerCase()) {
       case "cultural":
         return "#667eea";
       case "academic":
@@ -78,6 +86,21 @@ export function CalendarView({
         return "#4facfe";
       case "social":
         return "#26de81";
+      case "workshop":
+        return "#ff9800";
+      case "meeting":
+        return "#9c27b0";
+      // Session categories
+      case "advising session":
+        return "#667eea";
+      case "coaching session":
+        return "#f093fb";
+      case "buddy session":
+        return "#4facfe";
+      case "group session":
+        return "#26de81";
+      case "one-on-one":
+        return "#ff9800";
       default:
         return theme.colors.primary;
     }
@@ -185,28 +208,42 @@ export function CalendarView({
       position: "absolute",
       left: 2,
       right: 2,
-      borderRadius: 4,
-      padding: 4,
-      minHeight: 20,
+      borderRadius: 6,
+      padding: 2,
+      minHeight: 24,
+      justifyContent: "flex-start", // Align content to start
+      shadowColor: "#000",
+      shadowOffset: {
+        width: 0,
+        height: 1,
+      },
+      shadowOpacity: 0.15,
+      shadowRadius: 2,
+      elevation: 2,
     },
     eventTitle: {
-      ...theme.typography.bodySmall,
+      ...theme.typography.captionSmall,
       color: "white",
-      fontWeight: "600",
-      fontSize: 11,
+      fontWeight: "500",
+      fontSize: 9,
+      textShadowColor: "rgba(0,0,0,0.3)",
+      textShadowOffset: { width: 0, height: 1 },
+      textShadowRadius: 1,
+      lineHeight: 14,
+      textAlignVertical: "top", // Start text at top on Android
+      includeFontPadding: false, // Remove extra font padding
     },
     eventTime: {
       ...theme.typography.bodySmall,
       color: "white",
       fontSize: 10,
-      opacity: 0.9,
+      opacity: 0.95, // Slightly more opaque
       fontWeight: "500",
+      textShadowColor: "rgba(0,0,0,0.3)",
+      textShadowOffset: { width: 0, height: 1 },
+      textShadowRadius: 1,
     },
   });
-
- const formatTime = (time: string) => {
-   return time; // Just return the time as is (24-hour format like "14:30")
- };
 
 
   const getEventPosition = (startTime: string, endTime: string) => {
@@ -220,7 +257,7 @@ export function CalendarView({
 
     return {
       top: (startMinutes / 60) * 60,
-      height: Math.max((duration / 60) * 60, 20),
+      height: Math.max((duration / 60) * 60, 24), // Increased minimum height
     };
   };
 
@@ -308,24 +345,38 @@ export function CalendarView({
                       event.endTime
                     );
 
+                    // Calculate how many lines can fit based on height with more accurate calculation
+                    const availableHeight = position.height - 12; // Subtract padding (6px top + 6px bottom)
+                    const lineHeight = 14;
+                    const maxLines = Math.max(
+                      2,
+                      Math.floor(availableHeight / lineHeight)
+                    ); // Minimum 2 lines
+
                     return (
                       <TouchableOpacity
                         key={event.id}
                         style={[
                           styles.eventBlock,
                           {
-                            backgroundColor: getCategoryColor(event.category),
+                            backgroundColor: getEventColor(event),
                             top: position.top,
                             height: position.height,
                           },
                         ]}
                         onPress={() => onEventPress(event)}
                       >
-                        <Text style={styles.eventTitle} numberOfLines={1}>
+                        <Text
+                          style={[
+                            styles.eventTitle,
+                            {
+                              height: availableHeight, // Explicitly set height to fill available space
+                            },
+                          ]}
+                          numberOfLines={maxLines}
+                          ellipsizeMode="tail"
+                        >
                           {event.title}
-                        </Text>
-                        <Text style={styles.eventTime}>
-                          {formatTime(event.startTime)}
                         </Text>
                       </TouchableOpacity>
                     );
