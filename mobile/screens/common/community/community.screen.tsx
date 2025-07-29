@@ -19,106 +19,12 @@ import { PostsService } from "../../../services/posts.service";
 import { Post } from "../../../types/post.types";
 import { useUser } from "../../../contexts/UserContext";
 
-
 // Import our reusable components
 import { Header } from "@/components/ui/Header";
 import { FullSearchHeader } from "@/components/ui/FullSearchHeader";
 // import { StatCard } from "@/components/ui/StatCard";
 import { FilterChip } from "@/components/ui/FilterChip";
-import { Loader } from "@/components/ui/Loader";
-
-// const initialCommunityPosts = [
-//   {
-//     id: 1,
-//     user: {
-//       name: "Sarah Mensah",
-//       avatar:
-//         "https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=400",
-//       year: "Freshman",
-//       verified: true,
-//     },
-//     content:
-//       "Just finished my first week at Ashesi! The campus is absolutely beautiful and everyone has been so welcoming. Can't wait to join the debate club! 🎓✨ I've been exploring different parts of the campus and I'm amazed by the architecture and the green spaces.",
-//     image:
-//       "https://images.pexels.com/photos/1454360/pexels-photo-1454360.jpeg?auto=compress&cs=tinysrgb&w=400",
-//     likes: 24,
-//     comments: 8,
-//     shares: 3,
-//     timeAgo: "2h ago",
-//     isLiked: false,
-//     category: "Campus Life",
-//   },
-//   {
-//     id: 2,
-//     user: {
-//       name: "Michael Osei",
-//       avatar:
-//         "https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=400",
-//       year: "Sophomore",
-//       verified: false,
-//     },
-//     content:
-//       "Pro tip for freshmen: The library has amazing study spots on the 3rd floor! Perfect for group projects and the view is incredible 📚 Also, don't forget to check out the quiet zones during exam periods.",
-//     likes: 31,
-//     comments: 12,
-//     shares: 7,
-//     timeAgo: "4h ago",
-//     isLiked: true,
-//     category: "Study Tips",
-//   },
-//   {
-//     id: 3,
-//     user: {
-//       name: "Ama Asante",
-//       avatar:
-//         "https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=400",
-//       year: "Junior",
-//       verified: true,
-//     },
-//     content:
-//       "Excited to announce that our robotics team just won first place at the regional competition! 🤖🏆 Proud to represent Ashesi! The months of hard work and dedication have finally paid off.",
-//     image:
-//       "https://images.pexels.com/photos/2599244/pexels-photo-2599244.jpeg?auto=compress&cs=tinysrgb&w=400",
-//     likes: 89,
-//     comments: 23,
-//     shares: 15,
-//     timeAgo: "6h ago",
-//     isLiked: false,
-//     category: "Achievements",
-//   },
-//   {
-//     id: 4,
-//     user: {
-//       name: "Kwame Nkrumah",
-//       avatar:
-//         "https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg?auto=compress&cs=tinysrgb&w=400",
-//       year: "Senior",
-//       verified: true,
-//     },
-//     content:
-//       "Looking for study partners for Advanced Algorithms! Let's form a study group and tackle these problems together. DM me if interested! 💻 We can meet twice a week and work through the challenging assignments.",
-//     likes: 18,
-//     comments: 9,
-//     shares: 4,
-//     timeAgo: "8h ago",
-//     isLiked: true,
-//     category: "Study Groups",
-//   },
-// ];
-
-// const trendingTopics = [
-//   { id: 5, name: "#FreshmanLife", posts: 234 },
-//   { id: 6, name: "#StudyTips", posts: 189 },
-//   { id: 7, name: "#CampusEvents", posts: 156 },
-//   { id: 8, name: "#AshesiPride", posts: 142 },
-// ];
-
-// const communityStats = [
-//   { label: "Active Members", value: "2.4K", icon: Users, color: "#3b82f6" },
-//   { label: "Posts Today", value: "47", icon: TrendingUp, color: "#059669" },
-//   { label: "Events This Week", value: "12", icon: Calendar, color: "#dc2626" },
-//   { label: "Study Groups", value: "28", icon: BookOpen, color: "#7c3aed" },
-// ];
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
 export default function CommunityScreen() {
   const { theme } = useTheme();
@@ -133,6 +39,7 @@ export default function CommunityScreen() {
   const [loading, setLoading] = useState(true);
   const [isSearchMode, setIsSearchMode] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   const filters = [
     "All",
@@ -142,12 +49,7 @@ export default function CommunityScreen() {
     "Study Groups",
   ];
 
-  // Load posts on component mount
-  useEffect(() => {
-    loadPosts();
-  }, []);
-
-  const loadPosts = async () => {
+  const loadPosts = useCallback(async () => {
     try {
       setLoading(true);
       const { posts: fetchedPosts, error } = await PostsService.getPosts(20);
@@ -157,13 +59,21 @@ export default function CommunityScreen() {
         Alert.alert("Error", "Failed to load posts");
       } else {
         setPosts(fetchedPosts);
+        setDataLoaded(true);
       }
     } catch (error) {
       console.error("Error loading posts:", error);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  // Load posts on component mount - only if not already loaded
+  useEffect(() => {
+    if (!dataLoaded) {
+      loadPosts();
+    }
+  }, [dataLoaded, loadPosts]);
 
   // Handle new post when screen comes into focus
   useFocusEffect(
@@ -188,11 +98,12 @@ export default function CommunityScreen() {
     }, [params.newPost])
   );
 
-  const onRefresh = async () => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    setDataLoaded(false); // Reset flag to force reload
     await loadPosts();
     setRefreshing(false);
-  };
+  }, [loadPosts]);
 
   const handleSearchPress = () => {
     setIsSearchMode(true);
@@ -260,7 +171,6 @@ export default function CommunityScreen() {
     console.log("Opening filter options");
   };
 
-  // Add this handler after your existing handlers (around line 180)
   const handleDeletePost = async (postId: string) => {
     try {
       // Show confirmation dialog
@@ -411,17 +321,6 @@ export default function CommunityScreen() {
       textAlign: "center",
       fontStyle: "italic",
     } as TextStyle,
-
-    postsLoadingContainer: {
-      alignItems: "center",
-      paddingVertical: theme.spacing.xxl,
-    },
-    postsLoadingText: {
-      ...theme.typography.body,
-      color: theme.colors.textSecondary,
-      textAlign: "center",
-      fontStyle: "italic",
-    } as TextStyle,
   });
 
   const formatTimeAgo = (dateString: string): string => {
@@ -496,9 +395,18 @@ export default function CommunityScreen() {
     </View>
   );
 
+  // Show loading spinner when loading
+  if (loading && !dataLoaded) {
+    return (
+      <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+        <Header title="Community Feed" />
+        <LoadingSpinner />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
-      <Loader visible={loading} message="Loading posts..." />
       {isSearchMode ? (
         <>
           <FullSearchHeader
@@ -531,20 +439,6 @@ export default function CommunityScreen() {
             }
             contentContainerStyle={styles.scrollContent}
           >
-            {/* <View style={styles.statsContainer}>
-              <View style={styles.statsRow}>
-                {communityStats.map((stat, index) => (
-                  <StatCard
-                    key={index}
-                    label={stat.label}
-                    value={stat.value}
-                    icon={stat.icon}
-                    color={stat.color}
-                  />
-                ))}
-              </View>
-            </View> */}
-
             <View style={styles.filtersContainer}>
               <ScrollView
                 horizontal
@@ -562,31 +456,8 @@ export default function CommunityScreen() {
               </ScrollView>
             </View>
 
-            {/* <View style={styles.trendingContainer}>
-              <Text style={styles.trendingTitle}>Trending Topics</Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.trendingList}
-              >
-                {trendingTopics.map((topic) => (
-                  <TouchableOpacity key={topic.id} style={styles.trendingTag}>
-                    <Text style={styles.trendingTagText}>{topic.name}</Text>
-                    <Text style={styles.trendingTagCount}>
-                      {topic.posts} posts
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View> */}
-
             <View style={styles.postsContainer}>
-              {/* Show loading state for posts */}
-              {loading ? (
-                <View style={styles.postsLoadingContainer}>
-                  <Text style={styles.postsLoadingText}>Loading posts...</Text>
-                </View>
-              ) : filteredPosts.length > 0 ? (
+              {filteredPosts.length > 0 ? (
                 filteredPosts.map((post) => (
                   <PostCard
                     key={post.id}
