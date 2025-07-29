@@ -162,6 +162,7 @@ export default function ViewCoachesScreen() {
           major: coach.major || "N/A",
           country: coach.country || "United States",
           studentsCount: assignedStudents.length,
+          studentId: coach.studentId || "N/A", // Add studentId 
           lastActive: getLastActiveText(coach, allSessions || []),
           isActive: coach.isActive,
           phone: coach.phoneNumber,
@@ -696,6 +697,7 @@ export default function ViewCoachesScreen() {
             | "head_of_coaches"
             | undefined
         }
+        currentUserId={user?.id}
       />
     </SafeAreaView>
   );
