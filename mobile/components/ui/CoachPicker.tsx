@@ -13,6 +13,7 @@ import { Check, X, Users, Star } from "lucide-react-native";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Avatar } from "./Avatar";
 import { Button } from "./Button";
+import { LoadingSpinner } from "./LoadingSpinner";
 
 interface Coach {
   id: number;
@@ -20,8 +21,10 @@ interface Coach {
   capacity: number;
   avatar?: string;
   rating?: number;
-  specialties?: string[];
+  country?: string; // Add country property
+  major?: string; // Keep major for display
   currentStudents?: number;
+  availableSlots?: number;
 }
 
 interface CoachPickerProps {
@@ -32,6 +35,7 @@ interface CoachPickerProps {
   onCancel: () => void;
   title?: string;
   subtitle?: string;
+  loading?: boolean; // Add loading prop
 }
 
 export function CoachPicker({
@@ -42,6 +46,7 @@ export function CoachPicker({
   onCancel,
   title = "Select a Coach",
   subtitle,
+  loading = false, // Default to false
 }: CoachPickerProps) {
   const { theme } = useTheme();
   const [tempSelected, setTempSelected] = useState<Coach | null>(
@@ -138,21 +143,21 @@ export function CoachPicker({
       color: theme.colors.warning,
       fontWeight: "600",
     },
-    specialties: {
+    coachMeta: {
       flexDirection: "row",
+      alignItems: "center",
+      gap: theme.spacing.sm,
       flexWrap: "wrap",
-      gap: theme.spacing.xs,
     },
-    specialtyTag: {
-      backgroundColor: theme.colors.accent + "20",
-      paddingHorizontal: theme.spacing.sm,
-      paddingVertical: 2,
-      borderRadius: theme.borderRadius.sm,
-    },
-    specialtyText: {
-      ...theme.typography.captionSmall,
-      color: theme.colors.accent,
+    countryText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.primary,
       fontWeight: "600",
+    },
+    majorText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      fontWeight: "500",
     },
     checkIcon: {
       marginLeft: theme.spacing.md,
@@ -162,6 +167,27 @@ export function CoachPicker({
       borderTopWidth: 1,
       borderTopColor: theme.colors.border,
       gap: theme.spacing.sm,
+    },
+    assignButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: theme.colors.primary,
+      paddingVertical: theme.spacing.md,
+      paddingHorizontal: theme.spacing.lg,
+      borderRadius: theme.borderRadius.lg,
+      gap: theme.spacing.sm,
+    },
+    assignButtonDisabled: {
+      backgroundColor: theme.colors.border,
+    },
+    assignButtonText: {
+      ...theme.typography.button,
+      color: "white",
+      fontWeight: "600",
+    },
+    assignButtonTextDisabled: {
+      color: theme.colors.textSecondary,
     },
     emptyState: {
       alignItems: "center",
@@ -177,7 +203,7 @@ export function CoachPicker({
   });
 
   const handleConfirm = () => {
-    if (tempSelected) {
+    if (tempSelected && !loading) {
       onSelect(tempSelected);
     }
   };
@@ -189,18 +215,18 @@ export function CoachPicker({
     return theme.colors.success;
   };
 
-  // Update the renderCoachItem function in CoachPicker.tsx to show available slots
   const renderCoachItem = ({ item: coach }: { item: Coach }) => {
     const isSelected = tempSelected?.id === coach.id;
     const currentStudents = coach.currentStudents || 0;
-    const availableSlots = coach.capacity - currentStudents;
+    const availableSlots =
+      coach.availableSlots || coach.capacity - currentStudents;
 
     return (
       <TouchableOpacity
         style={[styles.coachItem, isSelected && styles.selectedCoachItem]}
         onPress={() => setTempSelected(coach)}
         activeOpacity={0.8}
-        disabled={availableSlots <= 0} // Disable if no slots available
+        disabled={availableSlots <= 0 || loading} // Disable during loading
       >
         <Avatar
           imageUrl={coach.avatar}
@@ -240,22 +266,13 @@ export function CoachPicker({
             )}
           </View>
 
-          {coach.specialties && coach.specialties.length > 0 && (
-            <View style={styles.specialties}>
-              {coach.specialties.slice(0, 2).map((specialty, index) => (
-                <View key={index} style={styles.specialtyTag}>
-                  <Text style={styles.specialtyText}>{specialty}</Text>
-                </View>
-              ))}
-              {coach.specialties.length > 2 && (
-                <View style={styles.specialtyTag}>
-                  <Text style={styles.specialtyText}>
-                    +{coach.specialties.length - 2}
-                  </Text>
-                </View>
-              )}
-            </View>
-          )}
+          {/* Replace specialties with country and major */}
+          <View style={styles.coachMeta}>
+            {coach.country && (
+              <Text style={styles.countryText}>🌍 {coach.country}</Text>
+            )}
+            {coach.major && <Text style={styles.majorText}>{coach.major}</Text>}
+          </View>
         </View>
 
         <View style={styles.checkIcon}>
@@ -283,7 +300,11 @@ export function CoachPicker({
           <View style={styles.header}>
             <View style={styles.headerTop}>
               <Text style={styles.title}>{title}</Text>
-              <TouchableOpacity style={styles.closeButton} onPress={onCancel}>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={onCancel}
+                disabled={loading} // Disable close during loading
+              >
                 <X color={theme.colors.textSecondary} size={20} />
               </TouchableOpacity>
             </View>
@@ -299,6 +320,7 @@ export function CoachPicker({
               style={styles.coachList}
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{ paddingBottom: theme.spacing.lg }}
+              scrollEnabled={!loading} // Disable scrolling during loading
             />
           ) : (
             <View style={styles.emptyState}>
@@ -311,17 +333,37 @@ export function CoachPicker({
 
           {/* Footer */}
           <View style={styles.footer}>
-            <Button
-              title={
-                tempSelected
-                  ? `Assign to ${tempSelected.name}`
-                  : "Select a Coach"
-              }
+            {/* Custom Assign Button with Loading Spinner */}
+            <TouchableOpacity
+              style={[
+                styles.assignButton,
+                (!tempSelected || loading) && styles.assignButtonDisabled,
+              ]}
               onPress={handleConfirm}
-              disabled={!tempSelected}
-              mode="contained"
+              disabled={!tempSelected || loading}
+              activeOpacity={0.8}
+            >
+              {loading && <LoadingSpinner size="small" color="white" />}
+              <Text
+                style={[
+                  styles.assignButtonText,
+                  (!tempSelected || loading) && styles.assignButtonTextDisabled,
+                ]}
+              >
+                {loading
+                  ? "Assigning..."
+                  : tempSelected
+                    ? `Assign to ${tempSelected.name}`
+                    : "Select a Coach"}
+              </Text>
+            </TouchableOpacity>
+
+            <Button
+              title="Cancel"
+              onPress={onCancel}
+              mode="text"
+              disabled={loading} // Disable cancel during loading
             />
-            <Button title="Cancel" onPress={onCancel} mode="text" />
           </View>
         </View>
       </View>
