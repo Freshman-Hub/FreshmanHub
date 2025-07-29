@@ -23,7 +23,7 @@ import {
 } from "lucide-react-native";
 import { useTheme } from "@/contexts/ThemeContext";
 import { router } from "expo-router";
-import { useUser } from "@/contexts/UserContext";
+// import { useUser } from "@/contexts/UserContext";
 
 // Import services
 import { UserService } from "@/services/user.service";
@@ -45,7 +45,7 @@ const COACH_MAX_CAPACITY = 15;
 
 export default function AssignFreshmanScreen() {
   const { theme } = useTheme();
-  const { user } = useUser();
+  // const { user } = useUser();
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchMode, setIsSearchMode] = useState(false);
@@ -63,6 +63,8 @@ export default function AssignFreshmanScreen() {
     "bulk"
   );
   const [currentFreshman, setCurrentFreshman] = useState<any>(null);
+  const [assignmentLoading, setAssignmentLoading] = useState(false);
+
 
   // Load data from backend
   const loadAssignmentData = useCallback(async () => {
@@ -113,7 +115,7 @@ export default function AssignFreshmanScreen() {
           };
         });
 
-      // Process coaches with capacity tracking
+      // Update the coaches data processing section around line 100
       const coachesData = users
         .filter((u) => u.role === "peer_coach" && u.isActive)
         .map((coach) => {
@@ -135,20 +137,16 @@ export default function AssignFreshmanScreen() {
             email: coach.email,
             year: coach.yearGroup || "N/A",
             major: coach.major || "N/A",
+            country: coach.country || "N/A", // Add country
             department: coach.department,
-            // Mock rating and specialties for now
+            // Mock rating for now
             rating: Math.random() * 0.5 + 4.5, // 4.5-5.0
-            specialties: [
-              "Academic Support",
-              "Career Guidance",
-              "Personal Development",
-            ], // Mock
           };
         });
 
       setFreshmen(freshmenData);
       setCoaches(coachesData);
-       setDataLoaded(true);
+      setDataLoaded(true);
     } catch (error) {
       console.error("Error loading assignment data:", error);
       Alert.alert("Error", "Failed to load data. Please try again.");
@@ -242,110 +240,30 @@ export default function AssignFreshmanScreen() {
     setShowCoachPicker(true);
   };
 
-  const handleCoachSelect = async (coach: any) => {
-    try {
-      if (assignmentType === "bulk") {
-        // Check if coach has capacity for all selected students
-        const availableSlots = coach.capacity - coach.currentStudents;
-        if (selectedFreshmen.length > availableSlots) {
-          Alert.alert(
-            "Insufficient Capacity",
-            `${coach.name} only has ${availableSlots} available slots, but you selected ${selectedFreshmen.length} students.`
-          );
-          return;
-        }
+const handleCoachSelect = async (coach: any) => {
+  try {
+    setAssignmentLoading(true); // Start loading
 
-        // Bulk assignment
-        let successCount = 0;
-        let errorCount = 0;
-
-        for (const freshmanId of selectedFreshmen) {
-          const { error } = await UserService.updateUser(
-            freshmanId,
-            { assignedCoach: coach.id },
-            user?.id || ""
-          );
-
-          if (error) {
-            errorCount++;
-            console.error(`Error assigning student ${freshmanId}:`, error);
-          } else {
-            successCount++;
-          }
-        }
-
-        // Update local state
-        const updatedFreshmen = freshmen.map((freshman: any) => {
-          if (selectedFreshmen.includes(freshman.id)) {
-            return {
-              ...freshman,
-              assignedCoach: coach.name,
-              assignedCoachId: coach.id,
-            };
-          }
-          return freshman;
-        });
-        setFreshmen(updatedFreshmen);
-        setSelectedFreshmen([]);
-
-        if (errorCount === 0) {
-          Alert.alert(
-            "Assignment Successful! 🎉",
-            `${successCount} student${successCount > 1 ? "s" : ""} assigned to ${coach.name}`
-          );
-        } else {
-          Alert.alert(
-            "Partial Success",
-            `${successCount} students assigned successfully. ${errorCount} assignments failed.`
-          );
-        }
-      } else {
-        // Single assignment - check capacity
-        if (coach.currentStudents >= coach.capacity) {
-          Alert.alert(
-            "Coach at Capacity",
-            `${coach.name} already has ${coach.capacity} students assigned.`
-          );
-          return;
-        }
-
-        // Single assignment
-        const { error } = await UserService.updateUser(
-          currentFreshman.id,
-          { assignedCoach: coach.id },
-          user?.id || ""
-        );
-
-        if (error) {
-          Alert.alert("Error", "Failed to assign student. Please try again.");
-          console.error("Assignment error:", error);
-          return;
-        }
-
-        // Update local state
-        const updatedFreshmen = freshmen.map((f) =>
-          f.id === currentFreshman.id
-            ? { ...f, assignedCoach: coach.name, assignedCoachId: coach.id }
-            : f
-        );
-        setFreshmen(updatedFreshmen);
-
-        Alert.alert(
-          "Assignment Successful! 🎉",
-          `${currentFreshman.name} has been assigned to ${coach.name}`
-        );
-      }
-
-      // Refresh data to get updated counts
-      await loadAssignmentData();
-    } catch (error) {
-      console.error("Assignment error:", error);
-      Alert.alert("Error", "Failed to assign student(s). Please try again.");
+    if (assignmentType === "bulk") {
+      // ... existing bulk assignment logic
+    } else {
+      // ... existing single assignment logic
     }
 
-    setShowCoachPicker(false);
-    setCurrentFreshman(null);
-  };
+    // ... existing success/error handling
+
+    // Refresh data to get updated counts
+    await loadAssignmentData();
+  } catch (error) {
+    console.error("Assignment error:", error);
+    Alert.alert("Error", "Failed to assign student(s). Please try again.");
+  } finally {
+    setAssignmentLoading(false); // Stop loading
+  }
+
+  setShowCoachPicker(false);
+  setCurrentFreshman(null);
+};
 
   const handleAutoAssign = () => {
     // TODO: Implement smart auto-assignment algorithm
@@ -389,11 +307,11 @@ export default function AssignFreshmanScreen() {
     return { total, assigned, unassigned };
   };
 
-  const getGPAColor = (gpa: number) => {
-    if (gpa >= 3.5) return theme.colors.success;
-    if (gpa >= 3.0) return theme.colors.warning;
-    return theme.colors.error;
-  };
+  // const getGPAColor = (gpa: number) => {
+  //   if (gpa >= 3.5) return theme.colors.success;
+  //   if (gpa >= 3.0) return theme.colors.warning;
+  //   return theme.colors.error;
+  // };
 
   // Filter coaches to show only those with available capacity
   const availableCoaches = coaches.map((coach) => ({
@@ -630,15 +548,19 @@ export default function AssignFreshmanScreen() {
               <Text style={styles.freshmanDetails}>{freshman.major}</Text>
               <View style={styles.freshmanMeta}>
                 <Text style={styles.freshmanCountry}>
+                  ID: {freshman.studentId}
+                </Text>
+                <Text style={styles.freshmanCountry}>
                   🌍 {freshman.country}
                 </Text>
-                <Text
+
+                {/* <Text
                   style={[styles.gpaText, { color: getGPAColor(freshman.gpa) }]}
                 >
                   GPA: {freshman.gpa.toFixed(1)}
-                </Text>
+                </Text> */}
               </View>
-              {freshman.needsSupport && freshman.needsSupport.length > 0 && (
+              {/* {freshman.needsSupport && freshman.needsSupport.length > 0 && (
                 <View style={styles.supportTags}>
                   {freshman.needsSupport
                     .slice(0, 2)
@@ -655,7 +577,7 @@ export default function AssignFreshmanScreen() {
                     </View>
                   )}
                 </View>
-              )}
+              )} */}
               {freshman.assignedCoach && (
                 <Text style={styles.assignedCoach}>
                   Coach: {freshman.assignedCoach}
@@ -663,16 +585,6 @@ export default function AssignFreshmanScreen() {
               )}
             </View>
             <View style={styles.freshmanActions}>
-              <TouchableOpacity
-                style={styles.selectionCircle}
-                onPress={() => handleFreshmanSelect(freshman.id)}
-              >
-                {isSelected ? (
-                  <CheckCircle color={theme.colors.primary} size={24} />
-                ) : (
-                  <Circle color={theme.colors.border} size={24} />
-                )}
-              </TouchableOpacity>
               <TouchableOpacity
                 style={
                   freshman.assignedCoachId
@@ -685,6 +597,16 @@ export default function AssignFreshmanScreen() {
                 <Text style={styles.buttonText}>
                   {freshman.assignedCoachId ? "Reassign" : "Assign"}
                 </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.selectionCircle}
+                onPress={() => handleFreshmanSelect(freshman.id)}
+              >
+                {isSelected ? (
+                  <CheckCircle color={theme.colors.primary} size={24} />
+                ) : (
+                  <Circle color={theme.colors.border} size={24} />
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -880,11 +802,15 @@ export default function AssignFreshmanScreen() {
         coaches={availableCoaches}
         onSelect={handleCoachSelect}
         onCancel={() => {
-          setShowCoachPicker(false);
-          setCurrentFreshman(null);
+          if (!assignmentLoading) {
+            // Only allow cancel if not loading
+            setShowCoachPicker(false);
+            setCurrentFreshman(null);
+          }
         }}
         title={getPickerTitle()}
         subtitle={getPickerSubtitle()}
+        loading={assignmentLoading} // Pass loading state
       />
     </SafeAreaView>
   );
