@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -21,19 +21,21 @@ import {
   MessageCircle,
   UserPlus,
   Eye,
+  Clock,
+  CheckCircle,
+  XCircle,
 } from "lucide-react-native";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useRouter } from "expo-router";
 
 // Import services
-// import { UserService } from "@/services/user.service";
-// import { EventsService } from "@/services/events.service";
+import { EventsService } from "@/services/events.service";
 
 // Import reusable components
 import { Avatar } from "@/components/ui/Avatar";
-// import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { StatCard } from "@/components/ui/StatCard";
+import { EventDetailModal } from "@/components/modals/EventDetailModal";
 
 interface CoachProfileModalProps {
   visible: boolean;
@@ -52,9 +54,9 @@ interface CoachProfileModalProps {
     phone?: string;
     department?: string;
     bio?: string;
-    country?: string; // Add country
-    yearGroup?: string; // Add yearGroup
-    // Add these new properties
+    country?: string;
+    yearGroup?: string;
+    studentId: string;
     detailedStats?: {
       totalStudents: number;
       successRate: number;
@@ -65,37 +67,93 @@ interface CoachProfileModalProps {
     recentSessions?: any[];
   } | null;
   userRole?: "head_of_coaches" | "peer_coach" | "advisor" | "student_leader";
+  currentUserId?: string; // Add current user ID
 }
-
 
 export function CoachProfileModal({
   visible,
   onClose,
   coach,
-  // userRole = "head_of_coaches",
+  userRole = "head_of_coaches",
+  currentUserId,
 }: CoachProfileModalProps) {
   const { theme } = useTheme();
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
-   const coachStats = coach?.detailedStats || {
-     totalStudents: 0,
-     successRate: 94,
-     rating: 4.8,
-     totalSessions: 0,
-   };
-  
-   const assignedStudents = coach?.assignedStudents || [];
-   const recentSessions = coach?.recentSessions || [];
+  const [recentSessions, setRecentSessions] = useState<any[]>([]);
+  const [loadingSessions, setLoadingSessions] = useState(false);
 
+  // EventDetailModal states
+  const [selectedSession, setSelectedSession] = useState<any>(null);
+  const [showSessionDetail, setShowSessionDetail] = useState(false);
+
+  const coachStats = coach?.detailedStats || {
+    totalStudents: 0,
+    successRate: 94,
+    rating: 4.8,
+    totalSessions: 0,
+  };
+
+  const assignedStudents = coach?.assignedStudents || [];
+
+  // Load recent sessions when modal opens
+  useEffect(() => {
+    if (visible && coach?.id) {
+      loadRecentSessions();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, coach?.id]);
+
+  const loadRecentSessions = async () => {
+    if (!coach?.id) return;
+
+    try {
+      setLoadingSessions(true);
+
+      // Get sessions from the sessions collection
+      const { events: sessions, error } = await EventsService.getEvents(
+        50, // Get recent 50
+        "All", // All categories
+        "sessions" // Use sessions collection
+      );
+
+      if (error) {
+        console.error("Error loading sessions:", error);
+        return;
+      }
+
+      if (sessions) {
+        // Filter sessions where this coach is involved (either as creator or invitee)
+        const coachSessions = sessions
+          .filter((session) => {
+            // Session where coach is the creator (coach hosting session for student)
+            const isCoachHost = session.userId === coach.id;
+
+            // Session where coach is invited (student requested session with coach)
+            const isCoachInvited = session.invitedUsers?.includes(coach.id);
+
+            return isCoachHost || isCoachInvited;
+          })
+          .sort(
+            (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+          )
+          .slice(0, 10); // Get most recent 10
+
+        setRecentSessions(coachSessions);
+      }
+    } catch (error) {
+      console.error("Error loading recent sessions:", error);
+    } finally {
+      setLoadingSessions(false);
+    }
+  };
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    // If you need to refresh, you can call a refresh function passed from parent
-    // For now, just simulate refresh
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1000);
-  }, []);
+    await loadRecentSessions();
+    setRefreshing(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [coach?.id]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -121,6 +179,57 @@ export function CoachProfileModal({
       default:
         return theme.colors.textSecondary;
     }
+  };
+
+  // Get session status and styling
+  const getSessionStatus = (session: any) => {
+    const now = new Date();
+    const sessionDate = new Date(session.date);
+
+    if (session.status === "completed") {
+      return {
+        label: "Completed",
+        color: theme.colors.success,
+        icon: CheckCircle,
+        bgColor: theme.colors.success + "15",
+      };
+    } else if (session.status === "cancelled") {
+      return {
+        label: "Cancelled",
+        color: theme.colors.error,
+        icon: XCircle,
+        bgColor: theme.colors.error + "15",
+      };
+    } else if (sessionDate < now) {
+      return {
+        label: "Past",
+        color: theme.colors.textSecondary,
+        icon: Clock,
+        bgColor: theme.colors.textSecondary + "15",
+      };
+    } else {
+      return {
+        label: "Upcoming",
+        color: theme.colors.primary,
+        icon: Clock,
+        bgColor: theme.colors.primary + "15",
+      };
+    }
+  };
+
+  const handleSessionPress = (session: any) => {
+    if (userRole === "head_of_coaches") {
+      setSelectedSession(session);
+      setShowSessionDetail(true);
+    }
+  };
+
+  const getUserRSVPStatus = (session: any): "yes" | "no" | "maybe" | "none" => {
+    if (!currentUserId) return "none";
+    if (session.rsvpYes?.includes(currentUserId)) return "yes";
+    if (session.rsvpNo?.includes(currentUserId)) return "no";
+    if (session.rsvpMaybe?.includes(currentUserId)) return "maybe";
+    return "none";
   };
 
   const styles = StyleSheet.create({
@@ -380,16 +489,42 @@ export function CoachProfileModal({
     sessionContent: {
       flex: 1,
     },
+    sessionHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      marginBottom: theme.spacing.xs,
+    },
     sessionTitle: {
       ...theme.typography.body,
       color: theme.colors.text,
       fontWeight: "600",
-      marginBottom: 2,
+      flex: 1,
+      marginRight: theme.spacing.sm,
     },
     sessionTime: {
       ...theme.typography.bodySmall,
       color: theme.colors.textSecondary,
       fontWeight: "500",
+    },
+    sessionLocation: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      fontWeight: "500",
+      marginTop: 2,
+    },
+    statusFlag: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: theme.spacing.sm,
+      paddingVertical: theme.spacing.xs,
+      borderRadius: theme.borderRadius.sm,
+      gap: theme.spacing.xs,
+    },
+    statusFlagText: {
+      ...theme.typography.captionSmall,
+      fontWeight: "600",
+      fontSize: 10,
     },
     loadingContainer: {
       flex: 1,
@@ -413,71 +548,106 @@ export function CoachProfileModal({
     },
   });
 
-const renderStudentItem = ({ item: student }: { item: any }) => {
-  const progressColor = getProgressColor(student.status);
+  const renderStudentItem = ({ item: student }: { item: any }) => {
+    const progressColor = getProgressColor(student.status);
 
-  return (
-    <View style={styles.studentItem}>
-      <View style={styles.studentHeader}>
-        <Avatar
-          imageUrl={student.avatar}
-          initials={student.name.charAt(0)}
-          size={50}
-        />
-        <View style={styles.studentInfo}>
-          <Text style={styles.studentName}>{student.name}</Text>
-          <Text style={styles.studentDetails}>
-            {student.year} • {student.major}
-          </Text>
-          {student.country && (
-            <Text style={styles.studentCountry}>📍 {student.country}</Text>
-          )}
-        </View>
-        <TouchableOpacity
-          style={styles.viewStudentButton}
-          onPress={() => console.log("View student profile:", student.id)}
-        >
-          <Eye color={theme.colors.primary} size={20} />
-        </TouchableOpacity>
-      </View>
-      <View style={styles.progressContainer}>
-        <View style={styles.progressHeader}>
-          <Text style={styles.progressLabel}>Academic Progress</Text>
-          <Text style={styles.progressValue}>{student.progress}%</Text>
-        </View>
-        <View style={styles.progressBar}>
-          <View
-            style={[
-              styles.progressFill,
-              {
-                backgroundColor: progressColor,
-                width: `${student.progress}%`,
-              },
-            ]}
+    return (
+      <View style={styles.studentItem}>
+        <View style={styles.studentHeader}>
+          <Avatar
+            imageUrl={student.avatar}
+            initials={student.name.charAt(0)}
+            size={50}
           />
+          <View style={styles.studentInfo}>
+            <Text style={styles.studentName}>{student.name}</Text>
+            <Text style={styles.studentDetails}>
+              {student.year} • {student.major}
+            </Text>
+            {student.country && (
+              <Text style={styles.studentCountry}>📍 {student.country}</Text>
+            )}
+          </View>
+          <TouchableOpacity
+            style={styles.viewStudentButton}
+            onPress={() => console.log("View student profile:", student.id)}
+          >
+            <Eye color={theme.colors.primary} size={20} />
+          </TouchableOpacity>
         </View>
-        <Text style={styles.lastSessionText}>
-          Last session: {student.lastSession}
-        </Text>
+        <View style={styles.progressContainer}>
+          <View style={styles.progressHeader}>
+            <Text style={styles.progressLabel}>Academic Progress</Text>
+            <Text style={styles.progressValue}>{student.progress}%</Text>
+          </View>
+          <View style={styles.progressBar}>
+            <View
+              style={[
+                styles.progressFill,
+                {
+                  backgroundColor: progressColor,
+                  width: `${student.progress}%`,
+                },
+              ]}
+            />
+          </View>
+          <Text style={styles.lastSessionText}>
+            Last session: {student.lastSession}
+          </Text>
+        </View>
       </View>
-    </View>
-  );
-};
-
+    );
+  };
 
   const renderSessionItem = ({ item: session }: { item: any }) => {
+    const statusInfo = getSessionStatus(session);
+    const StatusIcon = statusInfo.icon;
+
     return (
-      <View style={styles.sessionItem}>
+      <TouchableOpacity
+        style={styles.sessionItem}
+        onPress={() => handleSessionPress(session)}
+        activeOpacity={userRole === "head_of_coaches" ? 0.8 : 1}
+      >
         <View style={styles.sessionIcon}>
           <Calendar color={theme.colors.primary} size={20} />
         </View>
         <View style={styles.sessionContent}>
-          <Text style={styles.sessionTitle}>{session.title}</Text>
+          <View style={styles.sessionHeader}>
+            <Text style={styles.sessionTitle} numberOfLines={1}>
+              {session.title}
+            </Text>
+            {/* Status Flag */}
+            <View
+              style={[
+                styles.statusFlag,
+                { backgroundColor: statusInfo.bgColor },
+              ]}
+            >
+              <StatusIcon color={statusInfo.color} size={12} />
+              <Text
+                style={[styles.statusFlagText, { color: statusInfo.color }]}
+              >
+                {statusInfo.label}
+              </Text>
+            </View>
+          </View>
           <Text style={styles.sessionTime}>
-            {new Date(session.date).toLocaleDateString()} • {session.time}
+            {new Date(session.date).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })}{" "}
+            •{" "}
+            {session.allDay
+              ? "All day"
+              : `${session.startTime} - ${session.endTime}`}
           </Text>
+          {session.location && (
+            <Text style={styles.sessionLocation}>📍 {session.location}</Text>
+          )}
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -501,7 +671,6 @@ const renderStudentItem = ({ item: student }: { item: any }) => {
             </TouchableOpacity>
           </View>
 
-          {/* Remove loading state - data is already available */}
           <ScrollView
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}
@@ -518,9 +687,11 @@ const renderStudentItem = ({ item: student }: { item: any }) => {
                   size={80}
                 />
               </View>
-              {/* Coach name with status dot */}
+
               <View style={styles.nameWithStatus}>
-                <Text style={styles.profileName}>{coach.name} { "  "}</Text>
+                <Text style={styles.profileName}>
+                  {coach.name} {"  "}
+                </Text>
                 <View
                   style={[
                     styles.statusDotSmall,
@@ -529,8 +700,13 @@ const renderStudentItem = ({ item: student }: { item: any }) => {
                 />
               </View>
 
-              {/* Enhanced profile details with better formatting */}
               <View style={styles.profileDetailsContainer}>
+                <View style={styles.profileDetailRow}>
+                  <Text style={styles.profileDetailLabel}>Student ID</Text>
+                  <Text style={styles.profileDetailValue}>
+                    {coach.studentId || "N/A"}
+                  </Text>
+                </View>
                 <View style={styles.profileDetailRow}>
                   <Text style={styles.profileDetailLabel}>Class</Text>
                   <Text style={styles.profileDetailValue}>
@@ -553,17 +729,7 @@ const renderStudentItem = ({ item: student }: { item: any }) => {
                     </Text>
                   </View>
                 )}
-
-                {/* {coach.department && (
-                  <View style={styles.profileDetailRow}>
-                    <Text style={styles.profileDetailLabel}>Department</Text>
-                    <Text style={styles.profileDetailValue}>
-                      {coach.department}
-                    </Text>
-                  </View>
-                )} */}
               </View>
-
 
               <View style={styles.actionButtons}>
                 <Button
@@ -613,7 +779,7 @@ const renderStudentItem = ({ item: student }: { item: any }) => {
                 />
                 <StatCard
                   label="Sessions"
-                  value={coachStats.totalSessions.toString()}
+                  value={recentSessions.length.toString()}
                   icon={Calendar}
                   color={theme.colors.info}
                   style={{ flex: 1 }}
@@ -653,8 +819,14 @@ const renderStudentItem = ({ item: student }: { item: any }) => {
 
             {/* Recent Sessions */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Recent Sessions</Text>
-              {recentSessions.length > 0 ? (
+              <Text style={styles.sectionTitle}>
+                Recent Sessions ({recentSessions.length})
+              </Text>
+              {loadingSessions ? (
+                <View style={styles.loadingContainer}>
+                  <Text style={styles.loadingText}>Loading sessions...</Text>
+                </View>
+              ) : recentSessions.length > 0 ? (
                 <FlatList
                   data={recentSessions}
                   renderItem={renderSessionItem}
@@ -664,12 +836,31 @@ const renderStudentItem = ({ item: student }: { item: any }) => {
                 />
               ) : (
                 <Text style={styles.emptyStateText}>
-                  No recent sessions found.
+                  No recent sessions found between this coach and students.
                 </Text>
               )}
             </View>
           </ScrollView>
         </View>
+
+        {/* EventDetailModal for session details */}
+        <EventDetailModal
+          visible={showSessionDetail}
+          event={selectedSession}
+          onClose={() => {
+            setShowSessionDetail(false);
+            setSelectedSession(null);
+          }}
+          onEdit={() => {}} // Head of coaches can't edit sessions
+          onDelete={() => {}} // Head of coaches can't delete sessions
+          onRSVP={() => {}} // Head of coaches don't RSVP
+          currentUserId={currentUserId}
+          userRSVPStatus={
+            selectedSession ? getUserRSVPStatus(selectedSession) : "none"
+          }
+          contentType="session"
+          attendeeProfiles={[]} // Could load if needed
+        />
       </SafeAreaView>
     </RNModal>
   );
