@@ -226,7 +226,7 @@ export default function RoutesLayout() {
 
       {/* Messaging */}
       <Stack.Screen
-        name="chat/index"
+        name="chats"
         options={{
           title: "Messages",
           headerShown: false,
