@@ -30,7 +30,6 @@ import { EventsService } from "@/services/events.service";
 
 import { CoachProfileModal } from "@/components/ui/CoachProfileModal";
 
-
 // Import reusable components
 import { Header } from "@/components/ui/Header";
 import { Avatar } from "@/components/ui/Avatar";
@@ -38,6 +37,7 @@ import { FullSearchHeader } from "@/components/ui/FullSearchHeader";
 import { FilterChip } from "@/components/ui/FilterChip";
 import { Card } from "@/components/ui/Card";
 import { CoachOptionsMenu } from "@/components/ui/CoachOptionsMenu";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
 const filterOptions = ["All", "Available", "Busy", "Offline"];
 
@@ -52,9 +52,8 @@ export default function ViewCoachesScreen() {
   const [activeFilter, setActiveFilter] = useState("All");
   const [loading, setLoading] = useState(true);
 
-    const [showCoachProfileModal, setShowCoachProfileModal] = useState(false);
-    const [selectedCoach, setSelectedCoach] = useState<any>(null);
-
+  const [showCoachProfileModal, setShowCoachProfileModal] = useState(false);
+  const [selectedCoach, setSelectedCoach] = useState<any>(null);
 
   // State for real data
   const [coaches, setCoaches] = useState<any[]>([]);
@@ -66,144 +65,144 @@ export default function ViewCoachesScreen() {
     studentsHelped: 0,
   });
 
- const loadCoachesData = useCallback(async () => {
-   try {
-     setLoading(true);
+  const loadCoachesData = useCallback(async () => {
+    try {
+      setLoading(true);
 
-     // Fetch all users
-     const { users, error: usersError } = await UserService.getAllUsers();
-     if (usersError) {
-       console.error("Error fetching users:", usersError);
-       return;
-     }
+      // Fetch all users
+      const { users, error: usersError } = await UserService.getAllUsers();
+      if (usersError) {
+        console.error("Error fetching users:", usersError);
+        return;
+      }
 
-     setAllUsers(users);
+      setAllUsers(users);
 
-     // Filter for peer coaches
-     const peerCoaches = users.filter((user) => user.role === "peer_coach");
+      // Filter for peer coaches
+      const peerCoaches = users.filter((user) => user.role === "peer_coach");
 
-     // Fetch sessions to determine coach activity
-     const { events: allSessions, error: sessionsError } =
-       await EventsService.getEvents(100, undefined, "sessions");
+      // Fetch sessions to determine coach activity
+      const { events: allSessions, error: sessionsError } =
+        await EventsService.getEvents(100, undefined, "sessions");
 
-     if (!sessionsError) {
-       setSessions(allSessions);
-     }
+      if (!sessionsError) {
+        setSessions(allSessions);
+      }
 
-     // Process coaches data with activity status AND detailed info for modal
-     const processedCoaches = peerCoaches.map((coach) => {
-       // Calculate activity status based on recent sessions or last login
-       const status = determineCoachStatus(coach, allSessions || []);
+      // Process coaches data with activity status AND detailed info for modal
+      const processedCoaches = peerCoaches.map((coach) => {
+        // Calculate activity status based on recent sessions or last login
+        const status = determineCoachStatus(coach, allSessions || []);
 
-       // Count assigned students (freshmen assigned to this coach)
-       const assignedStudents = users.filter(
-         (student) =>
-           student.role === "freshman" && student.assignedCoach === coach.id
-       );
+        // Count assigned students (freshmen assigned to this coach)
+        const assignedStudents = users.filter(
+          (student) =>
+            student.role === "freshman" && student.assignedCoach === coach.id
+        );
 
-       // Get coach's sessions
-       const coachSessions = (allSessions || []).filter(
-         (session) => session.userId === coach.id
-       );
+        // Get coach's sessions
+        const coachSessions = (allSessions || []).filter(
+          (session) => session.userId === coach.id
+        );
 
-       // Get recent sessions (last 5) for modal
-       const recentSessions = coachSessions
-         .sort(
-           (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-         )
-         .slice(0, 5)
-         .map((session) => ({
-           id: session.id,
-           title: session.title || "Coaching Session",
-           type: session.category || "Session",
-           date: session.date,
-           time: session.startTime || "Time TBD",
-           student:
-             session.attendees?.length > 0
-               ? "Group Session"
-               : "Individual Session",
-         }));
+        // Get recent sessions (last 5) for modal
+        const recentSessions = coachSessions
+          .sort(
+            (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+          )
+          .slice(0, 5)
+          .map((session) => ({
+            id: session.id,
+            title: session.title || "Coaching Session",
+            type: session.category || "Session",
+            date: session.date,
+            time: session.startTime || "Time TBD",
+            student:
+              session.attendees?.length > 0
+                ? "Group Session"
+                : "Individual Session",
+          }));
 
-       // Process assigned students with mock data for modal
-       const processedStudents = assignedStudents.map((student) => {
-         const progress = Math.floor(Math.random() * 40) + 60; // 60-100%
+        // Process assigned students with mock data for modal
+        const processedStudents = assignedStudents.map((student) => {
+          const progress = Math.floor(Math.random() * 40) + 60; // 60-100%
 
-         return {
-           id: student.id,
-           name:
-             `${student.firstName || ""} ${student.lastName || ""}`.trim() ||
-             student.email?.split("@")[0] ||
-             "Unknown",
-           avatar: student.profileImage,
-           progress: progress,
-           status:
-             progress >= 80
-               ? "excellent"
-               : progress >= 65
-                 ? "good"
-                 : "needs-attention",
-           lastSession: "2 days ago", // Mock for now
-           year: student.yearGroup || "Freshman",
-           major: student.major || "Undeclared",
-           country: student.country || "N/A", // Add country
-         };
-       });
+          return {
+            id: student.id,
+            name:
+              `${student.firstName || ""} ${student.lastName || ""}`.trim() ||
+              student.email?.split("@")[0] ||
+              "Unknown",
+            avatar: student.profileImage,
+            progress: progress,
+            status:
+              progress >= 80
+                ? "excellent"
+                : progress >= 65
+                  ? "good"
+                  : "needs-attention",
+            lastSession: "2 days ago", // Mock for now
+            year: student.yearGroup || "Freshman",
+            major: student.major || "Undeclared",
+            country: student.country || "N/A", // Add country
+          };
+        });
 
-       return {
-         id: coach.id,
-         name:
-           `${coach.firstName || ""} ${coach.lastName || ""}`.trim() ||
-           coach.email?.split("@")[0] ||
-           "Unknown",
-         email: coach.email,
-         avatar: coach.profileImage,
-         status: status,
-         year: coach.yearGroup || "N/A",
-         yearGroup: coach.yearGroup, // Add explicit yearGroup
-         major: coach.major || "N/A",
-         country: coach.country || "United States", 
-         studentsCount: assignedStudents.length,
-         lastActive: getLastActiveText(coach, allSessions || []),
-         isActive: coach.isActive,
-         phone: coach.phoneNumber,
-         department: coach.department,
-         bio: coach.bio,
-         // Add detailed data for modal
-         detailedStats: {
-           totalStudents: assignedStudents.length,
-           successRate: 94, // Mock for now
-           rating: 4.8, // Mock for now
-           totalSessions: coachSessions.length,
-         },
-         assignedStudents: processedStudents,
-         recentSessions: recentSessions,
-       };
-     });
+        return {
+          id: coach.id,
+          name:
+            `${coach.firstName || ""} ${coach.lastName || ""}`.trim() ||
+            coach.email?.split("@")[0] ||
+            "Unknown",
+          email: coach.email,
+          avatar: coach.profileImage,
+          status: status,
+          year: coach.yearGroup || "N/A",
+          yearGroup: coach.yearGroup, // Add explicit yearGroup
+          major: coach.major || "N/A",
+          country: coach.country || "United States",
+          studentsCount: assignedStudents.length,
+          lastActive: getLastActiveText(coach, allSessions || []),
+          isActive: coach.isActive,
+          phone: coach.phoneNumber,
+          department: coach.department,
+          bio: coach.bio,
+          // Add detailed data for modal
+          detailedStats: {
+            totalStudents: assignedStudents.length,
+            successRate: 94, // Mock for now
+            rating: 4.8, // Mock for now
+            totalSessions: coachSessions.length,
+          },
+          assignedStudents: processedStudents,
+          recentSessions: recentSessions,
+        };
+      });
 
-     setCoaches(processedCoaches);
+      setCoaches(processedCoaches);
 
-     // Calculate summary stats
-     const totalCoaches = processedCoaches.length;
-     const availableCoaches = processedCoaches.filter(
-       (coach) => coach.status === "active" && coach.isActive
-     ).length;
+      // Calculate summary stats
+      const totalCoaches = processedCoaches.length;
+      const availableCoaches = processedCoaches.filter(
+        (coach) => coach.status === "active" && coach.isActive
+      ).length;
 
-     // Count unique students helped (all freshmen assigned to any coach)
-     const studentsHelped = users.filter(
-       (user) => user.role === "freshman" && user.assignedCoach
-     ).length;
+      // Count unique students helped (all freshmen assigned to any coach)
+      const studentsHelped = users.filter(
+        (user) => user.role === "freshman" && user.assignedCoach
+      ).length;
 
-     setSummaryStats({
-       totalCoaches,
-       availableCoaches,
-       studentsHelped,
-     });
-   } catch (error) {
-     console.error("Error loading coaches data:", error);
-   } finally {
-     setLoading(false);
-   }
- }, []);
+      setSummaryStats({
+        totalCoaches,
+        availableCoaches,
+        studentsHelped,
+      });
+    } catch (error) {
+      console.error("Error loading coaches data:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   // Determine coach status based on recent activity
   const determineCoachStatus = (coach: any, sessions: any[]) => {
@@ -462,18 +461,6 @@ export default function ViewCoachesScreen() {
       fontStyle: "italic",
       fontWeight: "500",
     },
-    loadingContainer: {
-      flex: 1,
-      justifyContent: "center",
-      alignItems: "center",
-      paddingVertical: theme.spacing.xl,
-    },
-    loadingText: {
-      ...theme.typography.body,
-      color: theme.colors.textSecondary,
-      marginTop: theme.spacing.md,
-      fontWeight: "500",
-    },
   });
 
   const handleCoachAction = (action: string, coach: any) => {
@@ -588,13 +575,12 @@ export default function ViewCoachesScreen() {
     </View>
   );
 
+  // Show loading spinner when loading
   if (loading) {
     return (
       <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
         <Header title="Peer Coaches" />
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading coaches...</Text>
-        </View>
+        <LoadingSpinner />
       </SafeAreaView>
     );
   }
