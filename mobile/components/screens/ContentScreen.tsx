@@ -18,7 +18,6 @@ import { useUser } from "@/contexts/UserContext";
 import { UserService } from "@/services/user.service";
 import { User } from "@/types/user.types";
 
-
 // Import components
 import { Header } from "@/components/ui/Header";
 import { FloatingActionButton } from "@/components/ui/FloatingActionButton";
@@ -28,7 +27,7 @@ import { CreateEventModal } from "@/components/ui/CreateEventModal";
 import { EventDetailModal } from "@/components/modals/EventDetailModal";
 import { EditEventModal } from "@/components/modals/EditEventModal";
 import { FilterChip } from "@/components/ui/FilterChip";
-import { Loader } from "@/components/ui/Loader";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner"; // Replace Loader with LoadingSpinner
 import DateTimePicker from "@react-native-community/datetimepicker";
 
 // Import your existing services
@@ -66,6 +65,7 @@ export function ContentScreen({
   const [selectedFilter, setSelectedFilter] = useState("All");
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [dataLoaded, setDataLoaded] = useState(false); // Add dataLoaded state
   const [createModalVisible, setCreateModalVisible] = useState(false);
   const [createModalDate, setCreateModalDate] = useState<Date>();
   const [createModalTime, setCreateModalTime] = useState<string>();
@@ -150,12 +150,9 @@ export function ContentScreen({
   };
 
   // Use your existing EventsService
-  // Use your existing EventsService
   const loadEvents = useCallback(async () => {
     try {
-      if (events.length === 0) {
-        setLoading(true);
-      }
+      setLoading(true);
 
       const { events: fetchedEvents, error } = await EventsService.getEvents(
         50,
@@ -170,6 +167,7 @@ export function ContentScreen({
         // Filter events based on invitee status
         const filteredEvents = filterEventsByInvitee(fetchedEvents);
         setEvents(filteredEvents);
+        setDataLoaded(true); // Mark data as loaded
 
         // Load attendee profiles for each event
         filteredEvents.forEach((event) => {
@@ -184,7 +182,7 @@ export function ContentScreen({
     } finally {
       setLoading(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     contentType,
     selectedFilter,
@@ -192,12 +190,17 @@ export function ContentScreen({
     user?.id,
     loadAttendeeProfiles,
   ]);
+
+  // Load events only if data not already loaded
   useEffect(() => {
-    loadEvents();
-  }, [loadEvents]);
+    if (!dataLoaded) {
+      loadEvents();
+    }
+  }, [dataLoaded, loadEvents]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    setDataLoaded(false); // Reset flag to force reload
     await loadEvents();
     setRefreshing(false);
   }, [loadEvents]);
@@ -395,12 +398,6 @@ export function ContentScreen({
     }
   };
 
-  const getLoadingMessage = () => {
-    if (deleteLoading) return `Deleting ${contentType}...`;
-    if (editLoading) return `Updating ${contentType}...`;
-    return `Loading ${contentType}s...`;
-  };
-
   const getUserRSVPStatus = (event: Event): "yes" | "no" | "maybe" | "none" => {
     if (!user?.id) return "none";
     if (event.rsvpYes?.includes(user.id)) return "yes";
@@ -409,7 +406,7 @@ export function ContentScreen({
     return "none";
   };
 
-  // Filter events by time and date
+  // Update the getFilteredEvents function
   const getFilteredEvents = () => {
     const now = new Date();
     let filtered = events;
@@ -419,17 +416,47 @@ export function ContentScreen({
       filtered = filtered.filter((event) => event.category === selectedFilter);
     }
 
-    // Filter by time (upcoming/past)
-    filtered = filtered.filter((event) => {
-      const eventDate = new Date(event.date);
-      if (timeFilter === "upcoming") {
-        return eventDate >= now || event.status === "upcoming";
-      } else {
-        return eventDate < now || event.status === "completed";
-      }
-    });
+    // Only apply time filtering in LIST view, not calendar view
+    if (viewMode === "list") {
+      filtered = filtered.filter((event) => {
+        const eventDate = new Date(event.date);
 
-    // Filter by specific date if selected
+        // If event has a specific time, use it for comparison
+        if (event.startTime && !event.allDay) {
+          // Parse the start time and combine with event date
+          const [hours, minutes] = event.startTime.split(":").map(Number);
+          const eventDateTime = new Date(eventDate);
+          eventDateTime.setHours(hours, minutes, 0, 0);
+
+          if (timeFilter === "upcoming") {
+            return eventDateTime >= now;
+          } else {
+            return eventDateTime < now;
+          }
+        } else {
+          // For all-day events, compare just the date
+          const eventDateOnly = new Date(
+            eventDate.getFullYear(),
+            eventDate.getMonth(),
+            eventDate.getDate()
+          );
+          const nowDateOnly = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate()
+          );
+
+          if (timeFilter === "upcoming") {
+            return eventDateOnly >= nowDateOnly;
+          } else {
+            return eventDateOnly < nowDateOnly;
+          }
+        }
+      });
+    }
+    // For calendar view, don't filter by time - show all events
+
+    // Filter by specific date if selected (applies to both views)
     if (filterDate) {
       filtered = filtered.filter((event) => {
         const eventDate = new Date(event.date);
@@ -444,9 +471,11 @@ export function ContentScreen({
     return filtered;
   };
 
+  // Update the filteredEvents assignment
   const filteredEvents = getFilteredEvents();
 
-  const calendarEvents = filteredEvents
+  // Update calendarEvents to include ALL events when in calendar view
+  const calendarEvents = (viewMode === "calendar" ? events : filteredEvents)
     .filter((event) => event.startTime !== undefined)
     .map((event) => ({
       ...event,
@@ -617,12 +646,63 @@ export function ContentScreen({
     },
   });
 
+  // Show loading spinner when loading initial data
+  if (loading && !dataLoaded) {
+    return (
+      <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+        <Header
+          title={title}
+          showSearch={true}
+          onSearchPress={() => {}}
+          leftIcon={ArrowLeft}
+          onLeftPress={() => router.back()}
+        />
+        <LoadingSpinner />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
-      <Loader
-        visible={loading || deleteLoading || editLoading}
-        message={getLoadingMessage()}
-      />
+      {/* Show overlay loading spinner for edit/delete operations */}
+      {(deleteLoading || editLoading) && (
+        <View
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0,0,0,0.5)",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 9999,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: theme.colors.surface,
+              padding: theme.spacing.xl,
+              borderRadius: theme.borderRadius.lg,
+              alignItems: "center",
+              minWidth: 200,
+            }}
+          >
+            <LoadingSpinner size="small" />
+            <Text
+              style={{
+                color: theme.colors.text,
+                marginTop: theme.spacing.md,
+                textAlign: "center",
+              }}
+            >
+              {deleteLoading
+                ? `Deleting ${contentType}...`
+                : `Updating ${contentType}...`}
+            </Text>
+          </View>
+        </View>
+      )}
 
       <Header
         title={title}
@@ -684,7 +764,7 @@ export function ContentScreen({
 
       {viewMode === "list" && (
         <>
-          {/* Time Toggle */}
+          {/* Time Toggle - Only show in list view */}
           <View style={styles.timeToggleContainer}>
             <TouchableOpacity
               style={[
@@ -741,13 +821,33 @@ export function ContentScreen({
       )}
 
       {viewMode === "calendar" ? (
-        <CalendarView
-          events={calendarEvents}
-          onEventPress={(event) => handleEventPress(event.id)}
-          selectedDate={selectedDate}
-          onDateChange={setSelectedDate}
-          onTimeSlotPress={handleTimeSlotPress}
-        />
+        <View style={{ flex: 1 }}>
+          {/* Category filters for calendar view */}
+          {/* <View style={styles.filtersContainer}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filtersScroll}
+            >
+              {filters.map((filter) => (
+                <FilterChip
+                  key={filter}
+                  label={filter}
+                  selected={selectedFilter === filter}
+                  onPress={() => setSelectedFilter(filter)}
+                />
+              ))}
+            </ScrollView>
+          </View> */}
+
+          <CalendarView
+            events={calendarEvents}
+            onEventPress={(event) => handleEventPress(event.id)}
+            selectedDate={selectedDate}
+            onDateChange={setSelectedDate}
+            onTimeSlotPress={handleTimeSlotPress}
+          />
+        </View>
       ) : (
         <View style={styles.listContainer}>
           {/* Section Header with Date Filter */}
@@ -801,43 +901,38 @@ export function ContentScreen({
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
             }
           >
-            {!loading && (
-              <>
-                {filteredEvents.length > 0 ? (
-                  filteredEvents.map((event) => (
-                    <CompactEventCard
-                      key={event.id}
-                      id={event.id}
-                      title={event.title}
-                      date={new Date(event.date).toLocaleDateString("en-US", {
-                        weekday: "short",
-                        month: "short",
-                        day: "numeric",
-                      })}
-                      time={
-                        event.allDay
-                          ? "All day"
-                          : `${event.startTime} - ${event.endTime}`
-                      }
-                      location={event.location || "No location"}
-                      attendees={event.attendeeCount || 0}
-                      category={event.category}
-                      rsvpStatus={getUserRSVPStatus(event)}
-                      onPress={() => handleEventPress(event.id)}
-                      onRSVP={handleRSVP}
-                    />
-                  ))
-                ) : (
-                  <View style={styles.emptyState}>
-                    <Text style={styles.emptyText}>
-                      No {timeFilter} {contentType}s found
-                      {selectedFilter !== "All" &&
-                        ` in ${selectedFilter} category`}
-                      {filterDate && ` for ${filterDate.toLocaleDateString()}`}
-                    </Text>
-                  </View>
-                )}
-              </>
+            {filteredEvents.length > 0 ? (
+              filteredEvents.map((event) => (
+                <CompactEventCard
+                  key={event.id}
+                  id={event.id}
+                  title={event.title}
+                  date={new Date(event.date).toLocaleDateString("en-US", {
+                    weekday: "short",
+                    month: "short",
+                    day: "numeric",
+                  })}
+                  time={
+                    event.allDay
+                      ? "All day"
+                      : `${event.startTime} - ${event.endTime}`
+                  }
+                  location={event.location || "No location"}
+                  attendees={event.attendeeCount || 0}
+                  category={event.category}
+                  rsvpStatus={getUserRSVPStatus(event)}
+                  onPress={() => handleEventPress(event.id)}
+                  onRSVP={handleRSVP}
+                />
+              ))
+            ) : (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyText}>
+                  No {timeFilter} {contentType}s found
+                  {selectedFilter !== "All" && ` in ${selectedFilter} category`}
+                  {filterDate && ` for ${filterDate.toLocaleDateString()}`}
+                </Text>
+              </View>
             )}
           </ScrollView>
         </View>
@@ -877,7 +972,7 @@ export function ContentScreen({
         contentType={contentType}
         attendeeProfiles={
           selectedEvent ? attendeeProfiles[selectedEvent.id] || [] : []
-        } // Add this prop
+        }
       />
 
       <EditEventModal
