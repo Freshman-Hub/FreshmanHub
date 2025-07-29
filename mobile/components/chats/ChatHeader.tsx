@@ -1,0 +1,163 @@
+"use client";
+import { useState } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  TextInput,
+  StyleSheet,
+} from "react-native";
+import { useTheme } from "@/contexts/ThemeContext";
+import {
+  Search,
+  MoreVertical,
+  Camera,
+  Users,
+  Megaphone,
+  Radio,
+  Settings,
+  BookOpen,
+} from "lucide-react-native";
+import {
+  OptionsDropdown,
+  type DropdownOption,
+} from "@/components/common/OptionsDropdown";
+import { useRouter } from "expo-router";
+
+interface ChatHeaderProps {
+  title: string;
+  onSearchPress: () => void;
+  searchQuery: string;
+  onSearchChange: (query: string) => void;
+}
+
+export function ChatHeader({
+  title,
+  onSearchPress,
+  searchQuery,
+  onSearchChange,
+}: ChatHeaderProps) {
+  const { theme } = useTheme();
+  const router = useRouter();
+  const [isSearchActive, setIsSearchActive] = useState(false);
+  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+
+  const menuOptions: DropdownOption[] = [
+    {
+      id: "new-group",
+      title: "New group",
+      icon: Users,
+      onPress: () => router.push("/(routes)/chats/select-contact?mode=group"),
+    },
+    {
+      id: "new-community",
+      title: "New community",
+      icon: Megaphone,
+      onPress: () =>
+        router.push("/(routes)/chats/select-contact?mode=community"),
+    },
+    {
+      id: "new-broadcast",
+      title: "New broadcast",
+      icon: Radio,
+      onPress: () =>
+        router.push("/(routes)/chats/select-contact?mode=broadcast"),
+    },
+    {
+      id: "read-all",
+      title: "Read all",
+      icon: BookOpen,
+      onPress: () => console.log("Read all"),
+    },
+    {
+      id: "settings",
+      title: "Settings",
+      icon: Settings,
+      onPress: () => console.log("Settings"),
+    },
+  ];
+
+  const styles = StyleSheet.create({
+    container: {
+      backgroundColor: theme.colors.surface,
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: theme.spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+    },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    title: {
+      ...theme.typography.h3,
+      color: theme.colors.primary,
+      fontWeight: "700",
+    },
+    rightActions: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: theme.spacing.md,
+    },
+    searchContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: theme.colors.background,
+      borderRadius: theme.borderRadius.xl,
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: theme.spacing.sm,
+      marginTop: theme.spacing.sm,
+    },
+    searchInput: {
+      flex: 1,
+      ...theme.typography.body,
+      color: theme.colors.text,
+      marginLeft: theme.spacing.sm,
+    },
+  });
+
+  const handleSearchToggle = () => {
+    setIsSearchActive(!isSearchActive);
+    onSearchPress();
+  };
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>{title}</Text>
+        <View style={styles.rightActions}>
+          <TouchableOpacity onPress={() => console.log("Camera pressed")}>
+            <Camera size={24} color={theme.colors.text} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleSearchToggle}>
+            <Search size={24} color={theme.colors.text} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowOptionsMenu(true)}>
+            <MoreVertical size={24} color={theme.colors.text} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {isSearchActive && (
+        <View style={styles.searchContainer}>
+          <Search size={20} color={theme.colors.textSecondary} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Ask Meta AI or Search"
+            placeholderTextColor={theme.colors.textSecondary}
+            value={searchQuery}
+            onChangeText={onSearchChange}
+            autoFocus
+          />
+        </View>
+      )}
+
+      <OptionsDropdown
+        visible={showOptionsMenu}
+        onClose={() => setShowOptionsMenu(false)}
+        options={menuOptions}
+      />
+    </View>
+  );
+}
