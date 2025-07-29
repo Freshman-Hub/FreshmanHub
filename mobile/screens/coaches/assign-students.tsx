@@ -36,16 +36,15 @@ import { FilterChip } from "@/components/ui/FilterChip";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { CoachPicker } from "@/components/ui/CoachPicker";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
 const filterOptions = ["All", "Unassigned", "Assigned"];
 
 // TODO: Coach capacity might change - currently set to 15
 const COACH_MAX_CAPACITY = 15;
 
-
 export default function AssignFreshmanScreen() {
   const { theme } = useTheme();
-  // const router = useRouter();
   const { user } = useUser();
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -53,6 +52,7 @@ export default function AssignFreshmanScreen() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [activeFilter, setActiveFilter] = useState("All");
   const [loading, setLoading] = useState(true);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   // Real data from backend
   const [freshmen, setFreshmen] = useState<any[]>([]);
@@ -148,6 +148,7 @@ export default function AssignFreshmanScreen() {
 
       setFreshmen(freshmenData);
       setCoaches(coachesData);
+       setDataLoaded(true);
     } catch (error) {
       console.error("Error loading assignment data:", error);
       Alert.alert("Error", "Failed to load data. Please try again.");
@@ -158,11 +159,15 @@ export default function AssignFreshmanScreen() {
 
   // Load data on component mount
   useEffect(() => {
-    loadAssignmentData();
-  }, [loadAssignmentData]);
+    if (!dataLoaded) {
+      loadAssignmentData();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    setDataLoaded(false);
     await loadAssignmentData();
     setRefreshing(false);
   }, [loadAssignmentData]);
@@ -588,7 +593,7 @@ export default function AssignFreshmanScreen() {
       color: theme.colors.textSecondary,
       textAlign: "center",
       marginTop: theme.spacing.md,
-      fontWeight:"500"
+      fontWeight: "500",
     },
     searchResultsContainer: {
       paddingHorizontal: theme.spacing.md,
@@ -603,18 +608,6 @@ export default function AssignFreshmanScreen() {
       color: theme.colors.textSecondary,
       textAlign: "center",
       fontStyle: "italic",
-      fontWeight: "500",
-    },
-    loadingContainer: {
-      flex: 1,
-      justifyContent: "center",
-      alignItems: "center",
-      paddingVertical: theme.spacing.xl,
-    },
-    loadingText: {
-      ...theme.typography.body,
-      color: theme.colors.textSecondary,
-      marginTop: theme.spacing.md,
       fontWeight: "500",
     },
   });
@@ -738,18 +731,12 @@ export default function AssignFreshmanScreen() {
     return currentFreshman ? `Student: ${currentFreshman.name}` : "";
   };
 
+  // Show loading spinner when loading
   if (loading) {
     return (
-      <SafeAreaView
-        style={styles.container}
-        edges={["top", "left", "right", "bottom"]}
-      >
+      <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
         <Header title="Assign Freshmen" />
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>
-            Loading students and coaches...
-          </Text>
-        </View>
+        <LoadingSpinner />
       </SafeAreaView>
     );
   }
