@@ -481,6 +481,7 @@ export function ContentScreen({
       ...event,
       startTime: event.startTime as string,
       endTime: event.endTime || (event.startTime as string),
+      color: event.color || theme.colors.primary, // Ensure color is passed
       isRSVP: getUserRSVPStatus(event) !== "none",
     }));
 
@@ -664,43 +665,46 @@ export function ContentScreen({
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
-      {/* Show overlay loading spinner for edit/delete operations */}
+      {/* Show bottom toast loading indicator */}
       {(deleteLoading || editLoading) && (
         <View
           style={{
             position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(0,0,0,0.5)",
-            justifyContent: "center",
+            bottom: 100, // Above floating button
+            left: 20,
+            right: 20,
+            backgroundColor: theme.colors.background,
+            opacity: 0.9,
+            paddingHorizontal: 10,
+            paddingVertical: 14,
+            borderRadius: theme.spacing.xl,
+            flexDirection: "row",
             alignItems: "center",
+            justifyContent: "center",
             zIndex: 9999,
+            shadowColor: "#000",
+            shadowOffset: {
+              width: 0,
+              height: -2,
+            },
+            shadowOpacity: 0.15,
+            shadowRadius: 8,
+            elevation: 6,
           }}
         >
-          <View
+          <LoadingSpinner size="small" />
+          <Text
             style={{
-              backgroundColor: theme.colors.surface,
-              padding: theme.spacing.xl,
-              borderRadius: theme.borderRadius.lg,
-              alignItems: "center",
-              minWidth: 200,
+              color: theme.colors.text,
+              marginLeft: 12,
+              fontSize: 15,
+              fontWeight: "600",
             }}
           >
-            <LoadingSpinner size="small" />
-            <Text
-              style={{
-                color: theme.colors.text,
-                marginTop: theme.spacing.md,
-                textAlign: "center",
-              }}
-            >
-              {deleteLoading
-                ? `Deleting ${contentType}...`
-                : `Updating ${contentType}...`}
-            </Text>
-          </View>
+            {deleteLoading
+              ? `Deleting ${contentType}...`
+              : `Updating ${contentType}...`}
+          </Text>
         </View>
       )}
 
