@@ -658,7 +658,7 @@ export default function HeadCoachHomeScreen() {
         // showSearch={false}
         // onSearchPress={() => router.push("/(routes)/chat")}
         showMessage={true}
-        onMessagePress={() => router.push("/(routes)/chat")}
+        onMessagePress={() => router.push("/(routes)/chats")}
         style={{ backgroundColor: "transparent", borderBottomWidth: 0 }}
       />
 
