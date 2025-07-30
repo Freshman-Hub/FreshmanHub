@@ -15,7 +15,7 @@ export default function ChatsLayout() {
     >
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen
-        name="select-contact/index"
+        name="select-contact"
         options={{ headerShown: false }}
       />
       <Stack.Screen name="[id]/index" options={{ headerShown: false }} />
