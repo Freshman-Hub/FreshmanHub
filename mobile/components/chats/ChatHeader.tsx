@@ -11,10 +11,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import {
   Search,
   MoreVertical,
-  Camera,
   Users,
-  Megaphone,
-  Radio,
   Settings,
   BookOpen,
 } from "lucide-react-native";
@@ -48,20 +45,6 @@ export function ChatHeader({
       title: "New group",
       icon: Users,
       onPress: () => router.push("/(routes)/chats/select-contact?mode=group"),
-    },
-    {
-      id: "new-community",
-      title: "New community",
-      icon: Megaphone,
-      onPress: () =>
-        router.push("/(routes)/chats/select-contact?mode=community"),
-    },
-    {
-      id: "new-broadcast",
-      title: "New broadcast",
-      icon: Radio,
-      onPress: () =>
-        router.push("/(routes)/chats/select-contact?mode=broadcast"),
     },
     {
       id: "read-all",
@@ -114,6 +97,7 @@ export function ChatHeader({
       ...theme.typography.body,
       color: theme.colors.text,
       marginLeft: theme.spacing.sm,
+      fontWeight: "500"
     },
   });
 
@@ -127,9 +111,6 @@ export function ChatHeader({
       <View style={styles.header}>
         <Text style={styles.title}>{title}</Text>
         <View style={styles.rightActions}>
-          <TouchableOpacity onPress={() => console.log("Camera pressed")}>
-            <Camera size={24} color={theme.colors.text} />
-          </TouchableOpacity>
           <TouchableOpacity onPress={handleSearchToggle}>
             <Search size={24} color={theme.colors.text} />
           </TouchableOpacity>
@@ -144,7 +125,7 @@ export function ChatHeader({
           <Search size={20} color={theme.colors.textSecondary} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Ask Meta AI or Search"
+            placeholder="Search chats"
             placeholderTextColor={theme.colors.textSecondary}
             value={searchQuery}
             onChangeText={onSearchChange}
