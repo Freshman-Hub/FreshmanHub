@@ -13,9 +13,6 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import {
   ArrowLeft,
   Camera,
-  Smile,
-  Clock,
-  Settings,
   Check,
 } from "lucide-react-native";
 import { Avatar } from "@/components/chats/Avatar";
@@ -144,6 +141,7 @@ export default function GroupDetailsScreen() {
       borderBottomColor: theme.colors.primary,
       paddingVertical: theme.spacing.sm,
       paddingHorizontal: theme.spacing.xs,
+      fontWeight: "500",
     },
     emojiButton: {
       padding: theme.spacing.sm,
@@ -205,6 +203,7 @@ export default function GroupDetailsScreen() {
       color: theme.colors.text,
       textAlign: "center",
       marginTop: theme.spacing.xs,
+      fontWeight: "500",
     },
     fab: {
       position: "absolute",
@@ -249,43 +248,14 @@ export default function GroupDetailsScreen() {
           <View style={styles.groupNameContainer}>
             <TextInput
               style={styles.groupNameInput}
-              placeholder="Group name (optional)"
+              placeholder="Group name"
               placeholderTextColor={theme.colors.textSecondary}
               value={groupName}
               onChangeText={setGroupName}
               autoFocus
             />
-            <TouchableOpacity style={styles.emojiButton}>
-              <Smile size={24} color={theme.colors.textSecondary} />
-            </TouchableOpacity>
           </View>
         </View>
-
-        {/* Settings */}
-        <TouchableOpacity style={styles.settingItem}>
-          <View style={styles.settingIcon}>
-            <Clock size={24} color={theme.colors.textSecondary} />
-          </View>
-          <View style={styles.settingContent}>
-            <Text style={styles.settingTitle}>Disappearing messages</Text>
-            <Text style={styles.settingSubtitle}>Off</Text>
-          </View>
-          <TouchableOpacity style={styles.settingAction}>
-            <Settings size={20} color={theme.colors.textSecondary} />
-          </TouchableOpacity>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.settingItem}>
-          <View style={styles.settingIcon}>
-            <Settings size={24} color={theme.colors.textSecondary} />
-          </View>
-          <View style={styles.settingContent}>
-            <Text style={styles.settingTitle}>Group permissions</Text>
-          </View>
-          <TouchableOpacity style={styles.settingAction}>
-            <Settings size={20} color={theme.colors.textSecondary} />
-          </TouchableOpacity>
-        </TouchableOpacity>
 
         {/* Members */}
         <View style={styles.membersSection}>
