@@ -221,7 +221,7 @@ const ChatConversationScreen: React.FC = () => {
             ? new Date(message.date).toDateString() ===
               searchDateFilter.toDateString()
             : true;
-          return matchesText && matchesDate && !message.isSystem;
+          return matchesText && matchesDate && !('isSystem' in message && message.isSystem);
         })
         .map((message) => message.id);
 
@@ -235,6 +235,7 @@ const ChatConversationScreen: React.FC = () => {
       setSearchResults([]);
       setCurrentSearchIndex(-1);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery, messages, searchDateFilter]);
 
   const scrollToBottom = () => {
@@ -367,7 +368,7 @@ const ChatConversationScreen: React.FC = () => {
               sender: chatInfo.name,
             }
           : undefined,
-      };
+      } as any;
 
       setMessages((prev) => [...prev, newMessage]);
       setInputText("");
@@ -394,13 +395,13 @@ const ChatConversationScreen: React.FC = () => {
     try {
       if (selectedMessages.length === 1) {
         const message = messages.find((m) => m.id === selectedMessages[0]);
-        if (message && !message.isDeleted) {
+        if (message && !('isDeleted' in message && message.isDeleted)) {
           await Clipboard.setStringAsync(message.text);
           console.log("Message copied to clipboard");
         }
       } else if (selectedMessages.length > 1) {
         const selectedMessagesData = messages
-          .filter((m) => selectedMessages.includes(m.id) && !m.isDeleted)
+          .filter((m) => selectedMessages.includes(m.id) && !('isDeleted' in m && m.isDeleted))
           .map((m) => `${m.isOwn ? "You" : chatInfo.name}: ${m.text}`)
           .join("\n");
         await Clipboard.setStringAsync(selectedMessagesData);
@@ -415,7 +416,7 @@ const ChatConversationScreen: React.FC = () => {
   const handleForward = () => {
     if (selectedMessages.length === 1) {
       const message = messages.find((m) => m.id === selectedMessages[0]);
-      if (message && !message.isDeleted) {
+      if (message && !('isDeleted' in message && message.isDeleted)) {
         router.push({
           pathname: "/(routes)/chats/share-message",
           params: { messageData: JSON.stringify(message) },
@@ -435,7 +436,7 @@ const ChatConversationScreen: React.FC = () => {
     setMessages((prev) =>
       prev.map((msg) =>
         selectedMessages.includes(msg.id)
-          ? { ...msg, isDeleted: true, text: "" }
+          ? ({ ...msg, isDeleted: true, text: "" } as typeof msg)
           : msg
       )
     );
@@ -491,6 +492,7 @@ const ChatConversationScreen: React.FC = () => {
       ...theme.typography.bodySmall,
       color: theme.colors.textSecondary,
       fontSize: 12,
+      fontWeight: "500",
     },
   });
 
@@ -544,7 +546,7 @@ const ChatConversationScreen: React.FC = () => {
                 {isGroupChat && date === "2025-07-29" && (
                   <GroupWelcomeMessage
                     groupName={chatInfo.name}
-                    memberCount={chatInfo.memberCount || 2}
+                    memberCount={'memberCount' in chatInfo ? chatInfo.memberCount : 2}
                     createdBy="You"
                   />
                 )}
