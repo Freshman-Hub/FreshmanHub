@@ -5,16 +5,11 @@ import {
   ArrowLeft,
   Pin,
   Trash2,
-  BellOff,
-  Archive,
   MoreVertical,
-  Plus,
   Eye,
   CheckCheck,
   CheckSquare,
-  Lock,
   Heart,
-  List,
   Shield,
 } from "lucide-react-native";
 import {
@@ -55,12 +50,6 @@ export function ChatSelectionHeader({
 
   const menuOptions: DropdownOption[] = [
     {
-      id: "add-shortcut",
-      title: "Add chat shortcut",
-      icon: Plus,
-      onPress: () => console.log("Add chat shortcut"),
-    },
-    {
       id: "view-contact",
       title: "View contact",
       icon: Eye,
@@ -90,22 +79,10 @@ export function ChatSelectionHeader({
       },
     },
     {
-      id: "lock-chat",
-      title: "Lock chat",
-      icon: Lock,
-      onPress: () => console.log("Lock chat"),
-    },
-    {
       id: "add-favorites",
       title: "Add to Favorites",
       icon: Heart,
       onPress: () => console.log("Add to Favorites"),
-    },
-    {
-      id: "add-list",
-      title: "Add to list",
-      icon: List,
-      onPress: () => console.log("Add to list"),
     },
     {
       id: "block",
@@ -158,12 +135,6 @@ export function ChatSelectionHeader({
         </TouchableOpacity>
         <TouchableOpacity style={styles.actionButton} onPress={onDelete}>
           <Trash2 size={24} color={theme.colors.text} />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.actionButton} onPress={onMute}>
-          <BellOff size={24} color={theme.colors.text} />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.actionButton} onPress={onArchive}>
-          <Archive size={24} color={theme.colors.text} />
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.actionButton}
