@@ -9,9 +9,6 @@ import {
   Search,
   Flag,
   Shield,
-  BellOff,
-  MessageSquareOff,
-  Palette,
   Info,
 } from "lucide-react-native";
 import { Avatar } from "@/components/chats/Avatar";
@@ -72,24 +69,6 @@ export function ChatConversationHeader({
           },
         },
         {
-          id: "mute-notifications",
-          title: "Mute notifications",
-          icon: BellOff,
-          onPress: () => console.log("Mute notifications"),
-        },
-        {
-          id: "disappearing-messages",
-          title: "Disappearing messages",
-          icon: MessageSquareOff,
-          onPress: () => console.log("Disappearing messages"),
-        },
-        {
-          id: "chat-theme",
-          title: "Chat theme",
-          icon: Palette,
-          onPress: () => console.log("Chat theme"),
-        },
-        {
           id: "report",
           title: "Report",
           icon: Flag,
@@ -123,25 +102,7 @@ export function ChatConversationHeader({
           title: "Block",
           icon: Shield,
           onPress: () => console.log("Block"),
-        },
-        {
-          id: "mute-notifications",
-          title: "Mute notifications",
-          icon: BellOff,
-          onPress: () => console.log("Mute notifications"),
-        },
-        {
-          id: "disappearing-messages",
-          title: "Disappearing messages",
-          icon: MessageSquareOff,
-          onPress: () => console.log("Disappearing messages"),
-        },
-        {
-          id: "chat-theme",
-          title: "Chat theme",
-          icon: Palette,
-          onPress: () => console.log("Chat theme"),
-        },
+        }
       ];
 
   const styles = StyleSheet.create({
@@ -172,6 +133,7 @@ export function ChatConversationHeader({
       ...theme.typography.captionSmall,
       color: theme.colors.textSecondary,
       marginTop: 2,
+      fontWeight: "500",
     },
     actions: {
       flexDirection: "row",
