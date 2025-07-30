@@ -7,7 +7,8 @@ import {
   Text,
 } from "react-native";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Send, Paperclip, Camera, Mic, X } from "lucide-react-native";
+import { Send, Mic, X } from "lucide-react-native";
+// import { Send, Paperclip, Camera, Mic, X } from "lucide-react-native";
 import { useRef, useState } from "react";
 
 interface MessageInputProps {
@@ -61,6 +62,7 @@ export function MessageInput({
       ...theme.typography.bodySmall,
       color: theme.colors.textSecondary,
       marginTop: 2,
+      fontWeight: "500",
     },
     cancelReplyButton: {
       padding: theme.spacing.xs,
@@ -90,6 +92,7 @@ export function MessageInput({
       paddingVertical: theme.spacing.xs,
       textAlignVertical: "top",
       maxHeight: 100,
+      fontWeight: "500",
     },
     attachmentButton: {
       padding: theme.spacing.xs,
@@ -150,12 +153,12 @@ export function MessageInput({
       {/* Input Container */}
       <View style={styles.inputContainer}>
         <View style={[styles.inputWrapper, { height: inputHeight }]}>
-          <TouchableOpacity
+          {/* <TouchableOpacity
             style={styles.attachmentButton}
             onPress={() => console.log("Attachment pressed")}
           >
             <Paperclip size={20} color={theme.colors.textSecondary} />
-          </TouchableOpacity>
+          </TouchableOpacity> */}
 
           <TextInput
             ref={inputRef}
@@ -171,12 +174,12 @@ export function MessageInput({
             blurOnSubmit={false}
           />
 
-          <TouchableOpacity
+          {/* <TouchableOpacity
             style={styles.attachmentButton}
             onPress={() => console.log("Camera pressed")}
           >
             <Camera size={20} color={theme.colors.textSecondary} />
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>
 
         <TouchableOpacity
