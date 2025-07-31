@@ -41,6 +41,7 @@ export interface User {
   assignedStudents?: string[]; // for coaches/advisors
   assignedCoach?: string; // for students
   permissions?: UserPermissions;
+  isOnline: boolean; // For real-time presence tracking
 }
 
 export interface UserPermissions {
