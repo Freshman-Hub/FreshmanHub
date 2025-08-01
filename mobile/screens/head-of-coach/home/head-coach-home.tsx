@@ -372,7 +372,7 @@ export default function HeadCoachHomeScreen() {
       backgroundColor: theme.colors.background,
     },
     scrollContent: {
-      paddingBottom: theme.spacing.xl,
+      // paddingBottom: theme.spacing.xl,
     },
     welcomeSection: {
       backgroundColor: theme.colors.primary,
@@ -648,7 +648,7 @@ export default function HeadCoachHomeScreen() {
   });
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top", "right", "left"]}>
       <Header
         title=""
         leftIcon={Menu} // Add hamburger menu

@@ -1,89 +1,95 @@
 "use client";
-import { useState, useEffect } from "react";
+import { Avatar } from "@/components/chats/Avatar";
+import { useTheme } from "@/contexts/ThemeContext";
+import { useUser } from "@/contexts/UserContext";
+import { ChatService } from "@/services/chat.service";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { ArrowLeft, Camera, Check } from "lucide-react-native";
+import { useEffect, useState } from "react";
 import {
-  View,
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
-  ScrollView,
+  View,
 } from "react-native";
-import { useTheme } from "@/contexts/ThemeContext";
-import { useRouter, useLocalSearchParams } from "expo-router";
-import {
-  ArrowLeft,
-  Camera,
-  Check,
-} from "lucide-react-native";
-import { Avatar } from "@/components/chats/Avatar";
-
-// Mock contacts data (should match the previous screen)
-const mockContacts = [
-  {
-    id: "1",
-    name: "Mi Leilou",
-    avatar:
-      "https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=400",
-  },
-  {
-    id: "2",
-    name: "+233 50 366 6630",
-    avatar:
-      "https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=400",
-  },
-  {
-    id: "3",
-    name: "A. Aziz Djibrillou Manzo",
-    avatar: null,
-  },
-  {
-    id: "4",
-    name: "Aaaa",
-    avatar:
-      "https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=400",
-  },
-  {
-    id: "5",
-    name: "Aangpremier Nelson David Gamé",
-    avatar:
-      "https://images.pexels.com/photos/1040880/pexels-photo-1040880.jpeg?auto=compress&cs=tinysrgb&w=400",
-  },
-];
 
 export default function GroupDetailsScreen() {
   const { theme } = useTheme();
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { user } = useUser();
   const [groupName, setGroupName] = useState("");
   const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
+  const [selectedContactsData, setSelectedContactsData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (params.selectedContacts) {
       try {
         const contacts = JSON.parse(params.selectedContacts as string);
         setSelectedContacts(contacts);
+        loadSelectedContactsData(contacts);
       } catch (error) {
         console.error("Error parsing selected contacts:", error);
       }
     }
   }, [params.selectedContacts]);
 
-  const getSelectedContactsData = () => {
-    return mockContacts.filter((contact) =>
-      selectedContacts.includes(contact.id)
-    );
+  const loadSelectedContactsData = async (contactIds: string[]) => {
+    try {
+      const users = await ChatService.getLocalUsers();
+      const selectedUsers = users.filter((user) =>
+        contactIds.includes(user.id)
+      );
+      setSelectedContactsData(selectedUsers);
+    } catch (error) {
+      console.error("Error loading selected contacts data:", error);
+    }
   };
 
-  const handleCreateGroup = () => {
-    if (selectedContacts.length > 0) {
-      // TODO: Create group with backend
-      console.log("Creating group:", {
-        name: groupName,
-        members: selectedContacts,
-      });
+  const handleCreateGroup = async () => {
+    if (!groupName.trim()) {
+      Alert.alert("Error", "Please enter a group name");
+      return;
+    }
 
-      // Navigate back to chats screen
-      router.push("/(routes)/chats");
+    if (selectedContacts.length === 0) {
+      Alert.alert("Error", "Please select at least one member");
+      return;
+    }
+
+    if (!user?.id) {
+      Alert.alert("Error", "User not authenticated");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Add the current user to the participants
+      const allParticipants = [user.id, ...selectedContacts];
+
+      // Create the group chat
+      const groupId = await ChatService.createGroupChat(
+        groupName.trim(),
+        allParticipants,
+        user.id,
+        params.isAnonymous === "true"
+      );
+
+      console.log("✅ Group created successfully:", groupId);
+
+      // Navigate to the new group chat
+      router.push(`/(routes)/chats/${groupId}`);
+    } catch (error) {
+      console.error("Error creating group:", error);
+      Alert.alert("Error", "Failed to create group. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -261,7 +267,7 @@ export default function GroupDetailsScreen() {
         <View style={styles.membersSection}>
           <View style={styles.membersHeader}>
             <Text style={styles.membersTitle}>
-              Members: {selectedContacts.length}
+              Members: {selectedContacts.length + 1} {/* +1 for current user */}
             </Text>
           </View>
           <View style={styles.membersContainer}>
@@ -270,16 +276,32 @@ export default function GroupDetailsScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.membersScroll}
             >
-              {getSelectedContactsData().map((contact) => (
-                <View key={contact.id} style={styles.memberItem}>
+              {/* Show current user first */}
+              {user && (
+                <View style={styles.memberItem}>
                   <Avatar
-                    source={contact.avatar}
-                    name={contact.name}
+                    source={user.profileImage || null}
+                    name={`${user.firstName} ${user.lastName}`}
                     size={50}
                     type="direct"
                   />
                   <Text style={styles.memberName} numberOfLines={1}>
-                    {contact.name.split(" ")[0]}
+                    {user.firstName} (You)
+                  </Text>
+                </View>
+              )}
+
+              {/* Show selected contacts */}
+              {selectedContactsData.map((contact) => (
+                <View key={contact.id} style={styles.memberItem}>
+                  <Avatar
+                    source={contact.profileImage || null}
+                    name={`${contact.firstName} ${contact.lastName}`}
+                    size={50}
+                    type="direct"
+                  />
+                  <Text style={styles.memberName} numberOfLines={1}>
+                    {contact.firstName}
                   </Text>
                 </View>
               ))}
@@ -289,8 +311,27 @@ export default function GroupDetailsScreen() {
       </ScrollView>
 
       {/* Create Group FAB */}
-      <TouchableOpacity style={styles.fab} onPress={handleCreateGroup}>
-        <Check size={24} color="white" />
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={handleCreateGroup}
+        disabled={loading}
+      >
+        {loading ? (
+          <View
+            style={{
+              width: 24,
+              height: 24,
+              borderRadius: 12,
+              backgroundColor: "white",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <ActivityIndicator size="small" color="white" />
+          </View>
+        ) : (
+          <Check size={24} color="white" />
+        )}
       </TouchableOpacity>
     </View>
   );

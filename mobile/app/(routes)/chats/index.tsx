@@ -1,168 +1,25 @@
 "use client";
-import { useState, useCallback } from "react";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { useTheme } from "@/contexts/ThemeContext";
+import { useUser } from "@/contexts/UserContext";
+import { ChatService } from "@/services/chat.service";
+import { useRouter } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import {
-  View,
-  Text,
+  RefreshControl,
   ScrollView,
   StyleSheet,
-  RefreshControl,
+  Text,
+  View,
 } from "react-native";
-import { useTheme } from "@/contexts/ThemeContext";
-import { useRouter } from "expo-router";
 
-import { ChatHeader } from "@/components/chats/ChatHeader";
 import { ChatFilterTabs } from "@/components/chats/ChatFilterTabs";
+import { ChatHeader } from "@/components/chats/ChatHeader";
 import { ChatListItem } from "@/components/chats/ChatListItem";
-import { FloatingActionButton } from "@/components/chats/FloatingActionButton";
-import { ChatTabNavigation } from "@/components/chats/ChatTabNavigation";
 import { ChatSelectionHeader } from "@/components/chats/ChatSelectionHeader";
-
-// All chats data - this will be filtered by tabs
-const allChatsData = [
-  // Direct/Private chats
-  {
-    id: "1",
-    name: "Mi Leilou",
-    lastMessage: "Great",
-    timestamp: "7/27/25",
-    unreadCount: 1,
-    avatar:
-      "https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=400",
-    isOnline: true,
-    type: "direct",
-    isVerified: true,
-  },
-  {
-    id: "2",
-    name: "Jacqueline Lompo",
-    lastMessage: "salut",
-    timestamp: "7/22/25",
-    unreadCount: 1,
-    avatar:
-      "https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=400",
-    isOnline: false,
-    type: "direct",
-    isVerified: false,
-  },
-  {
-    id: "private-1",
-    name: "Sarah Johnson",
-    lastMessage: "Thanks for the study notes!",
-    timestamp: "2:30 PM",
-    unreadCount: 0,
-    avatar:
-      "https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?auto=compress&cs=tinysrgb&w=400",
-    isOnline: true,
-    type: "direct",
-    isVerified: false,
-  },
-  {
-    id: "private-2",
-    name: "Mike Chen",
-    lastMessage: "See you at the library tomorrow",
-    timestamp: "1:15 PM",
-    unreadCount: 2,
-    avatar:
-      "https://images.pexels.com/photos/1040880/pexels-photo-1040880.jpeg?auto=compress&cs=tinysrgb&w=400",
-    isOnline: false,
-    type: "direct",
-    isVerified: true,
-  },
-
-  // Group/Community chats
-  {
-    id: "group-1",
-    name: "Emma group",
-    lastMessage: "Hi what's up",
-    timestamp: "7/10/25",
-    unreadCount: 3,
-    avatar: null,
-    isOnline: false,
-    type: "group",
-    isVerified: false,
-  },
-  {
-    id: "community-1",
-    name: "Computer Science 2025",
-    lastMessage: "📢 New assignment posted in Data Structures",
-    timestamp: "3:45 PM",
-    unreadCount: 5,
-    avatar: null,
-    isOnline: false,
-    type: "group",
-    isVerified: true,
-  },
-  {
-    id: "community-2",
-    name: "Study Group - Mathematics",
-    lastMessage: "Anyone free for calculus review tonight?",
-    timestamp: "1:30 PM",
-    unreadCount: 3,
-    avatar: null,
-    isOnline: false,
-    type: "group",
-    isVerified: false,
-  },
-
-  // Announcement chats
-  {
-    id: "3",
-    name: "Freshman Hub Updates",
-    lastMessage: "📢 New: Get the group talking live with voice calls",
-    timestamp: "7/11/25",
-    unreadCount: 0,
-    avatar: null,
-    isOnline: false,
-    type: "announcement",
-    isVerified: true,
-  },
-  {
-    id: "announcement-1",
-    name: "Campus Events",
-    lastMessage: "🎵 Music festival this weekend!",
-    timestamp: "12:15 PM",
-    unreadCount: 0,
-    avatar: null,
-    isOnline: false,
-    type: "announcement",
-    isVerified: true,
-  },
-
-  // Anonymous chats
-  {
-    id: "5",
-    name: "Anonymous Chat #1234",
-    lastMessage: "Thanks for the advice!",
-    timestamp: "7/9/25",
-    unreadCount: 0,
-    avatar: null,
-    isOnline: false,
-    type: "anonymous",
-    isVerified: false,
-  },
-  {
-    id: "anon-1",
-    name: "Anonymous Chat #5678",
-    lastMessage: "Anyone else struggling with organic chemistry?",
-    timestamp: "3:15 PM",
-    unreadCount: 1,
-    avatar: null,
-    isOnline: false,
-    type: "anonymous",
-    isVerified: false,
-  },
-  {
-    id: "anon-2",
-    name: "Anonymous Group #9012",
-    lastMessage: "Let's discuss mental health resources on campus",
-    timestamp: "2:45 PM",
-    unreadCount: 3,
-    avatar: null,
-    isOnline: false,
-    type: "anonymous",
-    isVerified: false,
-  },
-];
+import { ChatTabNavigation } from "@/components/chats/ChatTabNavigation";
+import { FloatingActionButton } from "@/components/chats/FloatingActionButton";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ChatsScreen() {
   const { theme } = useTheme();
@@ -172,14 +29,86 @@ export default function ChatsScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("chats");
   const [selectedChats, setSelectedChats] = useState<string[]>([]);
+  const { user } = useUser();
+  const [chats, setChats] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const filters = ["All", "Unread", "Groups", "Friends", "Anonymous"];
 
+  // Transform chat data to match UI expectations
+  const transformChatData = async (chat: any) => {
+    // For direct chats, resolve the other user's name
+    let displayName = chat.name || "Unknown";
+    if (chat.type === "direct" && chat.participants && user?.id) {
+      const otherUserId = chat.participants.find(
+        (id: string) => id !== user.id
+      );
+      if (otherUserId) {
+        try {
+          const users = await ChatService.getLocalUsers();
+          const otherUser = users.find((u) => u.id === otherUserId);
+          if (otherUser) {
+            displayName = `${otherUser.firstName} ${otherUser.lastName}`;
+          }
+        } catch (error) {
+          console.error("Error resolving chat name:", error);
+        }
+      }
+    }
+
+    return {
+      id: chat.id,
+      name: displayName,
+      lastMessage: chat.lastMessage || "",
+      timestamp: chat.timestamp
+        ? new Date(chat.timestamp.toDate()).toLocaleDateString()
+        : "",
+      unreadCount: chat.unreadCount || 0,
+      avatar: chat.avatar || null,
+      isOnline: chat.isOnline || false,
+      type: chat.type || "direct",
+      isVerified: chat.isVerified || false,
+    };
+  };
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    setLoading(true);
+
+    // Set up real-time listener for chats
+    const unsubscribe = ChatService.listenChatsFirestore(
+      async (updatedChats) => {
+        const transformedChats = await Promise.all(
+          updatedChats.map(transformChatData)
+        );
+        setChats(transformedChats);
+        setLoading(false);
+      },
+      user.id
+    );
+
+    return () => {
+      unsubscribe();
+    };
+  }, [user?.id]);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    // TODO: Fetch latest chats from backend
-    setTimeout(() => setRefreshing(false), 1000);
-  }, []);
+    try {
+      const fetchedChats = await ChatService.getLocalChats(50, 0, user?.id);
+      const transformedChats = await Promise.all(
+        fetchedChats.map(transformChatData)
+      );
+      setChats(transformedChats);
+    } catch (err) {
+      setError("Failed to refresh chats");
+      console.error(err);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [user?.id]);
 
   const handleChatPress = (chatId: string) => {
     if (selectedChats.length > 0) {
@@ -213,7 +142,7 @@ export default function ChatsScreen() {
   };
 
   const handleSelectAll = () => {
-    const allChatIds = getFilteredChats().map((chat) => chat.id);
+    const allChatIds = chats.map((chat) => chat.id);
     setSelectedChats(allChatIds);
   };
 
@@ -235,29 +164,25 @@ export default function ChatsScreen() {
 
   // Filter chats based on active tab
   const getFilteredChats = () => {
-    let tabFilteredChats = allChatsData;
+    let tabFilteredChats = chats;
 
     // Filter by tab
     switch (activeTab) {
       case "private":
-        tabFilteredChats = allChatsData.filter(
-          (chat) => chat.type === "direct"
-        );
+        tabFilteredChats = chats.filter((chat) => chat.type === "direct");
         break;
       case "communities":
-        tabFilteredChats = allChatsData.filter(
+        tabFilteredChats = chats.filter(
           (chat) => chat.type === "group" || chat.type === "announcement"
         );
         break;
       case "anonymous":
-        tabFilteredChats = allChatsData.filter(
-          (chat) => chat.type === "anonymous"
-        );
+        tabFilteredChats = chats.filter((chat) => chat.type === "anonymous");
         break;
       case "chats":
       default:
         // Show all chats
-        tabFilteredChats = allChatsData;
+        tabFilteredChats = chats;
         break;
     }
 
@@ -288,6 +213,35 @@ export default function ChatsScreen() {
   };
 
   const filteredChats = getFilteredChats();
+
+  // Calculate unread counts for each tab
+  const getUnreadCounts = () => {
+    const counts = {
+      chats: 0,
+      private: 0,
+      communities: 0,
+      anonymous: 0,
+    };
+
+    chats.forEach((chat) => {
+      const unreadCount = chat.unreadCount || 0;
+
+      if (chat.type === "direct") {
+        counts.private += unreadCount;
+      } else if (chat.type === "group" || chat.type === "announcement") {
+        counts.communities += unreadCount;
+      } else if (chat.type === "anonymous") {
+        counts.anonymous += unreadCount;
+      }
+
+      // Add to total chats count
+      counts.chats += unreadCount;
+    });
+
+    return counts;
+  };
+
+  const unreadCounts = getUnreadCounts();
 
   const getTabTitle = () => {
     switch (activeTab) {
@@ -340,7 +294,7 @@ export default function ChatsScreen() {
       paddingVertical: theme.spacing.xxl,
     },
     emptyText: {
-      ...theme.typography.body,
+      fontSize: theme.typography.body.fontSize,
       color: theme.colors.textSecondary,
       textAlign: "center",
       marginTop: theme.spacing.md,
@@ -353,96 +307,113 @@ export default function ChatsScreen() {
       alignItems: "center",
     },
     anonymousTitle: {
-      ...theme.typography.body,
+      fontSize: theme.typography.body.fontSize,
       color: theme.colors.text,
       fontWeight: "600",
       marginBottom: theme.spacing.sm,
     },
     anonymousDescription: {
-      ...theme.typography.bodySmall,
+      fontSize: theme.typography.bodySmall.fontSize,
       color: theme.colors.textSecondary,
       textAlign: "center",
       lineHeight: 18,
     },
   });
 
-  return (
-    <View style={styles.container}>
-      <View style={styles.content}>
-        {selectedChats.length > 0 ? (
-          <ChatSelectionHeader
-            selectedCount={selectedChats.length}
-            totalCount={filteredChats.length}
-            onBack={handleSelectionBack}
-            onPin={() => console.log("Pin chats")}
-            onDelete={handleDeleteChats}
-            onMute={() => console.log("Mute chats")}
-            onArchive={() => console.log("Archive chats")}
-            onMarkAsRead={handleMarkAsRead}
-            onSelectAll={handleSelectAll}
-            onUnselectAll={handleUnselectAll}
-          />
-        ) : (
-          <ChatHeader
-            title={getTabTitle()}
-            onSearchPress={handleSearchPress}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-          />
-        )}
+  if (loading && chats.length === 0) {
+    return <LoadingSpinner />;
+  }
 
-        {/* Show filter tabs only for main chats tab */}
-        {activeTab === "chats" && (
-          <ChatFilterTabs
-            filters={filters}
-            selectedFilter={selectedFilter}
-            onFilterSelect={setSelectedFilter}
-          />
-        )}
-
-        {/* Anonymous info for anonymous tab */}
-        {activeTab === "anonymous" &&
-          filteredChats.length === 0 &&
-          !searchQuery && (
-            <View style={styles.anonymousInfo}>
-              <Text style={styles.anonymousTitle}>Anonymous Chats</Text>
-              <Text style={styles.anonymousDescription}>
-                Connect with other students anonymously. Share experiences, ask
-                questions, and get support without revealing your identity.
-              </Text>
-            </View>
-          )}
-
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-          contentContainerStyle={styles.scrollContent}
-        >
-          {filteredChats.length > 0 ? (
-            filteredChats.map((chat) => (
-              <ChatListItem
-                key={chat.id}
-                chat={chat}
-                isSelected={selectedChats.includes(chat.id)}
-                onPress={() => handleChatPress(chat.id)}
-                onLongPress={() => handleChatLongPress(chat.id)}
-              />
-            ))
-          ) : (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>{getEmptyMessage()}</Text>
-            </View>
-          )}
-        </ScrollView>
-
-        {selectedChats.length === 0 && (
-          <FloatingActionButton onPress={handleNewChatPress} />
-        )}
+  if (error) {
+    return (
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyText}>{error}</Text>
       </View>
+    );
+  }
 
-      <ChatTabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
-    </View>
+  return (
+    <SafeAreaView style={styles.container}>
+        <View style={styles.content}>
+          {selectedChats.length > 0 ? (
+            <ChatSelectionHeader
+              selectedCount={selectedChats.length}
+              totalCount={filteredChats.length}
+              onBack={handleSelectionBack}
+              onPin={() => console.log("Pin chats")}
+              onDelete={handleDeleteChats}
+              onMute={() => console.log("Mute chats")}
+              onArchive={() => console.log("Archive chats")}
+              onMarkAsRead={handleMarkAsRead}
+              onSelectAll={handleSelectAll}
+              onUnselectAll={handleUnselectAll}
+            />
+          ) : (
+            <ChatHeader
+              title={getTabTitle()}
+              onSearchPress={handleSearchPress}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+            />
+          )}
+
+          {/* Show filter tabs only for main chats tab */}
+          {activeTab === "chats" && (
+            <ChatFilterTabs
+              filters={filters}
+              selectedFilter={selectedFilter}
+              onFilterSelect={setSelectedFilter}
+            />
+          )}
+
+          {/* Anonymous info for anonymous tab */}
+          {activeTab === "anonymous" &&
+            filteredChats.length === 0 &&
+            !searchQuery && (
+              <View style={styles.anonymousInfo}>
+                <Text style={styles.anonymousTitle}>Anonymous Chats</Text>
+                <Text style={styles.anonymousDescription}>
+                  Connect with other students anonymously. Share experiences,
+                  ask questions, and get support without revealing your
+                  identity.
+                </Text>
+              </View>
+            )}
+
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+            contentContainerStyle={styles.scrollContent}
+          >
+            {filteredChats.length > 0 ? (
+              filteredChats.map((chat) => (
+                <ChatListItem
+                  key={chat.id}
+                  chat={chat}
+                  isSelected={selectedChats.includes(chat.id)}
+                  onPress={() => handleChatPress(chat.id)}
+                  onLongPress={() => handleChatLongPress(chat.id)}
+                />
+              ))
+            ) : (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>{getEmptyMessage()}</Text>
+              </View>
+            )}
+          </ScrollView>
+
+          {selectedChats.length === 0 && (
+            <FloatingActionButton onPress={handleNewChatPress} />
+          )}
+        </View>
+
+        <ChatTabNavigation
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          unreadCounts={unreadCounts}
+        />
+    </SafeAreaView>
   );
 }

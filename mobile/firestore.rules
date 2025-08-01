@@ -2,7 +2,6 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Helper functions
     function isAuthenticated() {
       return request.auth != null;
     }
@@ -14,7 +13,7 @@ service cloud.firestore {
     function isAdmin() {
       return isAuthenticated() && 
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in 
-        ['head_of_coaches', 'academic_advisor', 'odip', 'sle'];
+        ['head_of_coaches', 'academic_advisor', 'odip', 'sle', 'admin'];
     }
     
     function isActiveUser() {
@@ -22,51 +21,234 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isActive == true;
     }
 
-    // User requests - anyone can create, only admins can read/update
+    // Helper function to check if user is participant in conversation
+    function isConversationParticipant(conversation) {
+      return request.auth.uid in conversation.data.participants;
+    }
+
+    // Helper function to check if user is member of a chat
+    function isChatMember(chatId) {
+      return exists(/databases/$(database)/documents/chatMembers/$(chatId + '_' + request.auth.uid));
+    }
+
     match /userRequests/{requestId} {
-      allow create: if true; // Anyone can submit a request
+      allow create: if true;
       allow read, update, delete: if isAdmin();
     }
     
-    // Users collection
     match /users/{userId} {
-      // Users can read/write their own data
       allow read, write: if isAuthenticated() && isOwner(userId);
-      
-      // Allow reading other users' basic info for community features
-      allow read: if isActiveUser();
-      
-      // Only admins can create/update user accounts
+      allow read: if isActiveUser(); // Allow reading all users for contact list
       allow create, update: if isAdmin();
-      
-      // Only admins can delete/deactivate users
       allow delete: if isAdmin();
+      
+      // Allow users to update their own FCM tokens and last seen
+      allow update: if isAuthenticated() && isOwner(userId) && 
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['mockPushToken', 'lastTokenUpdate', 'isExpoGo', 'lastSeen', 'isActive']);
     }
     
-    // Admin logs - only admins can read
     match /adminLogs/{logId} {
       allow read: if isAdmin();
-      allow write: if false; // Only server can write logs
+      allow create: if isAuthenticated();
     }
     
-    // System logs - only admins can read
     match /systemLogs/{logId} {
       allow read: if isAdmin();
-      allow write: if false; // Only server can write logs
+      allow create: if isAuthenticated();
     }
     
-    // Posts collection (for future use)
+    // UPDATED: Posts collection rules
     match /posts/{postId} {
-      allow read: if isActiveUser();
-      allow write: if isActiveUser() && isOwner(resource.data.userId);
+      allow read: if true; // Everyone can read posts
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow update: if request.auth != null; // Allow authenticated users to like/comment
+      allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      
+      // Comments subcollection
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if request.auth != null; // Any authenticated user can comment
+        allow update: if request.auth != null; // Any authenticated user can like comments/add replies
+        allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      }
     }
     
-    // Events collection (for future use)
     match /events/{eventId} {
       allow read: if isActiveUser();
       allow write: if isActiveUser() && 
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in 
         ['head_of_coaches', 'academic_advisor', 'odip', 'sle', 'student_leader'];
+       allow update: if request.auth != null && (
+        // Event creator can update everything
+        request.auth.uid == resource.data.userId ||
+        // Any authenticated user can update RSVP fields
+        (request.resource.data.keys().hasAny(['rsvpYes', 'rsvpNo', 'rsvpMaybe', 'attendees', 'attendeeCount', 'updatedAt']) &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rsvpYes', 'rsvpNo', 'rsvpMaybe', 'attendees', 'attendeeCount', 'updatedAt']))
+      );
+      allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+    
+    // Add this alongside your existing events rules
+    match /sessions/{sessionId} {
+      // Anyone can read sessions (same as events)
+      allow read: if isActiveUser();
+      
+      // Anyone can create sessions (different from events)
+      allow create: if isActiveUser();
+      
+      // Session updates follow similar pattern to events
+      allow update: if request.auth != null && (
+        // Session creator can update everything
+        request.auth.uid == resource.data.userId ||
+        // Any authenticated user can update RSVP fields
+        (request.resource.data.keys().hasAny(['rsvpYes', 'rsvpNo', 'rsvpMaybe', 'attendees', 'attendeeCount', 'updatedAt']) &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rsvpYes', 'rsvpNo', 'rsvpMaybe', 'attendees', 'attendeeCount', 'updatedAt']))
+      );
+      
+      // Only session creator can delete
+      allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+
+    // MESSAGING SYSTEM RULES
+    
+    // General chats collection (used by ChatService)
+    match /chats/{chatId} {
+      // Users can read chats they participate in
+      allow read: if isActiveUser() && 
+        request.auth.uid in resource.data.participants;
+      // Users can create chats they participate in
+      allow create: if isActiveUser() && 
+        request.auth.uid in request.resource.data.participants;
+      // Chat participants can update chat info
+      allow update: if isActiveUser() && 
+        request.auth.uid in resource.data.participants;
+      // Only chat creator or admins can delete
+      allow delete: if isActiveUser() && (
+        request.auth.uid == resource.data.createdBy ||
+        isAdmin()
+      );
+      
+      // Messages subcollection
+      match /messages/{messageId} {
+        // Chat participants can read messages
+        allow read: if isActiveUser() && 
+          request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+        // Chat participants can create messages
+        allow create: if isActiveUser() && 
+          request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants &&
+          request.auth.uid == request.resource.data.senderId;
+        // Allow updates for read receipts and reactions
+        allow update: if isActiveUser() && 
+          request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+        // Only sender can delete their messages
+        allow delete: if isActiveUser() && request.auth.uid == resource.data.senderId;
+      }
+    }
+    
+    // Private conversations
+    match /conversations/{conversationId} {
+      // Users can read/write conversations they participate in
+      allow read, write: if isActiveUser() && isConversationParticipant(resource);
+      // Allow creation if user is in participants array
+      allow create: if isActiveUser() && request.auth.uid in request.resource.data.participants;
+      
+      // Messages subcollection
+      match /messages/{messageId} {
+        // Participants can read all messages in their conversations
+        allow read: if isActiveUser() && isConversationParticipant(get(/databases/$(database)/documents/conversations/$(conversationId)));
+        // Participants can create messages
+        allow create: if isActiveUser() && 
+          isConversationParticipant(get(/databases/$(database)/documents/conversations/$(conversationId))) &&
+          request.auth.uid == request.resource.data.senderId;
+        // Allow message updates for read receipts and reactions
+        allow update: if isActiveUser() && 
+          isConversationParticipant(get(/databases/$(database)/documents/conversations/$(conversationId)));
+        // Only sender can delete their messages
+        allow delete: if isActiveUser() && request.auth.uid == resource.data.senderId;
+      }
+    }
+    
+    // Community chats
+    match /communityChats/{chatId} {
+      // Active users can read community chats
+      allow read: if isActiveUser();
+      // Only admins and student leaders can create community chats
+      allow create: if isActiveUser() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in 
+        ['head_of_coaches', 'academic_advisor', 'odip', 'sle', 'student_leader', 'admin'];
+      // Chat creators and admins can update
+      allow update: if isActiveUser() && (
+        request.auth.uid == resource.data.createdBy ||
+        isAdmin()
+      );
+      // Only admins can delete community chats
+      allow delete: if isAdmin();
+      
+      // Community messages subcollection
+      match /messages/{messageId} {
+        // Chat members can read messages
+        allow read: if isActiveUser();
+        // Chat members can create messages
+        allow create: if isActiveUser() && 
+          request.auth.uid == request.resource.data.senderId;
+        // Allow updates for reactions and read receipts
+        allow update: if isActiveUser();
+        // Sender or admins can delete messages
+        allow delete: if isActiveUser() && (
+          request.auth.uid == resource.data.senderId ||
+          isAdmin()
+        );
+      }
+    }
+    
+    // Anonymous chats
+    match /anonymousChats/{chatId} {
+      // Active users can read anonymous chats
+      allow read: if isActiveUser();
+      // Admins and student leaders can create anonymous chats
+      allow create: if isActiveUser() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in 
+        ['head_of_coaches', 'academic_advisor', 'odip', 'sle', 'student_leader', 'admin'];
+      // Chat creators and admins can update
+      allow update: if isActiveUser() && (
+        request.auth.uid == resource.data.createdBy ||
+        isAdmin()
+      );
+      // Only admins can delete
+      allow delete: if isAdmin();
+      
+      // Anonymous messages subcollection
+      match /messages/{messageId} {
+        // Chat members can read messages
+        allow read: if isActiveUser();
+        // Chat members can create messages (sender ID will be anonymous)
+        allow create: if isActiveUser();
+        // Allow updates for reactions
+        allow update: if isActiveUser();
+        // Only admins can delete anonymous messages (for moderation)
+        allow delete: if isAdmin();
+      }
+    }
+    
+    // Chat memberships (tracks who is in which chat)
+    match /chatMembers/{membershipId} {
+      // Users can read their own memberships and admins can read all
+      allow read: if isActiveUser() && (
+        request.auth.uid == resource.data.userId ||
+        isAdmin()
+      );
+      // Users can create their own memberships
+      allow create: if isActiveUser() && request.auth.uid == request.resource.data.userId;
+      // Users can update their own membership settings (mute, etc.)
+      allow update: if isActiveUser() && (
+        request.auth.uid == resource.data.userId ||
+        isAdmin()
+      );
+      // Users can leave chats (delete their membership)
+      allow delete: if isActiveUser() && (
+        request.auth.uid == resource.data.userId ||
+        isAdmin()
+      );
     }
   }
 }

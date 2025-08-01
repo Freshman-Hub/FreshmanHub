@@ -1,24 +1,51 @@
 "use client";
-import { View, TouchableOpacity, Text, StyleSheet } from "react-native";
 import { useTheme } from "@/contexts/ThemeContext";
-import { MessageCircle, Lock, Users, UserX } from "lucide-react-native";
+import { Lock, MessageCircle, Users, UserX } from "lucide-react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 interface ChatTabNavigationProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
+  unreadCounts?: {
+    chats: number;
+    private: number;
+    communities: number;
+    anonymous: number;
+  };
 }
 
 export function ChatTabNavigation({
   activeTab,
   onTabChange,
+  unreadCounts = { chats: 0, private: 0, communities: 0, anonymous: 0 },
 }: ChatTabNavigationProps) {
   const { theme } = useTheme();
 
   const tabs = [
-    { id: "chats", label: "Chats", icon: MessageCircle, badge: 2 },
-    { id: "private", label: "Private", icon: Lock, badge: 0 },
-    { id: "communities", label: "Communities", icon: Users, badge: 0 },
-    { id: "anonymous", label: "Anonymous", icon: UserX, badge: 1 },
+    {
+      id: "chats",
+      label: "Chats",
+      icon: MessageCircle,
+      badge: unreadCounts.chats,
+    },
+    {
+      id: "private",
+      label: "Private",
+      icon: Lock,
+      badge: unreadCounts.private,
+    },
+    {
+      id: "communities",
+      label: "Communities",
+      icon: Users,
+      badge: unreadCounts.communities,
+    },
+    {
+      id: "anonymous",
+      label: "Anonymous",
+      icon: UserX,
+      badge: unreadCounts.anonymous,
+    },
   ];
 
   const styles = StyleSheet.create({
@@ -41,7 +68,7 @@ export function ChatTabNavigation({
       borderRadius: theme.borderRadius.lg,
     },
     tabLabel: {
-      ...theme.typography.captionSmall,
+      fontSize: theme.typography.captionSmall.fontSize,
       color: theme.colors.textSecondary,
       marginTop: theme.spacing.xs,
     },
@@ -61,9 +88,8 @@ export function ChatTabNavigation({
       alignItems: "center",
     },
     badgeText: {
-      ...theme.typography.captionSmall,
-      color: "white",
       fontSize: 10,
+      color: "white",
       fontWeight: "600",
     },
   });
