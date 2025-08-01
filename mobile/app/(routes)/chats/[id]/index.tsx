@@ -11,7 +11,6 @@ import {
   StyleSheet,
   Text,
   View,
-  AppState, 
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -37,8 +36,6 @@ const ChatConversationScreen: React.FC = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
   const scrollViewRef = useRef<ScrollView>(null);
-  const appState = useRef(AppState.currentState);
-
   const { user } = useUser();
 
   const chatId = params.id as string;
@@ -69,28 +66,6 @@ const ChatConversationScreen: React.FC = () => {
 
   // Determine if this is a group chat
   const isGroupChat = chatInfo?.type === "group";
-
-  useEffect(() => {
-    const handleAppStateChange = (nextAppState: string) => {
-      if (
-        appState.current.match(/inactive|background/) &&
-        nextAppState === "active"
-      ) {
-        // App has come to the foreground, scroll to bottom
-        scrollToBottom();
-      }
-      appState.current = nextAppState;
-    };
-
-    const subscription = AppState.addEventListener(
-      "change",
-      handleAppStateChange
-    );
-
-    return () => {
-      subscription.remove();
-    };
-  }, []);
 
   // Debug: Log when isGroupChat changes
   useEffect(() => {
