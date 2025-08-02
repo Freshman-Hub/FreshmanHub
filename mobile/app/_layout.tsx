@@ -1,12 +1,17 @@
+import { StreamChatProvider } from "@/contexts/StreamChatContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { UserProvider, useUser } from "@/contexts/UserContext";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFonts } from "expo-font";
 import { Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
+import { Provider as PaperProvider } from "react-native-paper"; // Add this import
 import "react-native-reanimated";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Provider as PaperProvider } from 'react-native-paper'; // Add this import
+// import TempUserSync from "@/components/TempUserSync";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { OverlayProvider } from "stream-chat-expo";
+
 
 
 function LayoutContent() {
@@ -18,25 +23,21 @@ function LayoutContent() {
 
   console.log("Role-=================", user?.role);
   console.log("Email-=================", user?.email);
-  
 
   useEffect(() => {
     checkOnboardingStatus();
   }, []);
-
-
 
   const checkOnboardingStatus = async () => {
     try {
       const hasSeenOnboardingValue =
         await AsyncStorage.getItem("hasSeenOnboarding");
       setHasSeenOnboarding(hasSeenOnboardingValue === "true");
-        console.log("Onboarding ==============",hasSeenOnboardingValue);
+      console.log("Onboarding ==============", hasSeenOnboardingValue);
     } catch (error) {
       setHasSeenOnboarding(false);
       console.error("Failed to check onboarding status:", error);
     }
-    
   };
   // Navigation logic based on auth status
   useEffect(() => {
@@ -86,6 +87,7 @@ function LayoutContent() {
 
   return (
     <>
+      {/* <TempUserSync /> */}
       <Stack
         screenOptions={{
           headerShown: false,
@@ -116,12 +118,18 @@ export default function RootLayout() {
   if (!loaded) return null;
 
   return (
-    <PaperProvider>
-    <UserProvider>
-      <ThemeProvider>
-        <LayoutContent />
-      </ThemeProvider>
-    </UserProvider>
-    </PaperProvider>
+    <OverlayProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <PaperProvider>
+          <UserProvider>
+            <ThemeProvider>
+              <StreamChatProvider>
+                <LayoutContent />
+              </StreamChatProvider>
+            </ThemeProvider>
+          </UserProvider>
+        </PaperProvider>
+      </GestureHandlerRootView>
+    </OverlayProvider>
   );
 }
