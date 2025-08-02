@@ -2,7 +2,9 @@
 import { Avatar } from "@/components/chats/Avatar";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useUser } from "@/contexts/UserContext";
-import { ChatService } from "@/services/chat.service";
+import { useStreamChat } from "@/contexts/StreamChatContext";
+import { StreamChatService } from "@/services/stream-chat.service";
+import { UserService } from "@/services/user.service";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, Camera, Check } from "lucide-react-native";
 import { useEffect, useState } from "react";
@@ -17,15 +19,28 @@ import {
   View,
 } from "react-native";
 
+interface ContactData {
+  id: string;
+  firstName: string;
+  lastName: string;
+  profileImage?: string;
+  name: string;
+}
+
 export default function GroupDetailsScreen() {
   const { theme } = useTheme();
   const router = useRouter();
   const params = useLocalSearchParams();
   const { user } = useUser();
+  const { client, isConnected } = useStreamChat();
+
   const [groupName, setGroupName] = useState("");
   const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
-  const [selectedContactsData, setSelectedContactsData] = useState<any[]>([]);
+  const [selectedContactsData, setSelectedContactsData] = useState<
+    ContactData[]
+  >([]);
   const [loading, setLoading] = useState(false);
+  const [loadingContacts, setLoadingContacts] = useState(true);
 
   useEffect(() => {
     if (params.selectedContacts) {
@@ -35,19 +50,50 @@ export default function GroupDetailsScreen() {
         loadSelectedContactsData(contacts);
       } catch (error) {
         console.error("Error parsing selected contacts:", error);
+        setLoadingContacts(false);
       }
+    } else {
+      setLoadingContacts(false);
     }
   }, [params.selectedContacts]);
 
   const loadSelectedContactsData = async (contactIds: string[]) => {
     try {
-      const users = await ChatService.getLocalUsers();
-      const selectedUsers = users.filter((user) =>
-        contactIds.includes(user.id)
-      );
-      setSelectedContactsData(selectedUsers);
+      setLoadingContacts(true);
+
+      // Load contact data from UserService
+      const contactsData: ContactData[] = [];
+
+      for (const contactId of contactIds) {
+        try {
+          const userData = await UserService.getUserById(contactId);
+          if (userData.user) {
+            contactsData.push({
+              id: userData.user.id,
+              firstName: userData.user.firstName,
+              lastName: userData.user.lastName,
+              profileImage: userData.user.profileImage,
+              name: `${userData.user.firstName} ${userData.user.lastName}`,
+            });
+          }
+        } catch (error) {
+          console.warn(`Failed to load user ${contactId}:`, error);
+          // Add placeholder data for failed contacts
+          contactsData.push({
+            id: contactId,
+            firstName: "Unknown",
+            lastName: "User",
+            name: `User ${contactId.slice(0, 8)}`,
+          });
+        }
+      }
+
+      setSelectedContactsData(contactsData);
     } catch (error) {
       console.error("Error loading selected contacts data:", error);
+      Alert.alert("Error", "Failed to load contact details");
+    } finally {
+      setLoadingContacts(false);
     }
   };
 
@@ -62,8 +108,8 @@ export default function GroupDetailsScreen() {
       return;
     }
 
-    if (!user?.id) {
-      Alert.alert("Error", "User not authenticated");
+    if (!user?.id || !client?.userID || !isConnected) {
+      Alert.alert("Error", "Not connected to chat service");
       return;
     }
 
@@ -73,20 +119,37 @@ export default function GroupDetailsScreen() {
       // Add the current user to the participants
       const allParticipants = [user.id, ...selectedContacts];
 
-      // Create the group chat
-      const groupId = await ChatService.createGroupChat(
+      console.log("🔄 Creating Stream Chat group:", {
+        name: groupName.trim(),
+        members: allParticipants,
+        createdBy: user.id,
+        isAnonymous: params.isAnonymous === "true",
+      });
+
+      // Create the group chat using Stream Chat
+      const groupChannel = await StreamChatService.createGroupChat(
         groupName.trim(),
         allParticipants,
         user.id,
         params.isAnonymous === "true"
       );
 
-      console.log("✅ Group created successfully:", groupId);
+      console.log(
+        "✅ Stream Chat group created successfully:",
+        groupChannel.id
+      );
 
       // Navigate to the new group chat
-      router.push(`/(routes)/chats/${groupId}`);
+      router.push({
+        pathname: "/(routes)/chats/[id]",
+        params: {
+          id: groupChannel.id ?? "",
+          userName: groupName.trim(),
+          isGroup: "true",
+        },
+      });
     } catch (error) {
-      console.error("Error creating group:", error);
+      console.error("❌ Error creating group:", error);
       Alert.alert("Error", "Failed to create group. Please try again.");
     } finally {
       setLoading(false);
@@ -133,6 +196,8 @@ export default function GroupDetailsScreen() {
       justifyContent: "center",
       alignItems: "center",
       marginRight: theme.spacing.md,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
     },
     groupNameContainer: {
       flex: 1,
@@ -149,37 +214,6 @@ export default function GroupDetailsScreen() {
       paddingHorizontal: theme.spacing.xs,
       fontWeight: "500",
     },
-    emojiButton: {
-      padding: theme.spacing.sm,
-      marginLeft: theme.spacing.sm,
-    },
-    settingItem: {
-      flexDirection: "row",
-      alignItems: "center",
-      paddingHorizontal: theme.spacing.lg,
-      paddingVertical: theme.spacing.md,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.colors.border + "30",
-    },
-    settingIcon: {
-      marginRight: theme.spacing.md,
-    },
-    settingContent: {
-      flex: 1,
-    },
-    settingTitle: {
-      ...theme.typography.body,
-      color: theme.colors.text,
-      fontWeight: "500",
-    },
-    settingSubtitle: {
-      ...theme.typography.bodySmall,
-      color: theme.colors.textSecondary,
-      marginTop: 2,
-    },
-    settingAction: {
-      padding: theme.spacing.sm,
-    },
     membersSection: {
       marginTop: theme.spacing.lg,
     },
@@ -191,6 +225,7 @@ export default function GroupDetailsScreen() {
       ...theme.typography.bodySmall,
       color: theme.colors.textSecondary,
       fontWeight: "600",
+      textTransform: "uppercase",
     },
     membersContainer: {
       paddingHorizontal: theme.spacing.lg,
@@ -209,6 +244,18 @@ export default function GroupDetailsScreen() {
       color: theme.colors.text,
       textAlign: "center",
       marginTop: theme.spacing.xs,
+      fontWeight: "500",
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      paddingVertical: theme.spacing.xl,
+    },
+    loadingText: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      marginTop: theme.spacing.md,
       fontWeight: "500",
     },
     fab: {
@@ -230,7 +277,46 @@ export default function GroupDetailsScreen() {
       shadowOpacity: 0.3,
       shadowRadius: 8,
     },
+    disabledFab: {
+      backgroundColor: theme.colors.textSecondary,
+    },
+    connectionWarning: {
+      backgroundColor: theme.colors.warning + "20",
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: theme.spacing.sm,
+      marginHorizontal: theme.spacing.lg,
+      marginBottom: theme.spacing.md,
+      borderRadius: theme.spacing.md,
+      borderLeftWidth: 3,
+      borderLeftColor: theme.colors.warning,
+    },
+    connectionWarningText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.warning,
+      fontWeight: "500",
+    },
   });
+
+  if (loadingContacts) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <ArrowLeft size={24} color={theme.colors.text} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>New group</Text>
+        </View>
+
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={styles.loadingText}>Loading contacts...</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -244,6 +330,15 @@ export default function GroupDetailsScreen() {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>New group</Text>
       </View>
+
+      {/* Connection Warning */}
+      {!isConnected && (
+        <View style={styles.connectionWarning}>
+          <Text style={styles.connectionWarningText}>
+            Not connected to chat service. Please check your connection.
+          </Text>
+        </View>
+      )}
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Group Info */}
@@ -259,6 +354,7 @@ export default function GroupDetailsScreen() {
               value={groupName}
               onChangeText={setGroupName}
               autoFocus
+              maxLength={50}
             />
           </View>
         </View>
@@ -267,7 +363,7 @@ export default function GroupDetailsScreen() {
         <View style={styles.membersSection}>
           <View style={styles.membersHeader}>
             <Text style={styles.membersTitle}>
-              Members: {selectedContacts.length + 1} {/* +1 for current user */}
+              Participants: {selectedContacts.length + 1}
             </Text>
           </View>
           <View style={styles.membersContainer}>
@@ -286,7 +382,7 @@ export default function GroupDetailsScreen() {
                     type="direct"
                   />
                   <Text style={styles.memberName} numberOfLines={1}>
-                    {user.firstName} (You)
+                    You
                   </Text>
                 </View>
               )}
@@ -296,7 +392,7 @@ export default function GroupDetailsScreen() {
                 <View key={contact.id} style={styles.memberItem}>
                   <Avatar
                     source={contact.profileImage || null}
-                    name={`${contact.firstName} ${contact.lastName}`}
+                    name={contact.name}
                     size={50}
                     type="direct"
                   />
@@ -312,23 +408,12 @@ export default function GroupDetailsScreen() {
 
       {/* Create Group FAB */}
       <TouchableOpacity
-        style={styles.fab}
+        style={[styles.fab, (!isConnected || loading) && styles.disabledFab]}
         onPress={handleCreateGroup}
-        disabled={loading}
+        disabled={loading || !isConnected}
       >
         {loading ? (
-          <View
-            style={{
-              width: 24,
-              height: 24,
-              borderRadius: 12,
-              backgroundColor: "white",
-              justifyContent: "center",
-              alignItems: "center",
-            }}
-          >
-            <ActivityIndicator size="small" color="white" />
-          </View>
+          <ActivityIndicator size="small" color="white" />
         ) : (
           <Check size={24} color="white" />
         )}
