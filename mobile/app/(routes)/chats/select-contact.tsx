@@ -8,8 +8,6 @@ import { useStreamChat } from "@/contexts/StreamChatContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useUser } from "@/contexts/UserContext";
 import { UserService } from "@/services/user.service";
-import { ChatService } from "@/services/chat.service";
-import { StreamChatService } from "@/services/stream-chat.service";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
@@ -258,129 +256,94 @@ export default function SelectContactScreen() {
   const regularContacts = filteredContacts.filter(
     (contact) => contact.type === "contact" || contact.type === "self"
   );
+  // Fix handleContactPress to check for existing channels first:
 
   const handleContactPress = async (contactId: string) => {
     if (isMultiSelect) {
-      // Toggle selection for multi-select modes
       setSelectedContacts((prev) =>
         prev.includes(contactId)
           ? prev.filter((id) => id !== contactId)
           : [...prev, contactId]
       );
     } else {
-      // Create direct chat for single selection
       if (contactId === "self") {
         router.push(`/(routes)/chats/self`);
         return;
       }
 
-      setCreating(true);
-
       try {
-        console.log("🔄 Creating/finding chat with user:", contactId);
-
         if (!user?.id) {
-          console.error("❌ User ID is undefined");
           Alert.alert("Error", "User session invalid");
           return;
         }
 
-        // Get contact details first
-        const { user: contactUser } = await UserService.getUserById(contactId);
-        const contactName = contactUser
-          ? `${contactUser.firstName} ${contactUser.lastName}`
-          : `User ${contactId.slice(0, 8)}`;
+        // Get contact details (instant)
+        const contact = contacts.find((c) => c.id === contactId);
+        const contactName =
+          contact?.name?.replace(" (You)", "") ||
+          `User ${contactId.slice(0, 8)}`;
 
-        console.log("🔄 Contact details:", contactName);
+        console.log("🔄 Checking for existing conversation with:", contactName);
 
-        // Create Firebase chat (fast)
-        const firebaseChatId = await ChatService.createDirectChat(
-          user.id,
-          contactId
-        );
-        console.log("✅ Firebase chat created/found:", firebaseChatId);
+        // Check if there's already an existing Stream channel with this contact
+        let existingChannelId = null;
 
-        // Navigate immediately with user info
-        router.push({
-          pathname: "/(routes)/chats/[id]",
-          params: {
-            id: firebaseChatId,
-            userId: contactId,
-            userName: contactName,
-            userAvatar: contactUser?.profileImage || "",
-          },
-        });
+        if (isConnected && client?.userID) {
+          try {
+            // Query for existing channels with this contact
+            const channels = await client.queryChannels({
+              type: "messaging",
+              members: { $in: [client.userID] },
+            });
 
-        // Create Stream Chat channel in background (don't await)
-        if (isConnected && client?.userID && contactUser) {
-          createStreamChannelInBackground(contactId, contactUser);
+            // Find channel with exactly these 2 users
+            const existingChannel = channels.find((ch) => {
+              const members = Object.keys(ch.state.members || {});
+              return (
+                members.length === 2 &&
+                members.includes(client.userID || "") &&
+                members.includes(contactId)
+              );
+            });
+
+            if (existingChannel) {
+              existingChannelId = existingChannel.id;
+              console.log("✅ Found existing channel:", existingChannelId);
+            }
+          } catch (error) {
+            console.warn("⚠️ Failed to check for existing channels:", error);
+            // Continue with pending approach
+          }
+        }
+
+        if (existingChannelId) {
+          // Navigate to existing channel
+          router.push({
+            pathname: "/(routes)/chats/[id]",
+            params: {
+              id: existingChannelId, // Use existing channel ID
+              userName: contactName,
+              userAvatar: contact?.avatar || "",
+              isGroup: "false",
+            },
+          });
+        } else {
+          // Create pending chat for new conversation
+          router.push({
+            pathname: "/(routes)/chats/[id]",
+            params: {
+              id: `pending_${user.id}_${contactId}`, // Use pending ID
+              userName: contactName,
+              userAvatar: contact?.avatar || "",
+              contactId: contactId, // Pass contact ID for channel creation later
+              isGroup: "false",
+            },
+          });
         }
       } catch (error) {
-        console.error("❌ Error creating chat:", error);
-        Alert.alert("Error", "Failed to create chat");
-      } finally {
-        setCreating(false);
+        console.error("❌ Error navigating to chat:", error);
+        Alert.alert("Error", "Failed to open chat");
       }
-    }
-  };
-
-  // Background Stream Chat channel creation
-  const createStreamChannelInBackground = async (
-    contactId: string,
-    contactUser: any
-  ) => {
-    try {
-      console.log("🔄 Creating Stream channel in background...");
-
-      const currentUserData = {
-        id: user?.id || "",
-        firstName: user?.firstName || "",
-        lastName: user?.lastName || "",
-        email: user?.email || "",
-        bio: user?.bio || "",
-        role: user?.role || "user",
-        studentId: user?.studentId || "",
-        yearGroup: user?.yearGroup || "",
-        major: user?.major || "",
-        country: user?.country || "",
-        gender: user?.gender || "other",
-        department: user?.department || "",
-        phoneNumber: user?.phoneNumber || "",
-        profileImage: user?.profileImage || "",
-      };
-
-      const contactUserData = {
-        id: contactUser.id,
-        firstName: contactUser.firstName,
-        lastName: contactUser.lastName,
-        email: contactUser.email,
-        bio: contactUser.bio,
-        role: contactUser.role,
-        studentId: contactUser.studentId,
-        yearGroup: contactUser.yearGroup,
-        major: contactUser.major,
-        country: contactUser.country,
-        gender: contactUser.gender,
-        department: contactUser.department,
-        phoneNumber: contactUser.phoneNumber,
-        profileImage: contactUser.profileImage,
-      };
-
-      const streamChannel = await StreamChatService.createDirectChat(
-        client?.userID || "",
-        contactId,
-        currentUserData,
-        contactUserData
-      );
-      console.log(
-        "✅ Stream Chat channel created in background:",
-        streamChannel.id
-      );
-    } catch (streamError) {
-      console.warn(
-        "⚠️ Background Stream Chat channel creation failed:",
-        streamError
-      );
     }
   };
 
