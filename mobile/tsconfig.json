@@ -13,5 +13,5 @@
     ".expo/types/**/*.ts",
     "expo-env.d.ts",
     "nativewind-env.d.ts"
-, "firestore.rules"  ]
+, "firestore.rules", "scripts/create-stream-users.ts", "scripts/run-sync.ts"  ]
 }
