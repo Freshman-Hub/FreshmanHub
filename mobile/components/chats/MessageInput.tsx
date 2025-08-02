@@ -135,9 +135,12 @@ export function MessageInput({
         <View style={styles.replyContainer}>
           <View style={styles.replyContent}>
             <Text style={styles.replyTitle}>
-              Replying to {replyToMessage.isOwn ? "You" : "Contact"}
+              Replying to{" "}
+              {replyToMessage.isOwn
+                ? "You"
+                : replyToMessage.sender || "Contact"}
             </Text>
-            <Text style={styles.replyText} numberOfLines={1}>
+            <Text style={styles.replyText} numberOfLines={2}>
               {replyToMessage.text}
             </Text>
           </View>
