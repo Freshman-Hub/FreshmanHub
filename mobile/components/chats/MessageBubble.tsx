@@ -138,7 +138,28 @@ export function MessageBubble({
       fontSize: 11,
       color: theme.colors.textSecondary,
     },
+    replyLine: {
+      position: "absolute",
+      left: 0,
+      top: 0,
+      bottom: 0,
+      width: 3,
+      backgroundColor: message.isOwn
+        ? theme.colors.surface
+        : theme.colors.primary,
+    },
+    replyContent: {
+      marginLeft: theme.spacing.xs,
+    },
+    replyAuthor: {
+      ...theme.typography.caption,
+      color: theme.colors.primary,
+      fontWeight: "600",
+      marginBottom: 2,
+    },
   });
+
+  
 
   // Don't render if message text is empty
   if (!message.text) {
@@ -170,10 +191,15 @@ export function MessageBubble({
             )}
             {message.replyTo && (
               <View style={styles.replyContainer}>
-                <Text style={styles.replySender}>{message.replyTo.sender}</Text>
-                <Text style={styles.replyText} numberOfLines={2}>
-                  {message.replyTo.text}
-                </Text>
+                <View style={styles.replyLine} />
+                <View style={styles.replyContent}>
+                  <Text style={styles.replyAuthor}>
+                    {message.replyTo.sender}
+                  </Text>
+                  <Text style={styles.replyText} numberOfLines={2}>
+                    {message.replyTo.text}
+                  </Text>
+                </View>
               </View>
             )}
             <Text style={styles.messageText}>{message.text}</Text>
