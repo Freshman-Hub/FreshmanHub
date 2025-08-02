@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -14,17 +14,14 @@ import {
   ArrowLeft,
   MoreVertical,
   UserPlus,
-  // Link,
   Search,
   Heart,
-  // List,
   LogOut,
   Flag,
   Settings,
   Edit,
 } from "lucide-react-native";
 import { Avatar } from "@/components/chats/Avatar";
-// import { GroupInfoModal } from "@/components/chats/GroupInfoModal";
 import { MemberActionModal } from "@/components/chats/MemberActionModal";
 import { ChangeGroupNameModal } from "@/components/chats/ChangeGroupNameModal";
 import { AddDescriptionModal } from "@/components/chats/AddDescriptionModal";
@@ -32,89 +29,226 @@ import {
   OptionsDropdown,
   type DropdownOption,
 } from "@/components/common/OptionsDropdown";
+import { useStreamChat } from "@/contexts/StreamChatContext";
+import { useUser } from "@/contexts/UserContext";
+import { StreamChatService } from "@/services/stream-chat.service";
+import {
+  getChannelDisplayName,
+  getChannelAvatar,
+} from "@/utils/stream-chat.helpers";
+import { Channel } from "stream-chat";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
-// Mock group data
-const mockGroupData = {
-  id: "group-1",
-  name: "Emma group",
-  avatar: null,
-  memberCount: 2,
-  createdBy: "You",
-  createdAt: "today at 19:58",
-  description: "",
-  members: [
-    {
-      id: "self",
-      name: "You",
-      subtitle: "Can't talk, WhatsApp only",
-      avatar:
-        "https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=400",
-      isAdmin: true,
-    },
-    {
-      id: "member-1",
-      name: "Adoum Ouang-namou Emmanuel",
-      subtitle: "",
-      avatar:
-        "https://images.pexels.com/photos/1040880/pexels-photo-1040880.jpeg?auto=compress&cs=tinysrgb&w=400",
-      isAdmin: false,
-    },
-  ],
-};
+interface GroupMember {
+  id: string;
+  name: string;
+  subtitle: string;
+  avatar: string | null;
+  isAdmin: boolean;
+  isCurrentUser: boolean;
+}
+
+interface GroupData {
+  id: string;
+  name: string;
+  avatar: string | null;
+  memberCount: number;
+  createdBy: string;
+  createdAt: string;
+  description: string;
+  members: GroupMember[];
+}
 
 export default function GroupInfoScreen() {
   const { theme } = useTheme();
   const router = useRouter();
   const params = useLocalSearchParams();
-  // const [showMoreModal, setShowMoreModal] = useState(false);
+  const { client, isConnected } = useStreamChat();
+  const { user } = useUser();
+
   const [showMemberModal, setShowMemberModal] = useState(false);
   const [selectedMember, setSelectedMember] = useState<any>(null);
   const [showChangeNameModal, setShowChangeNameModal] = useState(false);
   const [showDescriptionModal, setShowDescriptionModal] = useState(false);
-  const [groupData, setGroupData] = useState(mockGroupData);
+  const [groupData, setGroupData] = useState<GroupData | null>(null);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [channel, setChannel] = useState<Channel | null>(null);
 
   const groupId = params.id as string;
+
+  useEffect(() => {
+    loadGroupData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupId, client, isConnected]);
+
+  const loadGroupData = async () => {
+    if (!client || !isConnected || !groupId) return;
+
+    setLoading(true);
+    try {
+      // Get the Stream channel
+      const streamChannel = await StreamChatService.getChannel("team", groupId);
+      setChannel(streamChannel);
+
+      // Extract group data from Stream channel
+      const members = Object.values(streamChannel.state.members || {});
+      const channelData = streamChannel.data as any;
+
+      // Get display name and avatar
+      const displayName = getChannelDisplayName(
+        streamChannel,
+        client.userID || ""
+      );
+      const avatar = getChannelAvatar(streamChannel, client.userID || "");
+
+      // FIXED: Get creator name directly from created_by object
+      let createdBy = "Someone";
+      if (channelData?.created_by?.id === user?.id) {
+        createdBy = "You";
+      } else if (channelData?.created_by?.name) {
+        createdBy = channelData.created_by.name;
+      } else if (channelData?.created_by?.id) {
+        createdBy = `User ${channelData.created_by.id.slice(0, 8)}`;
+      }
+
+      // Format members
+      const formattedMembers: GroupMember[] = members.map((member: any) => {
+        const isCurrentUser = member.user_id === user?.id;
+        const memberName = isCurrentUser
+          ? "You"
+          : member.user?.name || `User ${member.user_id.slice(0, 8)}`;
+
+        return {
+          id: member.user_id,
+          name: memberName,
+          subtitle: member.user?.bio || "",
+          avatar: member.user?.image || null,
+          isAdmin:
+            member.role === "admin" ||
+            member.role === "owner" ||
+            member.user_id === channelData?.created_by?.id,
+          isCurrentUser,
+        };
+      });
+
+      // FIXED: Sort members - "You" first, then alphabetical
+      const sortedMembers = formattedMembers.sort((a, b) => {
+        // Put current user first
+        if (a.isCurrentUser) return -1;
+        if (b.isCurrentUser) return 1;
+
+        // Sort others alphabetically
+        return a.name.localeCompare(b.name);
+      });
+
+      // Format creation date
+      const createdAt = channelData?.created_at
+        ? new Date(channelData.created_at).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          })
+        : "Unknown";
+
+      setGroupData({
+        id: streamChannel.id ?? "",
+        name: displayName,
+        avatar: avatar,
+        memberCount: members.length,
+        createdBy: createdBy,
+        createdAt: createdAt,
+        description: channelData?.description || "",
+        members: sortedMembers,
+      });
+    } catch (error) {
+      console.error("❌ Error loading group data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleAddMembers = () => {
     router.push(`/(routes)/chats/${groupId}/add-members`);
   };
 
-  // const handleInviteLink = () => {
-  //   console.log("Invite via group link");
-  // };
-
-  const handleMemberPress = (member: any) => {
+  const handleMemberPress = (member: GroupMember) => {
     setSelectedMember(member);
     setShowMemberModal(true);
   };
 
-  const handleMakeAdmin = (memberId: string) => {
-    console.log("Making admin:", memberId);
-    // TODO: Update member admin status
+  const handleMakeAdmin = async (memberId: string) => {
+    if (!channel) return;
+
+    try {
+      await channel.addModerators([memberId]);
+      await loadGroupData();
+      console.log("✅ Made admin:", memberId);
+    } catch (error) {
+      console.error("❌ Failed to make admin:", error);
+    }
   };
 
-  const handleRemoveMember = (memberId: string) => {
-    console.log("Removing member:", memberId);
-    // TODO: Remove member from group
+  const handleRemoveMember = async (memberId: string) => {
+    if (!channel) return;
+
+    try {
+      await StreamChatService.removeMembersFromGroup(channel, [memberId]);
+      await loadGroupData();
+      console.log("✅ Removed member:", memberId);
+    } catch (error) {
+      console.error("❌ Failed to remove member:", error);
+    }
   };
 
-  const handleChangeGroupName = (newName: string) => {
-    setGroupData((prev) => ({ ...prev, name: newName }));
-    console.log("Changed group name to:", newName);
+  const handleChangeGroupName = async (newName: string) => {
+    if (!channel) return;
+
+    try {
+      await StreamChatService.updateChannel(channel, { name: newName });
+      setGroupData((prev) => (prev ? { ...prev, name: newName } : null));
+      console.log("✅ Changed group name to:", newName);
+    } catch (error) {
+      console.error("❌ Failed to change group name:", error);
+    }
   };
 
   const handleAddDescription = () => {
     setShowDescriptionModal(true);
   };
 
-  const handleSaveDescription = (newDescription: string) => {
-    setGroupData((prev) => ({ ...prev, description: newDescription }));
-    console.log("Updated description:", newDescription);
+  const handleSaveDescription = async (newDescription: string) => {
+    if (!channel) return;
+
+    try {
+      await StreamChatService.updateChannel(channel, {
+        description: newDescription,
+      });
+      setGroupData((prev) =>
+        prev ? { ...prev, description: newDescription } : null
+      );
+      console.log("✅ Updated description:", newDescription);
+    } catch (error) {
+      console.error("❌ Failed to update description:", error);
+    }
   };
 
   const handleSearchMembers = () => {
     router.push(`/(routes)/chats/${groupId}/search-members`);
+  };
+
+  const handleExitGroup = async () => {
+    if (!channel || !user?.id) return;
+
+    try {
+      await StreamChatService.removeMembersFromGroup(channel, [user.id]);
+      router.push("/(routes)/chats");
+      console.log("✅ Left group");
+    } catch (error) {
+      console.error("❌ Failed to leave group:", error);
+    }
   };
 
   const menuOptions: DropdownOption[] = [
@@ -122,25 +256,20 @@ export default function GroupInfoScreen() {
       id: "add-members",
       title: "Add members",
       icon: UserPlus,
-      onPress: () => {
-        handleAddMembers();
-      },
+      onPress: handleAddMembers,
     },
     {
       id: "change-name",
       title: "Change group name",
       icon: Edit,
-      onPress: () => {
-        setShowChangeNameModal(true);
-      },
+      onPress: () => setShowChangeNameModal(true),
     },
     {
       id: "group-permissions",
       title: "Group permissions",
       icon: Settings,
-      onPress: () => {
-        router.push(`/(routes)/chats/${groupId}/group-permissions`);
-      },
+      onPress: () =>
+        router.push(`/(routes)/chats/${groupId}/group-permissions`),
     },
   ];
 
@@ -194,34 +323,6 @@ export default function GroupInfoScreen() {
     groupSubtitle: {
       ...theme.typography.bodySmall,
       color: theme.colors.textSecondary,
-      fontWeight: "500",
-    },
-    actionButtons: {
-      flexDirection: "row",
-      justifyContent: "space-around",
-      paddingVertical: theme.spacing.lg,
-      paddingHorizontal: theme.spacing.xl,
-      backgroundColor: theme.colors.background,
-      borderBottomWidth: 8,
-      borderBottomColor: theme.colors.surface,
-    },
-    actionButton: {
-      alignItems: "center",
-      flex: 1,
-    },
-    actionButtonIcon: {
-      width: 56,
-      height: 56,
-      borderRadius: 28,
-      backgroundColor: theme.colors.surface,
-      justifyContent: "center",
-      alignItems: "center",
-      marginBottom: theme.spacing.sm,
-    },
-    actionButtonText: {
-      ...theme.typography.bodySmall,
-      color: theme.colors.text,
-      textAlign: "center",
       fontWeight: "500",
     },
     descriptionSection: {
@@ -288,7 +389,7 @@ export default function GroupInfoScreen() {
       backgroundColor: theme.colors.primary + "20",
       paddingHorizontal: theme.spacing.sm,
       paddingVertical: theme.spacing.xs,
-      borderRadius: theme.borderRadius.sm,
+      borderRadius: theme.spacing.xs,
     },
     adminBadgeText: {
       ...theme.typography.captionSmall,
@@ -299,7 +400,7 @@ export default function GroupInfoScreen() {
       flexDirection: "row",
       alignItems: "center",
       paddingHorizontal: theme.spacing.md,
-      paddingVertical: theme.spacing.sm,
+      paddingVertical: theme.spacing.lg,
     },
     actionIcon: {
       width: 40,
@@ -321,6 +422,23 @@ export default function GroupInfoScreen() {
       color: "#FF3B30",
     },
   });
+
+  if (loading || !groupData) {
+    return (
+      <SafeAreaView style={styles.container} edges={["top"]}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <ArrowLeft size={24} color={theme.colors.text} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Group Info</Text>
+        </View>
+        <LoadingSpinner />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -401,15 +519,14 @@ export default function GroupInfoScreen() {
           >
             <View style={styles.memberAvatar}>
               <View
-                style={[
-                  styles.actionButtonIcon,
-                  {
-                    backgroundColor: theme.colors.primary,
-                    width: 40,
-                    height: 40,
-                    borderRadius: 20,
-                  },
-                ]}
+                style={{
+                  backgroundColor: theme.colors.primary,
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
               >
                 <UserPlus size={20} color="white" />
               </View>
@@ -462,7 +579,7 @@ export default function GroupInfoScreen() {
           <Text style={styles.actionText}>Add to Favorites</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.actionItem}>
+        <TouchableOpacity style={styles.actionItem} onPress={handleExitGroup}>
           <View style={[styles.actionIcon, { backgroundColor: "#FF3B3020" }]}>
             <LogOut size={20} color="#FF3B30" />
           </View>
@@ -501,6 +618,7 @@ export default function GroupInfoScreen() {
         currentDescription={groupData.description}
         onSave={handleSaveDescription}
       />
+
       <OptionsDropdown
         visible={showOptionsMenu}
         onClose={() => setShowOptionsMenu(false)}
