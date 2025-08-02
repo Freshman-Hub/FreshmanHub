@@ -105,36 +105,47 @@ export class StreamChatService {
     }
   }
 
-  // Get channel by ID - FIXED PERMISSIONS
+  // Update getChannel method with better error handling:
+
   static async getChannel(
     channelType: string,
     channelId: string
   ): Promise<Channel> {
     try {
+      console.log(`🔄 Getting channel: ${channelType}:${channelId}`);
+
       const channel = this.client.channel(channelType, channelId);
 
-      // Try to watch, but don't fail if permission denied
-      try {
-        await channel.watch();
-      } catch (watchError: any) {
-        // If watch fails due to permissions, try to query the channel instead
-        if (watchError.code === 17) {
-          console.log("⚠️ Watch permission denied, using query instead");
+      // Try to watch the channel
+      await channel.watch();
+      console.log(`✅ Channel watched successfully: ${channel.id}`);
+
+      return channel;
+    } catch (error: any) {
+      console.error(
+        `❌ Failed to get channel ${channelType}:${channelId}:`,
+        error
+      );
+
+      // If it's a permission error, try querying instead
+      if (error.code === 17 || error.code === 70) {
+        try {
+          console.log("🔄 Trying to query channel instead...");
           const channels = await this.client.queryChannels(
             { id: channelId, type: channelType },
             {},
             { limit: 1 }
           );
+
           if (channels.length > 0) {
+            console.log("✅ Found channel via query");
             return channels[0];
           }
+        } catch (queryError) {
+          console.error("❌ Query also failed:", queryError);
         }
-        throw watchError;
       }
 
-      return channel;
-    } catch (error: any) {
-      console.error("❌ Failed to get channel:", error);
       throw error;
     }
   }
