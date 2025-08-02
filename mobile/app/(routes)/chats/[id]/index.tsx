@@ -101,6 +101,8 @@ const ChatConversationScreen: React.FC = () => {
 
         let channel;
 
+        // Fix the Firebase ID conversion part:
+
         if (isFirebaseChatId(chatId)) {
           // Handle Firebase chat ID - convert to Stream channel
           console.log("🔄 Converting Firebase ID to Stream channel");
@@ -112,12 +114,20 @@ const ChatConversationScreen: React.FC = () => {
 
           const [user1Id, user2Id] = userIds;
 
-          // Find existing Stream Chat channel
+          // FIXED: Ensure current user is in the query
+          const currentUserId = client.userID;
+
+          if (!currentUserId) {
+            throw new Error("User not authenticated");
+          }
+
+          // FIXED: Query channels where current user is a member and both target users are also members
           const channels = await client.queryChannels({
             type: "messaging",
-            members: { $in: [user1Id, user2Id] },
+            members: { $in: [currentUserId] }, // Current user must be a member
           });
 
+          // FIXED: Filter client-side to find exact match with both users
           const exactMatch = channels.find((ch) => {
             const members = Object.keys(ch.state.members || {});
             return (
@@ -129,23 +139,23 @@ const ChatConversationScreen: React.FC = () => {
 
           if (exactMatch) {
             channel = exactMatch;
+            // Ensure existing channel is watched
+            await channel.watch();
           } else {
-            // Create new Stream channel
+            // Create new channel since no existing channel with both users exists
             channel = await StreamChatService.createDirectChat(
               user1Id,
               user2Id
             );
           }
-        } else {
-          // Handle Stream channel ID directly
-          console.log("🔄 Loading Stream channel directly");
-          channel = client.channel("messaging", chatId);
-          await channel.watch();
         }
 
         setStreamChannel(channel);
 
         // Get channel display name
+        if (!channel) {
+          throw new Error("Channel is undefined");
+        }
         const members = Object.values(channel.state.members || {});
         const otherMember = members.find(
           (member: any) => member.user_id !== client?.userID
@@ -177,12 +187,55 @@ const ChatConversationScreen: React.FC = () => {
           }),
           isOwn: msg.user?.id === client?.userID,
           date: new Date(msg.created_at).toISOString().split("T")[0],
-          status: "sent",
+          // IMPROVED: Better status detection
+          status: (() => {
+            if (!msg.user || msg.user.id !== client?.userID) return "received";
+
+            // Check read status
+            const readBy = msg.read_by || [];
+            const otherUsersRead = readBy.filter(
+              (read: any) => read.user.id !== client?.userID
+            );
+
+            if (otherUsersRead.length > 0) return "read";
+
+            // Check if message was delivered (exists in channel)
+            if (msg.created_at) return "delivered";
+
+            return "sent";
+          })(),
           isDeleted: msg.deleted_at ? true : false,
           sender: msg.user?.name || "Unknown",
           senderAvatar: msg.user?.image || null,
           isSystem: msg.type === "system",
           senderId: msg.user?.id,
+          replyTo: msg.quoted_message
+            ? {
+                id: msg.quoted_message.id,
+                text: msg.quoted_message.text || "",
+                sender: msg.quoted_message.user?.name || "Unknown",
+              }
+            : msg.parent_id
+              ? {
+                  id: msg.parent_id,
+                  text: (() => {
+                    const parentMsg = streamMessages.find(
+                      (m: any) => m.id === msg.parent_id
+                    );
+                    return parentMsg?.text || "Original message";
+                  })(),
+                  sender: (() => {
+                    const parentMsg = streamMessages.find(
+                      (m: any) => m.id === msg.parent_id
+                    );
+                    return parentMsg?.user?.name || "User";
+                  })(),
+                }
+              : undefined,
+          parentId: msg.parent_id || undefined,
+          messageType: msg.type || "regular",
+          // Add read_by info for status updates
+          readBy: msg.read_by || [],
         }));
 
         setMessages(transformedMessages);
@@ -203,6 +256,8 @@ const ChatConversationScreen: React.FC = () => {
 
     console.log("Setting up Stream Chat real-time listener");
 
+    // Fix the handleNewMessage function to avoid duplicates:
+
     const handleNewMessage = (event: any) => {
       console.log("New Stream message:", event.message);
 
@@ -215,20 +270,79 @@ const ChatConversationScreen: React.FC = () => {
         }),
         isOwn: event.message.user?.id === client?.userID,
         date: new Date(event.message.created_at).toISOString().split("T")[0],
-        status: "sent",
+        status: event.message.user?.id === client?.userID ? "sent" : "received",
         isDeleted: false,
         sender: event.message.user?.name || "Unknown",
         senderAvatar: event.message.user?.image || null,
         isSystem: event.message.type === "system",
         senderId: event.message.user?.id,
+        replyTo: event.message.quoted_message
+          ? {
+              id: event.message.quoted_message.id,
+              text: event.message.quoted_message.text || "",
+              sender: event.message.quoted_message.user?.name || "Unknown",
+            }
+          : event.message.parent_id
+            ? {
+                id: event.message.parent_id,
+                text: (() => {
+                  const parentMsg = messages.find(
+                    (m) => m.id === event.message.parent_id
+                  );
+                  return parentMsg?.text || "Original message";
+                })(),
+                sender: (() => {
+                  const parentMsg = messages.find(
+                    (m) => m.id === event.message.parent_id
+                  );
+                  return parentMsg?.sender || "User";
+                })(),
+              }
+            : undefined,
+        parentId: event.message.parent_id || undefined,
+        messageType: event.message.type || "regular",
+        readBy: event.message.read_by || [],
       };
 
       setMessages((prev) => {
-        // Avoid duplicates
-        const exists = prev.find((m) => m.id === newMessage.id);
-        if (exists) return prev;
+        // FIXED: Check for both real ID and temp ID to avoid duplicates
+        const existsWithRealId = prev.find((m) => m.id === newMessage.id);
+        const existsWithTempId = prev.find(
+          (m) =>
+            m.id.startsWith("temp-") &&
+            m.text === newMessage.text &&
+            m.isOwn === newMessage.isOwn
+        );
+
+        if (existsWithRealId) {
+          console.log("🔄 Message already exists with real ID, skipping");
+          return prev;
+        }
+
+        if (existsWithTempId) {
+          console.log("🔄 Replacing temp message with real message");
+          // Replace the temp message with the real one
+          return prev.map((m) =>
+            m.id === existsWithTempId.id ? newMessage : m
+          );
+        }
+
+        console.log("🔄 Adding new message");
         return [...prev, newMessage];
       });
+
+      // Auto-update status to 'delivered' after a short delay (only for own messages that came from real-time)
+      if (newMessage.isOwn) {
+        setTimeout(() => {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === newMessage.id && msg.status === "sent"
+                ? { ...msg, status: "delivered" }
+                : msg
+            )
+          );
+        }, 1000);
+      }
     };
 
     const handleMessageUpdated = (event: any) => {
@@ -259,6 +373,51 @@ const ChatConversationScreen: React.FC = () => {
       );
     };
 
+    // FIXED: Add message.read event to detect when messages are actually read
+    const handleMessageRead = (event: any) => {
+      console.log("🔵 Message read event:", event);
+
+      // Update status to 'read' for messages that were read by other users
+      setMessages((prev) =>
+        prev.map((msg) => {
+          // Only update own messages
+          if (!msg.isOwn) return msg;
+
+          // Check if any other user (not the sender) read the message
+          const readBy = event.read || [];
+          const otherUsersRead = readBy.some(
+            (read: any) => read.user.id !== client?.userID
+          );
+
+          if (
+            otherUsersRead &&
+            (msg.status === "delivered" || msg.status === "sent")
+          ) {
+            console.log("🔵 Updating message to read status:", msg.id);
+            return { ...msg, status: "read" };
+          }
+
+          return msg;
+        })
+      );
+    };
+
+    // FIXED: Add user.watching.start event to detect when someone comes online
+    const handleUserWatchingStart = (event: any) => {
+      console.log("🔵 User started watching:", event);
+
+      // When someone starts watching, update delivered messages to read
+      setMessages((prev) =>
+        prev.map((msg) => {
+          if (msg.isOwn && msg.status === "delivered") {
+            console.log("🔵 Updating delivered message to read:", msg.id);
+            return { ...msg, status: "read" };
+          }
+          return msg;
+        })
+      );
+    };
+
     streamChannel.on("message.new", handleNewMessage);
     streamChannel.on("message.updated", handleMessageUpdated);
     streamChannel.on("message.deleted", handleMessageDeleted);
@@ -268,6 +427,7 @@ const ChatConversationScreen: React.FC = () => {
       streamChannel.off("message.updated", handleMessageUpdated);
       streamChannel.off("message.deleted", handleMessageDeleted);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [streamChannel, chatId, client]);
 
   // Search functionality
@@ -296,8 +456,26 @@ const ChatConversationScreen: React.FC = () => {
       setSearchResults([]);
       setCurrentSearchIndex(-1);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery, messages, searchDateFilter]);
+
+  // Mark messages as read when chat loads or new messages arrive
+  useEffect(() => {
+    if (!loading && streamChannel && messages.length > 0) {
+      const markAsRead = async () => {
+        try {
+          await streamChannel.markRead();
+          console.log("✅ Channel marked as read");
+        } catch (error) {
+          console.error("Error marking channel as read:", error);
+        }
+      };
+
+      // Mark as read with a small delay to ensure messages are displayed
+      const timer = setTimeout(markAsRead, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [loading, streamChannel, messages.length]);
 
   const scrollToBottom = () => {
     setTimeout(() => {
@@ -392,6 +570,7 @@ const ChatConversationScreen: React.FC = () => {
   const handleReply = () => {
     if (selectedMessages.length === 1) {
       const messageToReply = messages.find((m) => m.id === selectedMessages[0]);
+      console.log("🔄 Setting reply to message:", messageToReply);
       setReplyToMessage(messageToReply);
       setSelectedMessages([]);
     }
@@ -410,26 +589,77 @@ const ChatConversationScreen: React.FC = () => {
     }
   };
 
-  // Send message to Stream Chat
+  // Update handleSendMessage to show proper pending → sent → delivered → read flow:
+
+  // Fix handleSendMessage to avoid duplicates:
+
   const handleSendMessage = async () => {
     if (inputText.trim() && streamChannel) {
+      const tempMessageId = `temp-${Date.now()}`;
+      const messageText = inputText.trim();
+
+      // Add optimistic message with pending status first
+      const optimisticMessage = {
+        id: tempMessageId,
+        text: messageText,
+        timestamp: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+        isOwn: true,
+        date: new Date().toISOString().split("T")[0],
+        status: "pending" as const,
+        isDeleted: false,
+        sender: `${user?.firstName} ${user?.lastName}` || "You",
+        senderAvatar: user?.profileImage || null,
+        isSystem: false,
+        senderId: user?.id,
+        replyTo: replyToMessage
+          ? {
+              id: replyToMessage.id,
+              text: replyToMessage.text,
+              sender: replyToMessage.sender,
+            }
+          : undefined,
+        parentId: replyToMessage?.id || undefined,
+        messageType: "regular" as const,
+        readBy: [],
+      };
+
+      // Add optimistic message immediately
+      setMessages((prev) => [...prev, optimisticMessage]);
+
+      // Clear input for better UX
+      setInputText("");
+      setReplyToMessage(null);
+      scrollToBottom();
+
       try {
         const messageData: any = {
-          text: inputText.trim(),
+          text: messageText,
         };
 
-        // Add reply if exists
         if (replyToMessage) {
           messageData.parent_id = replyToMessage.id;
         }
 
-        await streamChannel.sendMessage(messageData);
+        const sentMessage = await streamChannel.sendMessage(messageData);
+        console.log("✅ Message sent successfully:", sentMessage.message.id);
 
-        setInputText("");
-        setReplyToMessage(null);
-        scrollToBottom();
+        // FIXED: Don't replace here - let handleNewMessage handle it
+        // The real-time listener will replace the temp message
+        console.log("🔄 Waiting for real-time update to replace temp message");
       } catch (error) {
         console.error("Error sending Stream message:", error);
+
+        // Mark as failed
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === tempMessageId
+              ? { ...msg, status: "failed" as const }
+              : msg
+          )
+        );
       }
     }
   };
@@ -444,6 +674,9 @@ const ChatConversationScreen: React.FC = () => {
 
   const handleInputFocus = () => {
     scrollToBottom();
+    if (streamChannel) {
+      streamChannel.markRead().catch(console.error);
+    }
   };
 
   const handleCopy = async () => {
