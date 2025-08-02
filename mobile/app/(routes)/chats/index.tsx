@@ -1,8 +1,14 @@
 "use client";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { useStreamChat } from "@/contexts/StreamChatContext";
 import { useTheme } from "@/contexts/ThemeContext";
-import { useUser } from "@/contexts/UserContext";
-import { ChatService } from "@/services/chat.service";
+import { StreamChatService } from "@/services/stream-chat.service";
+import {
+  formatChatTimestamp,
+  getChannelAvatar,
+  getChannelDisplayName,
+  streamChannelToChat,
+} from "@/utils/stream-chat.helpers";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -12,6 +18,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { Channel } from "stream-chat";
 
 import { ChatFilterTabs } from "@/components/chats/ChatFilterTabs";
 import { ChatHeader } from "@/components/chats/ChatHeader";
@@ -24,91 +31,140 @@ import { SafeAreaView } from "react-native-safe-area-context";
 export default function ChatsScreen() {
   const { theme } = useTheme();
   const router = useRouter();
+  const { client, isConnected } = useStreamChat();
   const [refreshing, setRefreshing] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("chats");
   const [selectedChats, setSelectedChats] = useState<string[]>([]);
-  const { user } = useUser();
-  const [chats, setChats] = useState<any[]>([]);
+  const [channels, setChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const filters = ["All", "Unread", "Groups", "Friends", "Anonymous"];
 
-  // Transform chat data to match UI expectations
-  const transformChatData = async (chat: any) => {
-    // For direct chats, resolve the other user's name
-    let displayName = chat.name || "Unknown";
-    if (chat.type === "direct" && chat.participants && user?.id) {
-      const otherUserId = chat.participants.find(
-        (id: string) => id !== user.id
+  // Load channels function
+  const loadChannels = useCallback(async () => {
+    if (!client?.userID) return;
+
+    try {
+      setError(null);
+      const userChannels = await StreamChatService.getUserChannels(
+        client.userID
       );
-      if (otherUserId) {
-        try {
-          const users = await ChatService.getLocalUsers();
-          const otherUser = users.find((u) => u.id === otherUserId);
-          if (otherUser) {
-            displayName = `${otherUser.firstName} ${otherUser.lastName}`;
-          }
-        } catch (error) {
-          console.error("Error resolving chat name:", error);
-        }
-      }
+      setChannels(userChannels);
+      console.log(`✅ Loaded ${userChannels.length} channels`);
+    } catch (err) {
+      console.error("Error loading channels:", err);
+      setError("Failed to load chats");
+    }
+  }, [client?.userID]);
+
+  // Listen for real-time channel updates
+  useEffect(() => {
+    if (!isConnected || !client?.userID) {
+      setLoading(false);
+      return;
     }
 
-    return {
-      id: chat.id,
-      name: displayName,
-      lastMessage: chat.lastMessage || "",
-      timestamp: chat.timestamp
-        ? new Date(chat.timestamp.toDate()).toLocaleDateString()
-        : "",
-      unreadCount: chat.unreadCount || 0,
-      avatar: chat.avatar || null,
-      isOnline: chat.isOnline || false,
-      type: chat.type || "direct",
-      isVerified: chat.isVerified || false,
+    const initializeChannels = async () => {
+      setLoading(true);
+      await loadChannels();
+      setLoading(false);
     };
-  };
 
-  useEffect(() => {
-    if (!user?.id) return;
+    initializeChannels();
 
-    setLoading(true);
+    // Listen for real-time updates
+    const handleChannelUpdate = () => {
+      loadChannels();
+    };
 
-    // Set up real-time listener for chats
-    const unsubscribe = ChatService.listenChatsFirestore(
-      async (updatedChats) => {
-        const transformedChats = await Promise.all(
-          updatedChats.map(transformChatData)
-        );
-        setChats(transformedChats);
-        setLoading(false);
-      },
-      user.id
-    );
+    client.on("channel.updated", handleChannelUpdate);
+    client.on("message.new", handleChannelUpdate);
 
     return () => {
-      unsubscribe();
+      client.off("channel.updated", handleChannelUpdate);
+      client.off("message.new", handleChannelUpdate);
     };
-  }, [user?.id]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConnected, client?.userID, loadChannels]);
 
+  // Transform Stream channels to chat format with proper names
+  const transformedChats = channels.map((channel) => {
+    const chatData = streamChannelToChat(channel);
+    const displayName = getChannelDisplayName(channel, client?.userID || "");
+    const avatar = getChannelAvatar(channel, client?.userID || "");
+
+    return {
+      ...chatData,
+      name: displayName,
+      avatar: avatar,
+      timestamp: formatChatTimestamp(chatData.timestamp),
+    };
+  });
+
+  // Filter chats based on active tab
+  const getFilteredChats = () => {
+    let tabFilteredChats = transformedChats;
+
+    // Filter by tab
+    switch (activeTab) {
+      case "private":
+        tabFilteredChats = transformedChats.filter(
+          (chat) => chat.type === "direct"
+        );
+        break;
+      case "communities":
+        tabFilteredChats = transformedChats.filter(
+          (chat) => chat.type === "group"
+        );
+        break;
+      case "anonymous":
+        tabFilteredChats = transformedChats.filter(
+          (chat) => chat.type === "anonymous"
+        );
+        break;
+      case "chats":
+      default:
+        // Show all chats
+        tabFilteredChats = transformedChats;
+        break;
+    }
+
+    // Apply additional filters for the "chats" tab
+    if (activeTab === "chats") {
+      tabFilteredChats = tabFilteredChats.filter((chat) => {
+        const matchesFilter =
+          selectedFilter === "All" ||
+          (selectedFilter === "Unread" && chat.unreadCount > 0) ||
+          (selectedFilter === "Groups" && chat.type === "group") ||
+          (selectedFilter === "Friends" && chat.type === "direct") ||
+          (selectedFilter === "Anonymous" && chat.type === "anonymous");
+
+        return matchesFilter;
+      });
+    }
+
+    // Apply search filter
+    return tabFilteredChats.filter((chat) => {
+      const matchesSearch =
+        searchQuery === "" ||
+        chat.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        chat.lastMessage.toLowerCase().includes(searchQuery.toLowerCase());
+
+      return matchesSearch;
+    });
+  };
+
+  const filteredChats = getFilteredChats();
+
+  // Refresh handler
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    try {
-      const fetchedChats = await ChatService.getLocalChats(50, 0, user?.id);
-      const transformedChats = await Promise.all(
-        fetchedChats.map(transformChatData)
-      );
-      setChats(transformedChats);
-    } catch (err) {
-      setError("Failed to refresh chats");
-      console.error(err);
-    } finally {
-      setRefreshing(false);
-    }
-  }, [user?.id]);
+    await loadChannels();
+    setRefreshing(false);
+  }, [loadChannels]);
 
   const handleChatPress = (chatId: string) => {
     if (selectedChats.length > 0) {
@@ -133,7 +189,7 @@ export default function ChatsScreen() {
   };
 
   const handleSearchPress = () => {
-    // TODO: Implement search functionality
+    // TODO: Implement global search functionality
     console.log("Search pressed");
   };
 
@@ -142,7 +198,7 @@ export default function ChatsScreen() {
   };
 
   const handleSelectAll = () => {
-    const allChatIds = chats.map((chat) => chat.id);
+    const allChatIds = filteredChats.map((chat) => chat.id);
     setSelectedChats(allChatIds);
   };
 
@@ -150,69 +206,29 @@ export default function ChatsScreen() {
     setSelectedChats([]);
   };
 
-  const handleMarkAsRead = () => {
-    // TODO: Mark selected chats as read in backend
-    console.log("Marking chats as read:", selectedChats);
-    setSelectedChats([]);
+  const handleMarkAsRead = async () => {
+    try {
+      // Mark selected channels as read
+      for (const chatId of selectedChats) {
+        const channel = channels.find((c) => c.id === chatId);
+        if (channel) {
+          await StreamChatService.markChannelAsRead(channel);
+        }
+      }
+      console.log("✅ Marked chats as read:", selectedChats);
+      setSelectedChats([]);
+      // Reload channels to update unread counts
+      await loadChannels();
+    } catch (error) {
+      console.error("Error marking chats as read:", error);
+    }
   };
 
   const handleDeleteChats = () => {
-    // TODO: Delete selected chats
+    // TODO: Implement delete functionality with Stream Chat
     console.log("Deleting chats:", selectedChats);
     setSelectedChats([]);
   };
-
-  // Filter chats based on active tab
-  const getFilteredChats = () => {
-    let tabFilteredChats = chats;
-
-    // Filter by tab
-    switch (activeTab) {
-      case "private":
-        tabFilteredChats = chats.filter((chat) => chat.type === "direct");
-        break;
-      case "communities":
-        tabFilteredChats = chats.filter(
-          (chat) => chat.type === "group" || chat.type === "announcement"
-        );
-        break;
-      case "anonymous":
-        tabFilteredChats = chats.filter((chat) => chat.type === "anonymous");
-        break;
-      case "chats":
-      default:
-        // Show all chats
-        tabFilteredChats = chats;
-        break;
-    }
-
-    // Apply additional filters for the "chats" tab
-    if (activeTab === "chats") {
-      tabFilteredChats = tabFilteredChats.filter((chat) => {
-        const matchesFilter =
-          selectedFilter === "All" ||
-          (selectedFilter === "Unread" && chat.unreadCount > 0) ||
-          (selectedFilter === "Groups" &&
-            (chat.type === "group" || chat.type === "announcement")) ||
-          (selectedFilter === "Friends" && chat.type === "direct") ||
-          (selectedFilter === "Anonymous" && chat.type === "anonymous");
-
-        return matchesFilter;
-      });
-    }
-
-    // Apply search filter
-    return tabFilteredChats.filter((chat) => {
-      const matchesSearch =
-        searchQuery === "" ||
-        chat.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        chat.lastMessage.toLowerCase().includes(searchQuery.toLowerCase());
-
-      return matchesSearch;
-    });
-  };
-
-  const filteredChats = getFilteredChats();
 
   // Calculate unread counts for each tab
   const getUnreadCounts = () => {
@@ -223,12 +239,12 @@ export default function ChatsScreen() {
       anonymous: 0,
     };
 
-    chats.forEach((chat) => {
+    transformedChats.forEach((chat) => {
       const unreadCount = chat.unreadCount || 0;
 
       if (chat.type === "direct") {
         counts.private += unreadCount;
-      } else if (chat.type === "group" || chat.type === "announcement") {
+      } else if (chat.type === "group") {
         counts.communities += unreadCount;
       } else if (chat.type === "anonymous") {
         counts.anonymous += unreadCount;
@@ -320,7 +336,7 @@ export default function ChatsScreen() {
     },
   });
 
-  if (loading && chats.length === 0) {
+  if (loading && transformedChats.length === 0) {
     return <LoadingSpinner />;
   }
 
@@ -332,88 +348,95 @@ export default function ChatsScreen() {
     );
   }
 
+  if (!isConnected) {
+    return (
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyText}>Connecting to chat...</Text>
+      </View>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
-        <View style={styles.content}>
-          {selectedChats.length > 0 ? (
-            <ChatSelectionHeader
-              selectedCount={selectedChats.length}
-              totalCount={filteredChats.length}
-              onBack={handleSelectionBack}
-              onPin={() => console.log("Pin chats")}
-              onDelete={handleDeleteChats}
-              onMute={() => console.log("Mute chats")}
-              onArchive={() => console.log("Archive chats")}
-              onMarkAsRead={handleMarkAsRead}
-              onSelectAll={handleSelectAll}
-              onUnselectAll={handleUnselectAll}
-            />
+      <View style={styles.content}>
+        {selectedChats.length > 0 ? (
+          <ChatSelectionHeader
+            selectedCount={selectedChats.length}
+            totalCount={filteredChats.length}
+            onBack={handleSelectionBack}
+            onPin={() => console.log("Pin chats")}
+            onDelete={handleDeleteChats}
+            onMute={() => console.log("Mute chats")}
+            onArchive={() => console.log("Archive chats")}
+            onMarkAsRead={handleMarkAsRead}
+            onSelectAll={handleSelectAll}
+            onUnselectAll={handleUnselectAll}
+          />
+        ) : (
+          <ChatHeader
+            title={getTabTitle()}
+            onSearchPress={handleSearchPress}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+          />
+        )}
+
+        {/* Show filter tabs only for main chats tab */}
+        {activeTab === "chats" && (
+          <ChatFilterTabs
+            filters={filters}
+            selectedFilter={selectedFilter}
+            onFilterSelect={setSelectedFilter}
+          />
+        )}
+
+        {/* Anonymous info for anonymous tab */}
+        {activeTab === "anonymous" &&
+          filteredChats.length === 0 &&
+          !searchQuery && (
+            <View style={styles.anonymousInfo}>
+              <Text style={styles.anonymousTitle}>Anonymous Chats</Text>
+              <Text style={styles.anonymousDescription}>
+                Connect with other students anonymously. Share experiences, ask
+                questions, and get support without revealing your identity.
+              </Text>
+            </View>
+          )}
+
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          contentContainerStyle={styles.scrollContent}
+        >
+          {filteredChats.length > 0 ? (
+            filteredChats.map((chat) => (
+              <ChatListItem
+                key={chat.id}
+                chat={chat}
+                isSelected={selectedChats.includes(chat.id)}
+                onPress={() => handleChatPress(chat.id)}
+                onLongPress={() => handleChatLongPress(chat.id)}
+              />
+            ))
           ) : (
-            <ChatHeader
-              title={getTabTitle()}
-              onSearchPress={handleSearchPress}
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-            />
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>{getEmptyMessage()}</Text>
+            </View>
           )}
+        </ScrollView>
 
-          {/* Show filter tabs only for main chats tab */}
-          {activeTab === "chats" && (
-            <ChatFilterTabs
-              filters={filters}
-              selectedFilter={selectedFilter}
-              onFilterSelect={setSelectedFilter}
-            />
-          )}
+        {selectedChats.length === 0 && (
+          <FloatingActionButton onPress={handleNewChatPress} />
+        )}
+      </View>
 
-          {/* Anonymous info for anonymous tab */}
-          {activeTab === "anonymous" &&
-            filteredChats.length === 0 &&
-            !searchQuery && (
-              <View style={styles.anonymousInfo}>
-                <Text style={styles.anonymousTitle}>Anonymous Chats</Text>
-                <Text style={styles.anonymousDescription}>
-                  Connect with other students anonymously. Share experiences,
-                  ask questions, and get support without revealing your
-                  identity.
-                </Text>
-              </View>
-            )}
-
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-            }
-            contentContainerStyle={styles.scrollContent}
-          >
-            {filteredChats.length > 0 ? (
-              filteredChats.map((chat) => (
-                <ChatListItem
-                  key={chat.id}
-                  chat={chat}
-                  isSelected={selectedChats.includes(chat.id)}
-                  onPress={() => handleChatPress(chat.id)}
-                  onLongPress={() => handleChatLongPress(chat.id)}
-                />
-              ))
-            ) : (
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>{getEmptyMessage()}</Text>
-              </View>
-            )}
-          </ScrollView>
-
-          {selectedChats.length === 0 && (
-            <FloatingActionButton onPress={handleNewChatPress} />
-          )}
-        </View>
-
-        <ChatTabNavigation
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          unreadCounts={unreadCounts}
-        />
+      <ChatTabNavigation
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        unreadCounts={unreadCounts}
+      />
     </SafeAreaView>
   );
 }
