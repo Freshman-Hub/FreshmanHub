@@ -29,6 +29,7 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { useUser } from "@/contexts/UserContext";
 import { useStreamChat } from "@/contexts/StreamChatContext";
 import { StreamChatService } from "@/services/stream-chat.service";
+import { getChannelAvatar, getChannelDisplayName } from "@/utils/stream-chat.helpers";
 
 const ChatConversationScreen: React.FC = () => {
   const { theme } = useTheme();
@@ -64,19 +65,7 @@ const ChatConversationScreen: React.FC = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [messageToDelete, setMessageToDelete] = useState<string | null>(null);
   const [isDeletedMessageModal, setIsDeletedMessageModal] = useState(false);
-
-  // FIXED: Better ID detection logic for Firebase vs Stream Chat
-  const isFirebaseChatId = (id: string) => {
-    const parts = id.split("_");
-    return (
-      parts.length === 2 &&
-      parts[0].length > 20 &&
-      parts[1].length > 20 &&
-      !id.startsWith("!") &&
-      /^[a-zA-Z0-9_-]+$/.test(parts[0]) &&
-      /^[a-zA-Z0-9_-]+$/.test(parts[1])
-    );
-  };
+  const [error, setError] = useState<string | null>(null); // Add this line
 
   // const isStreamChannelId = (id: string) => {
   //   return id.startsWith("!") || !isFirebaseChatId(id);
@@ -87,167 +76,158 @@ const ChatConversationScreen: React.FC = () => {
 
   // Load Stream Chat data
   useEffect(() => {
+    // Update the loadChatData function to use the existing helper:
+
     const loadChatData = async () => {
       if (!chatId || chatId === "self") return;
 
-      setLoading(true);
-      console.log("Loading Stream chat:", chatId);
+      setLoading(false); // No loading for immediate display
+      setError(null); // Clear any previous errors
+      console.log("Loading chat:", chatId);
 
       try {
-        if (!client || !isConnected) {
-          console.log("⚠️ Stream Chat not connected yet");
+        // Get info from params for immediate display
+        const contactName = params.userName as string;
+        const contactAvatar = params.userAvatar as string;
+        const isGroup = params.isGroup === "true";
+        // const contactId = params.contactId as string;
+        const groupMembers = params.groupMembers
+          ? JSON.parse(params.groupMembers as string)
+          : [];
+
+        // Set chat info immediately with params data
+        setChatInfo({
+          id: chatId,
+          name: contactName || "Unknown",
+          avatar: contactAvatar || null,
+          isOnline: false,
+          type: isGroup ? "group" : "direct",
+          isAnonymous: params.isAnonymous === "true",
+          memberCount: isGroup ? groupMembers.length : 2,
+        });
+
+        // Check if this is a pending direct chat (no real channel yet)
+        const isPendingDirectChat = chatId.startsWith("pending_") && !isGroup;
+
+        if (isPendingDirectChat) {
+          console.log("📝 Pending direct chat - no channel created yet");
+          setMessages([]); // Empty messages
+          setStreamChannel(null); // No channel yet
           return;
         }
 
-        let channel;
-
-        // Fix the Firebase ID conversion part:
-
-        if (isFirebaseChatId(chatId)) {
-          // Handle Firebase chat ID - convert to Stream channel
-          console.log("🔄 Converting Firebase ID to Stream channel");
-          const userIds = chatId.split("_");
-
-          if (userIds.length !== 2) {
-            throw new Error("Invalid Firebase chat ID format");
-          }
-
-          const [user1Id, user2Id] = userIds;
-
-          // FIXED: Ensure current user is in the query
-          const currentUserId = client.userID;
-
-          if (!currentUserId) {
-            throw new Error("User not authenticated");
-          }
-
-          // FIXED: Query channels where current user is a member and both target users are also members
-          const channels = await client.queryChannels({
-            type: "messaging",
-            members: { $in: [currentUserId] }, // Current user must be a member
-          });
-
-          // FIXED: Filter client-side to find exact match with both users
-          const exactMatch = channels.find((ch) => {
-            const members = Object.keys(ch.state.members || {});
-            return (
-              members.length === 2 &&
-              members.includes(user1Id) &&
-              members.includes(user2Id)
-            );
-          });
-
-          if (exactMatch) {
-            channel = exactMatch;
-            // Ensure existing channel is watched
-            await channel.watch();
-          } else {
-            // Create new channel since no existing channel with both users exists
-            channel = await StreamChatService.createDirectChat(
-              user1Id,
-              user2Id
-            );
-          }
+        // For real channels (groups or existing direct chats), load normally
+        if (!client || !isConnected) {
+          console.log("⚠️ Stream Chat not connected yet");
+          setError("Not connected to chat service");
+          return;
         }
 
-        setStreamChannel(channel);
-
-        // Get channel display name
-        if (!channel) {
-          throw new Error("Channel is undefined");
+        // Determine channel type
+        let channelType = "messaging";
+        if (chatId.startsWith("!members-") || isGroup) {
+          channelType = "team";
         }
-        const members = Object.values(channel.state.members || {});
-        const otherMember = members.find(
-          (member: any) => member.user_id !== client?.userID
-        );
-        const displayName =
-          (channel.data && (channel.data as { name?: string }).name) ||
-          otherMember?.user?.name ||
-          otherMember?.user_id ||
-          "Unknown";
 
-        setChatInfo({
-          id: channel.id,
-          name: displayName,
-          avatar: null,
-          isOnline: false,
-          type: members.length > 2 ? "group" : "direct",
-          isAnonymous: false,
-          memberCount: members.length,
-        });
+        // Load existing channel
+        try {
+          const channel = await StreamChatService.getChannel(
+            channelType,
+            chatId
+          );
 
-        // Convert Stream messages to your format
-        const streamMessages = channel.state.messages || [];
-        const transformedMessages = streamMessages.map((msg: any) => ({
-          id: msg.id,
-          text: msg.text || "",
-          timestamp: new Date(msg.created_at).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-          isOwn: msg.user?.id === client?.userID,
-          date: new Date(msg.created_at).toISOString().split("T")[0],
-          // IMPROVED: Better status detection
-          status: (() => {
-            if (!msg.user || msg.user.id !== client?.userID) return "received";
+          if (!channel) {
+            throw new Error("Channel not found");
+          }
 
-            // Check read status
-            const readBy = msg.read_by || [];
-            const otherUsersRead = readBy.filter(
-              (read: any) => read.user.id !== client?.userID
-            );
+          setStreamChannel(channel);
 
-            if (otherUsersRead.length > 0) return "read";
+          // FIXED: Just use the helper function like in chats screen
+          const displayName = getChannelDisplayName(
+            channel,
+            client?.userID || ""
+          );
+          const avatar = getChannelAvatar(channel, client?.userID || "");
 
-            // Check if message was delivered (exists in channel)
-            if (msg.created_at) return "delivered";
+          setChatInfo((prev: any) => ({
+            ...prev,
+            id: channel.id,
+            name: displayName,
+            avatar: avatar,
+            type:
+              Object.keys(channel.state.members || {}).length > 2
+                ? "group"
+                : "direct",
+            memberCount: Object.keys(channel.state.members || {}).length,
+            isAnonymous: (channel.data as any)?.isAnonymous || false,
+          }));
 
-            return "sent";
-          })(),
-          isDeleted: msg.deleted_at ? true : false,
-          sender: msg.user?.name || "Unknown",
-          senderAvatar: msg.user?.image || null,
-          isSystem: msg.type === "system",
-          senderId: msg.user?.id,
-          replyTo: msg.quoted_message
-            ? {
-                id: msg.quoted_message.id,
-                text: msg.quoted_message.text || "",
-                sender: msg.quoted_message.user?.name || "Unknown",
-              }
-            : msg.parent_id
+          // Load messages from the existing channel
+          const streamMessages = channel.state.messages || [];
+          const transformedMessages = streamMessages.map((msg: any) => ({
+            id: msg.id,
+            text: msg.text || "",
+            timestamp: new Date(msg.created_at).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+            isOwn: msg.user?.id === client?.userID,
+            date: new Date(msg.created_at).toISOString().split("T")[0],
+            status: (() => {
+              if (!msg.user || msg.user.id !== client?.userID)
+                return "received";
+              const readBy = msg.read_by || [];
+              const otherUsersRead = readBy.filter(
+                (read: any) => read.user.id !== client?.userID
+              );
+              if (otherUsersRead.length > 0) return "read";
+              if (msg.created_at) return "delivered";
+              return "sent";
+            })(),
+            isDeleted: msg.deleted_at ? true : false,
+            sender: msg.user?.name || "Unknown",
+            senderAvatar: msg.user?.image || null,
+            isSystem: msg.type === "system",
+            senderId: msg.user?.id,
+            replyTo: msg.quoted_message
               ? {
-                  id: msg.parent_id,
-                  text: (() => {
-                    const parentMsg = streamMessages.find(
-                      (m: any) => m.id === msg.parent_id
-                    );
-                    return parentMsg?.text || "Original message";
-                  })(),
-                  sender: (() => {
-                    const parentMsg = streamMessages.find(
-                      (m: any) => m.id === msg.parent_id
-                    );
-                    return parentMsg?.user?.name || "User";
-                  })(),
+                  id: msg.quoted_message.id,
+                  text: msg.quoted_message.text || "",
+                  sender: msg.quoted_message.user?.name || "Unknown",
                 }
-              : undefined,
-          parentId: msg.parent_id || undefined,
-          messageType: msg.type || "regular",
-          // Add read_by info for status updates
-          readBy: msg.read_by || [],
-        }));
+              : msg.parent_id
+                ? {
+                    id: msg.parent_id,
+                    text:
+                      streamMessages.find((m: any) => m.id === msg.parent_id)
+                        ?.text || "Original message",
+                    sender:
+                      streamMessages.find((m: any) => m.id === msg.parent_id)
+                        ?.user?.name || "User",
+                  }
+                : undefined,
+            parentId: msg.parent_id || undefined,
+            messageType: msg.type || "regular",
+            readBy: msg.read_by || [],
+          }));
 
-        setMessages(transformedMessages);
-      } catch (error) {
-        console.error("Error loading Stream chat data:", error);
-        setMessages([]);
-      } finally {
-        setLoading(false);
+          setMessages(transformedMessages);
+          console.log("✅ Chat loaded successfully with name:", displayName);
+        } catch (channelError: any) {
+          console.error("Error loading channel:", channelError);
+          setError(`Failed to load conversation: ${channelError.message}`);
+        }
+      } catch (error: any) {
+        console.error("Error loading chat data:", error);
+        // Don't show error for pending direct chats
+        if (!chatId.startsWith("pending_")) {
+          setError(error.message);
+        }
       }
     };
 
     loadChatData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatId, user?.id, client, isConnected]);
 
   // Stream Chat real-time updates
@@ -370,51 +350,6 @@ const ChatConversationScreen: React.FC = () => {
             ? { ...msg, isDeleted: true, text: "" }
             : msg
         )
-      );
-    };
-
-    // FIXED: Add message.read event to detect when messages are actually read
-    const handleMessageRead = (event: any) => {
-      console.log("🔵 Message read event:", event);
-
-      // Update status to 'read' for messages that were read by other users
-      setMessages((prev) =>
-        prev.map((msg) => {
-          // Only update own messages
-          if (!msg.isOwn) return msg;
-
-          // Check if any other user (not the sender) read the message
-          const readBy = event.read || [];
-          const otherUsersRead = readBy.some(
-            (read: any) => read.user.id !== client?.userID
-          );
-
-          if (
-            otherUsersRead &&
-            (msg.status === "delivered" || msg.status === "sent")
-          ) {
-            console.log("🔵 Updating message to read status:", msg.id);
-            return { ...msg, status: "read" };
-          }
-
-          return msg;
-        })
-      );
-    };
-
-    // FIXED: Add user.watching.start event to detect when someone comes online
-    const handleUserWatchingStart = (event: any) => {
-      console.log("🔵 User started watching:", event);
-
-      // When someone starts watching, update delivered messages to read
-      setMessages((prev) =>
-        prev.map((msg) => {
-          if (msg.isOwn && msg.status === "delivered") {
-            console.log("🔵 Updating delivered message to read:", msg.id);
-            return { ...msg, status: "read" };
-          }
-          return msg;
-        })
       );
     };
 
@@ -589,78 +524,126 @@ const ChatConversationScreen: React.FC = () => {
     }
   };
 
-  // Update handleSendMessage to show proper pending → sent → delivered → read flow:
-
-  // Fix handleSendMessage to avoid duplicates:
+  // Update the handleSendMessage function:
 
   const handleSendMessage = async () => {
-    if (inputText.trim() && streamChannel) {
-      const tempMessageId = `temp-${Date.now()}`;
-      const messageText = inputText.trim();
+    if (!inputText.trim()) return;
 
-      // Add optimistic message with pending status first
-      const optimisticMessage = {
-        id: tempMessageId,
-        text: messageText,
-        timestamp: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        isOwn: true,
-        date: new Date().toISOString().split("T")[0],
-        status: "pending" as const,
-        isDeleted: false,
-        sender: `${user?.firstName} ${user?.lastName}` || "You",
-        senderAvatar: user?.profileImage || null,
-        isSystem: false,
-        senderId: user?.id,
-        replyTo: replyToMessage
-          ? {
-              id: replyToMessage.id,
-              text: replyToMessage.text,
-              sender: replyToMessage.sender,
-            }
-          : undefined,
-        parentId: replyToMessage?.id || undefined,
-        messageType: "regular" as const,
-        readBy: [],
-      };
+    const messageText = inputText.trim();
+    const tempMessageId = `temp-${Date.now()}`;
 
-      // Add optimistic message immediately
-      setMessages((prev) => [...prev, optimisticMessage]);
+    // Add optimistic message immediately
+    const optimisticMessage = {
+      id: tempMessageId,
+      text: messageText,
+      timestamp: new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      isOwn: true,
+      date: new Date().toISOString().split("T")[0],
+      status: "pending" as const,
+      isDeleted: false,
+      sender: `${user?.firstName} ${user?.lastName}` || "You",
+      senderAvatar: user?.profileImage || null,
+      isSystem: false,
+      senderId: user?.id,
+      replyTo: replyToMessage
+        ? {
+            id: replyToMessage.id,
+            text: replyToMessage.text,
+            sender: replyToMessage.sender,
+          }
+        : undefined,
+      parentId: replyToMessage?.id || undefined,
+      messageType: "regular" as const,
+      readBy: [],
+    };
 
-      // Clear input for better UX
-      setInputText("");
-      setReplyToMessage(null);
-      scrollToBottom();
+    setMessages((prev) => [...prev, optimisticMessage]);
+    setInputText("");
+    setReplyToMessage(null);
+    scrollToBottom();
 
-      try {
-        const messageData: any = {
-          text: messageText,
-        };
+    try {
+      let channel = streamChannel;
 
-        if (replyToMessage) {
-          messageData.parent_id = replyToMessage.id;
+      // Check if we need to create the channel first (ONLY for pending direct chats)
+      const isPendingDirectChat =
+        chatId.startsWith("pending_") && params.isGroup !== "true";
+
+      if (isPendingDirectChat || !channel) {
+        console.log("🔄 Creating direct channel for first message...");
+
+        if (!client?.userID || !isConnected) {
+          throw new Error("Not connected to chat service");
         }
 
-        const sentMessage = await streamChannel.sendMessage(messageData);
-        console.log("✅ Message sent successfully:", sentMessage.message.id);
+        // Only create direct channels here, groups are already created
+        const contactId = params.contactId as string;
+        if (!contactId) {
+          throw new Error("Contact ID not found");
+        }
 
-        // FIXED: Don't replace here - let handleNewMessage handle it
-        // The real-time listener will replace the temp message
-        console.log("🔄 Waiting for real-time update to replace temp message");
-      } catch (error) {
-        console.error("Error sending Stream message:", error);
-
-        // Mark as failed
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === tempMessageId
-              ? { ...msg, status: "failed" as const }
-              : msg
-          )
+        channel = await StreamChatService.createDirectChat(
+          client.userID,
+          contactId
         );
+
+        // REMOVED: Don't navigate, just update local state
+        // router.replace({
+        //   pathname: "/(routes)/chats/[id]",
+        //   params: {
+        //     id: channel.id,
+        //     userName: params.userName,
+        //     userAvatar: params.userAvatar,
+        //     isGroup: "false",
+        //   },
+        // });
+
+        // Update local state only
+        setStreamChannel(channel);
+
+        // Update chat info with real channel ID
+        setChatInfo((prev: any) => ({
+          ...prev,
+          id: channel.id,
+        }));
+
+
+        console.log("✅ Direct channel created:", channel.id);
       }
+
+      // Send the message
+      const messageData: any = { text: messageText };
+      if (replyToMessage) {
+        messageData.parent_id = replyToMessage.id;
+      }
+
+      const sentMessage = await channel.sendMessage(messageData);
+      console.log("✅ Message sent successfully:", sentMessage.message.id);
+
+      // Update the temp message with real ID
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === tempMessageId
+            ? {
+                ...msg,
+                id: sentMessage.message.id,
+                status: "sent" as const,
+              }
+            : msg
+        )
+      );
+    } catch (error) {
+      console.error("Error sending message:", error);
+
+      // Mark as failed
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === tempMessageId ? { ...msg, status: "failed" as const } : msg
+        )
+      );
     }
   };
 
