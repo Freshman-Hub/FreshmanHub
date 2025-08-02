@@ -27,9 +27,8 @@ import { MessageSelectionHeader } from "@/components/chats/MessageSelectionHeade
 import { SearchDateModal } from "@/components/chats/SearchDateModal";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { useUser } from "@/contexts/UserContext";
-import { db as firestore } from "@/firebase/config/firebaseConfig";
-import { ChatService } from "@/services/chat.service";
-import { doc, getDoc } from "firebase/firestore";
+import { useStreamChat } from "@/contexts/StreamChatContext";
+import { StreamChatService } from "@/services/stream-chat.service";
 
 const ChatConversationScreen: React.FC = () => {
   const { theme } = useTheme();
@@ -37,14 +36,16 @@ const ChatConversationScreen: React.FC = () => {
   const params = useLocalSearchParams();
   const scrollViewRef = useRef<ScrollView>(null);
   const { user } = useUser();
+  const { client, isConnected } = useStreamChat();
 
   const chatId = params.id as string;
 
-  // Backend state
+  // Stream Chat state
   const [loading, setLoading] = useState(true);
   const [messages, setMessages] = useState<any[]>([]);
   const [chatInfo, setChatInfo] = useState<any>(null);
   const [inputText, setInputText] = useState("");
+  const [streamChannel, setStreamChannel] = useState<any>(null);
 
   // Search functionality state
   const [isSearchMode, setIsSearchMode] = useState(false);
@@ -64,216 +65,129 @@ const ChatConversationScreen: React.FC = () => {
   const [messageToDelete, setMessageToDelete] = useState<string | null>(null);
   const [isDeletedMessageModal, setIsDeletedMessageModal] = useState(false);
 
+  // FIXED: Better ID detection logic for Firebase vs Stream Chat
+  const isFirebaseChatId = (id: string) => {
+    const parts = id.split("_");
+    return (
+      parts.length === 2 &&
+      parts[0].length > 20 &&
+      parts[1].length > 20 &&
+      !id.startsWith("!") &&
+      /^[a-zA-Z0-9_-]+$/.test(parts[0]) &&
+      /^[a-zA-Z0-9_-]+$/.test(parts[1])
+    );
+  };
+
+  // const isStreamChannelId = (id: string) => {
+  //   return id.startsWith("!") || !isFirebaseChatId(id);
+  // };
+
   // Determine if this is a group chat
   const isGroupChat = chatInfo?.type === "group";
 
-  // Debug: Log when isGroupChat changes
-  useEffect(() => {
-    console.log("isGroupChat changed:", isGroupChat, "chatInfo:", chatInfo);
-  }, [isGroupChat, chatInfo]);
-
-  // Helper function to resolve sender information for messages
-  const resolveSenderInfo = async (messages: any[], participants: string[]) => {
-    try {
-      console.log("Resolving sender info for", messages.length, "messages");
-      const users = await ChatService.getLocalUsers();
-      const userMap = new Map(users.map((u) => [u.id, u]));
-
-      const resolvedMessages = messages.map((msg) => {
-        if (msg.senderId === "system") {
-          return {
-            ...msg,
-            sender: "System",
-            senderAvatar: null,
-          };
-        }
-
-        const senderUser = userMap.get(msg.senderId);
-        if (senderUser) {
-          console.log(
-            "Found sender user:",
-            senderUser.firstName,
-            senderUser.lastName
-          );
-          return {
-            ...msg,
-            sender: `${senderUser.firstName} ${senderUser.lastName}`,
-            senderAvatar: senderUser.profileImage || null,
-          };
-        }
-
-        console.log("Unknown sender ID:", msg.senderId);
-        return {
-          ...msg,
-          sender: "Unknown User",
-          senderAvatar: null,
-        };
-      });
-
-      console.log(
-        "Resolved messages:",
-        resolvedMessages.map((m) => ({
-          id: m.id,
-          sender: m.sender,
-          senderId: m.senderId,
-        }))
-      );
-      return resolvedMessages;
-    } catch (error) {
-      console.error("Error resolving sender info:", error);
-      return messages;
-    }
-  };
-
-  // Load chat data from backend
+  // Load Stream Chat data
   useEffect(() => {
     const loadChatData = async () => {
       if (!chatId || chatId === "self") return;
 
       setLoading(true);
-      console.log("Loading chat:", chatId);
+      console.log("Loading Stream chat:", chatId);
 
       try {
-        // Get chat info and messages
-        const [chatData, messagesData] = await Promise.all([
-          ChatService.getLocalChats(20, 0, user?.id).then((chats) =>
-            chats.find((chat) => chat.id === chatId)
-          ),
-          ChatService.getLocalMessages(chatId),
-        ]);
-
-        console.log("Chat data:", chatData);
-        console.log("Messages data:", messagesData);
-        console.log("Messages count:", messagesData.length);
-
-        // If chat doesn't exist in user's chat list, try to get it directly
-        let finalChatData = chatData;
-        if (!chatData && user?.id && chatId.includes("_")) {
-          console.log(
-            "Chat not found in user's chat list, trying to get it directly..."
-          );
-          try {
-            // Try to get the chat document directly
-            const chatDoc = await getDoc(doc(firestore, "chats", chatId));
-            if (chatDoc.exists()) {
-              finalChatData = { id: chatDoc.id, ...chatDoc.data() };
-              console.log("✅ Found chat directly:", finalChatData);
-            }
-          } catch (error) {
-            console.error("Error getting chat directly:", error);
-          }
+        if (!client || !isConnected) {
+          console.log("⚠️ Stream Chat not connected yet");
+          return;
         }
 
-        // If chat still doesn't exist, create it (for direct conversations)
-        if (!finalChatData && user?.id && chatId.includes("_")) {
-          console.log("Chat doesn't exist, creating new chat...");
-          const participants = chatId.split("_");
+        let channel;
 
-          // Find the other user's info
-          const otherUserId = participants.find((id) => id !== user.id);
-          if (otherUserId) {
-            const otherUser = await ChatService.getLocalUsers().then((users) =>
-              users.find((u) => u.id === otherUserId)
+        if (isFirebaseChatId(chatId)) {
+          // Handle Firebase chat ID - convert to Stream channel
+          console.log("🔄 Converting Firebase ID to Stream channel");
+          const userIds = chatId.split("_");
+
+          if (userIds.length !== 2) {
+            throw new Error("Invalid Firebase chat ID format");
+          }
+
+          const [user1Id, user2Id] = userIds;
+
+          // Find existing Stream Chat channel
+          const channels = await client.queryChannels({
+            type: "messaging",
+            members: { $in: [user1Id, user2Id] },
+          });
+
+          const exactMatch = channels.find((ch) => {
+            const members = Object.keys(ch.state.members || {});
+            return (
+              members.length === 2 &&
+              members.includes(user1Id) &&
+              members.includes(user2Id)
             );
+          });
 
-            if (otherUser) {
-              await ChatService.upsertChat({
-                id: chatId,
-                name: "Direct Chat", // Use generic name, will be resolved per user
-                type: "direct",
-                participants: participants,
-                isVerified: false,
-                isAnonymous: false,
-                lastMessage: "",
-                timestamp: Date.now(),
-                unreadCount: 0,
-              });
-
-              console.log("✅ Created new chat:", chatId);
-            }
+          if (exactMatch) {
+            channel = exactMatch;
+          } else {
+            // Create new Stream channel
+            channel = await StreamChatService.createDirectChat(
+              user1Id,
+              user2Id
+            );
           }
+        } else {
+          // Handle Stream channel ID directly
+          console.log("🔄 Loading Stream channel directly");
+          channel = client.channel("messaging", chatId);
+          await channel.watch();
         }
 
-        // Transform messages to match UI format
-        const transformedMessages = messagesData.map((msg: any) => ({
+        setStreamChannel(channel);
+
+        // Get channel display name
+        const members = Object.values(channel.state.members || {});
+        const otherMember = members.find(
+          (member: any) => member.user_id !== client?.userID
+        );
+        const displayName =
+          (channel.data && (channel.data as { name?: string }).name) ||
+          otherMember?.user?.name ||
+          otherMember?.user_id ||
+          "Unknown";
+
+        setChatInfo({
+          id: channel.id,
+          name: displayName,
+          avatar: null,
+          isOnline: false,
+          type: members.length > 2 ? "group" : "direct",
+          isAnonymous: false,
+          memberCount: members.length,
+        });
+
+        // Convert Stream messages to your format
+        const streamMessages = channel.state.messages || [];
+        const transformedMessages = streamMessages.map((msg: any) => ({
           id: msg.id,
           text: msg.text || "",
-          timestamp: msg.timestamp
-            ? new Date(msg.timestamp.toDate()).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })
-            : "",
-          isOwn: msg.senderId === user?.id,
-          date: msg.timestamp
-            ? new Date(msg.timestamp.toDate()).toISOString().split("T")[0]
-            : new Date().toISOString().split("T")[0],
-          status: msg.status || "sent",
-          isDeleted: msg.isDeletedForEveryone || false,
-          sender: msg.senderName,
-          senderAvatar: msg.senderAvatar,
-          isSystem: msg.isSystem || false,
-          senderId: msg.senderId,
+          timestamp: new Date(msg.created_at).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+          isOwn: msg.user?.id === client?.userID,
+          date: new Date(msg.created_at).toISOString().split("T")[0],
+          status: "sent",
+          isDeleted: msg.deleted_at ? true : false,
+          sender: msg.user?.name || "Unknown",
+          senderAvatar: msg.user?.image || null,
+          isSystem: msg.type === "system",
+          senderId: msg.user?.id,
         }));
 
-        // Resolve sender information for group chats
-        const messagesWithSenderInfo =
-          finalChatData?.type === "group"
-            ? await resolveSenderInfo(
-                transformedMessages,
-                finalChatData.participants || []
-              )
-            : transformedMessages;
-
-        // Set chat info
-        if (finalChatData) {
-          console.log("Setting chat info:", finalChatData);
-          // For direct chats, show the other user's name
-          let displayName = finalChatData.name || "Unknown";
-          if (finalChatData.type === "direct" && finalChatData.participants) {
-            const otherUserId = finalChatData.participants.find(
-              (id: string) => id !== user?.id
-            );
-            if (otherUserId) {
-              // Get the other user's info to show their name
-              const otherUser = await ChatService.getLocalUsers().then(
-                (users) => users.find((u) => u.id === otherUserId)
-              );
-              if (otherUser) {
-                displayName = `${otherUser.firstName} ${otherUser.lastName}`;
-              }
-            }
-          }
-
-          setChatInfo({
-            id: finalChatData.id,
-            name: displayName,
-            avatar: finalChatData.avatar || null,
-            isOnline: finalChatData.isOnline || false,
-            type: finalChatData.type || "direct",
-            isAnonymous: finalChatData.isAnonymous || false,
-            memberCount: finalChatData.participants?.length || 0,
-          });
-
-          console.log(
-            "Chat info set, isGroupChat will be:",
-            finalChatData.type === "group"
-          );
-        } else {
-          // Create default chat info for direct chats
-          setChatInfo({
-            id: chatId,
-            name: "Unknown User",
-            avatar: null,
-            isOnline: false,
-            type: "direct",
-            isAnonymous: false,
-          });
-        }
-
-        setMessages(messagesWithSenderInfo);
+        setMessages(transformedMessages);
       } catch (error) {
-        console.error("Error loading chat data:", error);
+        console.error("Error loading Stream chat data:", error);
         setMessages([]);
       } finally {
         setLoading(false);
@@ -281,84 +195,80 @@ const ChatConversationScreen: React.FC = () => {
     };
 
     loadChatData();
-  }, [chatId, user?.id]);
+  }, [chatId, user?.id, client, isConnected]);
 
-  // Listen for real-time message updates
+  // Stream Chat real-time updates
   useEffect(() => {
-    if (!chatId || chatId === "self" || !user?.id) return;
+    if (!streamChannel || !chatId || chatId === "self") return;
 
-    console.log("Setting up real-time listener for chat:", chatId);
+    console.log("Setting up Stream Chat real-time listener");
 
-    const unsubscribe = ChatService.listenMessagesFirestore(
-      chatId,
-      Date.now() - 24 * 60 * 60 * 1000, // Last 24 hours
-      async (newMessages) => {
-        console.log("Received new messages:", newMessages);
-        console.log("New messages count:", newMessages.length);
+    const handleNewMessage = (event: any) => {
+      console.log("New Stream message:", event.message);
 
-        const transformedMessages = newMessages.map((msg: any) => ({
-          id: msg.id,
-          text: msg.text || "",
-          timestamp: msg.timestamp
-            ? new Date(msg.timestamp.toDate()).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })
-            : "",
-          isOwn: msg.senderId === user?.id,
-          date: msg.timestamp
-            ? new Date(msg.timestamp.toDate()).toISOString().split("T")[0]
-            : new Date().toISOString().split("T")[0],
-          status: msg.status || "sent",
-          isDeleted: msg.isDeletedForEveryone || false,
-          sender: msg.senderName,
-          senderAvatar: msg.senderAvatar,
-          isSystem: msg.isSystem || false,
-          senderId: msg.senderId,
-        }));
-
-        // Resolve sender information for group chats
-        if (chatInfo?.type === "group") {
-          try {
-            const messagesWithSenderInfo = await resolveSenderInfo(
-              transformedMessages,
-              chatInfo.participants || []
-            );
-            setMessages(messagesWithSenderInfo);
-          } catch (error) {
-            console.error(
-              "Error resolving sender info in real-time listener:",
-              error
-            );
-            setMessages(transformedMessages);
-          }
-        } else {
-          setMessages(transformedMessages);
-        }
-      }
-    );
-
-    return () => {
-      console.log("Cleaning up real-time listener for chat:", chatId);
-      unsubscribe();
-    };
-  }, [chatId, user?.id, chatInfo?.type, chatInfo?.participants]);
-
-  // Mark messages as read when chat loads
-  useEffect(() => {
-    if (!loading && messages.length > 0 && chatId && user?.id) {
-      const markAsRead = async () => {
-        try {
-          await ChatService.markMessagesAsRead(chatId, user.id);
-          console.log("✅ Messages marked as read");
-        } catch (error) {
-          console.error("Error marking messages as read:", error);
-        }
+      const newMessage = {
+        id: event.message.id,
+        text: event.message.text || "",
+        timestamp: new Date(event.message.created_at).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+        isOwn: event.message.user?.id === client?.userID,
+        date: new Date(event.message.created_at).toISOString().split("T")[0],
+        status: "sent",
+        isDeleted: false,
+        sender: event.message.user?.name || "Unknown",
+        senderAvatar: event.message.user?.image || null,
+        isSystem: event.message.type === "system",
+        senderId: event.message.user?.id,
       };
 
-      markAsRead();
-    }
-  }, [loading, messages.length, chatId, user?.id]);
+      setMessages((prev) => {
+        // Avoid duplicates
+        const exists = prev.find((m) => m.id === newMessage.id);
+        if (exists) return prev;
+        return [...prev, newMessage];
+      });
+    };
+
+    const handleMessageUpdated = (event: any) => {
+      console.log("Stream message updated:", event.message);
+
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === event.message.id
+            ? {
+                ...msg,
+                text: event.message.text || "",
+                isDeleted: event.message.deleted_at ? true : false,
+              }
+            : msg
+        )
+      );
+    };
+
+    const handleMessageDeleted = (event: any) => {
+      console.log("Stream message deleted:", event.message);
+
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === event.message.id
+            ? { ...msg, isDeleted: true, text: "" }
+            : msg
+        )
+      );
+    };
+
+    streamChannel.on("message.new", handleNewMessage);
+    streamChannel.on("message.updated", handleMessageUpdated);
+    streamChannel.on("message.deleted", handleMessageDeleted);
+
+    return () => {
+      streamChannel.off("message.new", handleNewMessage);
+      streamChannel.off("message.updated", handleMessageUpdated);
+      streamChannel.off("message.deleted", handleMessageDeleted);
+    };
+  }, [streamChannel, chatId, client]);
 
   // Search functionality
   useEffect(() => {
@@ -372,11 +282,7 @@ const ChatConversationScreen: React.FC = () => {
             ? new Date(message.date).toDateString() ===
               searchDateFilter.toDateString()
             : true;
-          return (
-            matchesText &&
-            matchesDate &&
-            !("isSystem" in message && message.isSystem)
-          );
+          return matchesText && matchesDate && !message.isSystem;
         })
         .map((message) => message.id);
 
@@ -390,7 +296,7 @@ const ChatConversationScreen: React.FC = () => {
       setSearchResults([]);
       setCurrentSearchIndex(-1);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery, messages, searchDateFilter]);
 
   const scrollToBottom = () => {
@@ -504,43 +410,26 @@ const ChatConversationScreen: React.FC = () => {
     }
   };
 
+  // Send message to Stream Chat
   const handleSendMessage = async () => {
-    if (inputText.trim() && user?.id) {
-      const messageId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-
-      // Prepare message data
-      const messageData: any = {
-        id: messageId,
-        chatId: chatId,
-        senderId: user.id,
-        text: inputText.trim(),
-        timestamp: Date.now(),
-        isOwn: true,
-        status: "sent" as const,
-      };
-
-      // Only add replyTo if it has a valid value
-      if (replyToMessage) {
-        messageData.replyTo = {
-          id: replyToMessage.id,
-          text: replyToMessage.text,
-          sender: chatInfo?.name || "Unknown",
-        };
-      }
-
+    if (inputText.trim() && streamChannel) {
       try {
-        // Send message to backend
-        await ChatService.sendMessage(messageData);
+        const messageData: any = {
+          text: inputText.trim(),
+        };
 
-        // Clear input and reply state
+        // Add reply if exists
+        if (replyToMessage) {
+          messageData.parent_id = replyToMessage.id;
+        }
+
+        await streamChannel.sendMessage(messageData);
+
         setInputText("");
         setReplyToMessage(null);
-
-        console.log("Message sent successfully:", messageData);
         scrollToBottom();
       } catch (error) {
-        console.error("Error sending message:", error);
-        // You could show an error toast here
+        console.error("Error sending Stream message:", error);
       }
     }
   };
@@ -561,18 +450,14 @@ const ChatConversationScreen: React.FC = () => {
     try {
       if (selectedMessages.length === 1) {
         const message = messages.find((m) => m.id === selectedMessages[0]);
-        if (message && !("isDeleted" in message && message.isDeleted)) {
+        if (message && !message.isDeleted) {
           await Clipboard.setStringAsync(message.text);
           console.log("Message copied to clipboard");
         }
       } else if (selectedMessages.length > 1) {
         const selectedMessagesData = messages
-          .filter(
-            (m) =>
-              selectedMessages.includes(m.id) &&
-              !("isDeleted" in m && m.isDeleted)
-          )
-          .map((m) => `${m.isOwn ? "You" : chatInfo.name}: ${m.text}`)
+          .filter((m) => selectedMessages.includes(m.id) && !m.isDeleted)
+          .map((m) => `${m.isOwn ? "You" : chatInfo?.name}: ${m.text}`)
           .join("\n");
         await Clipboard.setStringAsync(selectedMessagesData);
         console.log("Messages copied to clipboard");
@@ -586,7 +471,7 @@ const ChatConversationScreen: React.FC = () => {
   const handleForward = () => {
     if (selectedMessages.length === 1) {
       const message = messages.find((m) => m.id === selectedMessages[0]);
-      if (message && !("isDeleted" in message && message.isDeleted)) {
+      if (message && !message.isDeleted) {
         router.push({
           pathname: "/(routes)/chats/share-message",
           params: { messageData: JSON.stringify(message) },
@@ -603,35 +488,22 @@ const ChatConversationScreen: React.FC = () => {
   };
 
   const handleDeleteForEveryone = async () => {
-    try {
-      // Delete from backend
-      for (const messageId of selectedMessages) {
-        await ChatService.deleteMessageForEveryone(chatId, messageId);
-      }
+    if (!streamChannel) return;
 
-      // Update local state
-      setMessages((prev) =>
-        prev.map((msg) =>
-          selectedMessages.includes(msg.id)
-            ? ({ ...msg, isDeleted: true, text: "" } as typeof msg)
-            : msg
-        )
-      );
+    try {
+      for (const messageId of selectedMessages) {
+        await streamChannel.deleteMessage(messageId);
+      }
       setShowDeleteModal(false);
       setSelectedMessages([]);
     } catch (error) {
-      console.error("Error deleting messages for everyone:", error);
+      console.error("Error deleting Stream messages:", error);
     }
   };
 
   const handleDeleteForMe = async () => {
     try {
-      // Delete from backend
-      for (const messageId of selectedMessages) {
-        await ChatService.deleteMessageForMe(chatId, messageId, user?.id || "");
-      }
-
-      // Update local state
+      // For Stream Chat, we just hide the message locally
       setMessages((prev) =>
         prev.filter((msg) => !selectedMessages.includes(msg.id))
       );
@@ -771,15 +643,6 @@ const ChatConversationScreen: React.FC = () => {
                           />
                         );
                       }
-
-                      console.log("Rendering message:", {
-                        id: message.id,
-                        sender: message.sender,
-                        senderId: message.senderId,
-                        isOwn: message.isOwn,
-                        isGroupChat,
-                        showSender: isGroupChat && !message.isOwn,
-                      });
 
                       return (
                         <MessageBubble
