@@ -4,7 +4,13 @@ import {
   OptionsDropdown,
   type DropdownOption,
 } from "@/components/common/OptionsDropdown";
+import { useStreamChat } from "@/contexts/StreamChatContext";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useUser } from "@/contexts/UserContext";
+import { UserService } from "@/services/user.service";
+import { ChatService } from "@/services/chat.service";
+import { StreamChatService } from "@/services/stream-chat.service";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   ArrowLeft,
@@ -29,13 +35,11 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  ActivityIndicator,
+  Alert,
 } from "react-native";
 
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
-
-import { useUser } from "@/contexts/UserContext";
-import { ChatService } from "@/services/chat.service";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Cache key for contacts
 const CONTACTS_CACHE_KEY = "cached_contacts";
@@ -48,6 +52,8 @@ export default function SelectContactScreen() {
   const { theme } = useTheme();
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { client, isConnected } = useStreamChat();
+  const { user } = useUser();
 
   // Determine mode from params
   const mode = (params.mode as SelectMode) || "chat";
@@ -56,13 +62,11 @@ export default function SelectContactScreen() {
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
   const [isAnonymous, setIsAnonymous] = useState(false);
-
-  // ...existing code...
   const [contacts, setContacts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const { user } = useUser(); // Get current user
+  const [creating, setCreating] = useState(false);
 
-  // Function to refresh contacts from Firestore
+  // Function to refresh contacts from Firebase
   const refreshContacts = async () => {
     console.log("🔄 Manually refreshing contacts...");
     setLoading(true);
@@ -72,9 +76,14 @@ export default function SelectContactScreen() {
       await AsyncStorage.removeItem(CONTACTS_CACHE_KEY);
       await AsyncStorage.removeItem(CONTACTS_CACHE_TIMESTAMP_KEY);
 
-      // Fetch fresh data
-      const users = await ChatService.getLocalUsers();
-      console.log("Fresh users from Firestore:", users);
+      // Fetch fresh data from UserService
+      const { users, error } = await UserService.getAllUsers();
+
+      if (error) {
+        console.error("Error fetching users:", error);
+        Alert.alert("Error", "Failed to refresh contacts");
+        return;
+      }
 
       const contactsList = [
         {
@@ -89,7 +98,7 @@ export default function SelectContactScreen() {
           .map((u) => ({
             id: u.id,
             name: `${u.firstName} ${u.lastName}`,
-            subtitle: u.bio || "",
+            subtitle: u.bio || u.role || "",
             avatar: u.profileImage || null,
             type: "contact",
           })),
@@ -107,16 +116,16 @@ export default function SelectContactScreen() {
       console.log("✅ Contacts refreshed and cached");
     } catch (error) {
       console.error("❌ Error refreshing contacts:", error);
+      Alert.alert("Error", "Failed to refresh contacts");
     } finally {
       setLoading(false);
     }
   };
 
+  // Load contacts on component mount
   useEffect(() => {
     let isMounted = true;
     setLoading(true);
-
-    console.log("Starting to load contacts...");
 
     const loadContacts = async () => {
       try {
@@ -140,15 +149,19 @@ export default function SelectContactScreen() {
           return;
         }
 
-        console.log("🔄 Cache expired or missing, fetching from Firestore...");
+        // Fetch fresh contacts from UserService
+        const { users, error } = await UserService.getAllUsers();
 
-        // Fetch fresh contacts from Firestore
-        const users = await ChatService.getLocalUsers();
-        console.log("users from Firestore:", users);
-        console.log("users length:", users.length);
+        if (error) {
+          console.error("Error fetching users:", error);
+          if (isMounted) {
+            setContacts([]);
+            setLoading(false);
+          }
+          return;
+        }
 
         if (isMounted && users.length > 0) {
-          console.log("Found users in Firestore, setting contacts...");
           const contactsList = [
             {
               id: "self",
@@ -162,7 +175,7 @@ export default function SelectContactScreen() {
               .map((u) => ({
                 id: u.id,
                 name: `${u.firstName} ${u.lastName}`,
-                subtitle: u.bio || "",
+                subtitle: u.bio || u.role || "",
                 avatar: u.profileImage || null,
                 type: "contact",
               })),
@@ -177,14 +190,10 @@ export default function SelectContactScreen() {
             CONTACTS_CACHE_TIMESTAMP_KEY,
             now.toString()
           );
-          console.log("✅ Contacts cached successfully");
 
-          if (isMounted) {
-            setContacts(contactsList);
-            setLoading(false);
-          }
+          setContacts(contactsList);
+          setLoading(false);
         } else {
-          console.log("No users found in Firestore");
           if (isMounted) {
             setContacts([]);
             setLoading(false);
@@ -192,7 +201,6 @@ export default function SelectContactScreen() {
         }
       } catch (error) {
         console.error("❌ Error loading contacts:", error);
-        console.error("Error details:", JSON.stringify(error, null, 2));
         if (isMounted) {
           setLoading(false);
         }
@@ -260,35 +268,119 @@ export default function SelectContactScreen() {
           : [...prev, contactId]
       );
     } else {
-      // Create or get existing chat for direct conversation
+      // Create direct chat for single selection
       if (contactId === "self") {
-        // Handle self-chat (if needed)
-        router.push(`/(routes)/chats/${contactId}`);
+        router.push(`/(routes)/chats/self`);
         return;
       }
 
+      setCreating(true);
+
       try {
-        console.log("Creating/finding chat with user:", contactId);
+        console.log("🔄 Creating/finding chat with user:", contactId);
 
         if (!user?.id) {
           console.error("❌ User ID is undefined");
+          Alert.alert("Error", "User session invalid");
           return;
         }
 
-        // Get the other user's info to set the chat name
-        const otherUser = contacts.find((c) => c.id === contactId);
-        const otherUserName = otherUser ? otherUser.name : "Unknown User";
+        // Get contact details first
+        const { user: contactUser } = await UserService.getUserById(contactId);
+        const contactName = contactUser
+          ? `${contactUser.firstName} ${contactUser.lastName}`
+          : `User ${contactId.slice(0, 8)}`;
 
-        // Create the chat
-        const chatId = await ChatService.createDirectChat(user.id, contactId);
+        console.log("🔄 Contact details:", contactName);
 
-        console.log("✅ Chat created/found:", chatId);
-        router.push(`/(routes)/chats/${chatId}`);
+        // Create Firebase chat (fast)
+        const firebaseChatId = await ChatService.createDirectChat(
+          user.id,
+          contactId
+        );
+        console.log("✅ Firebase chat created/found:", firebaseChatId);
+
+        // Navigate immediately with user info
+        router.push({
+          pathname: "/(routes)/chats/[id]",
+          params: {
+            id: firebaseChatId,
+            userId: contactId,
+            userName: contactName,
+            userAvatar: contactUser?.profileImage || "",
+          },
+        });
+
+        // Create Stream Chat channel in background (don't await)
+        if (isConnected && client?.userID && contactUser) {
+          createStreamChannelInBackground(contactId, contactUser);
+        }
       } catch (error) {
         console.error("❌ Error creating chat:", error);
-        // Fallback to direct navigation
-        router.push(`/(routes)/chats/${contactId}`);
+        Alert.alert("Error", "Failed to create chat");
+      } finally {
+        setCreating(false);
       }
+    }
+  };
+
+  // Background Stream Chat channel creation
+  const createStreamChannelInBackground = async (
+    contactId: string,
+    contactUser: any
+  ) => {
+    try {
+      console.log("🔄 Creating Stream channel in background...");
+
+      const currentUserData = {
+        id: user?.id || "",
+        firstName: user?.firstName || "",
+        lastName: user?.lastName || "",
+        email: user?.email || "",
+        bio: user?.bio || "",
+        role: user?.role || "user",
+        studentId: user?.studentId || "",
+        yearGroup: user?.yearGroup || "",
+        major: user?.major || "",
+        country: user?.country || "",
+        gender: user?.gender || "other",
+        department: user?.department || "",
+        phoneNumber: user?.phoneNumber || "",
+        profileImage: user?.profileImage || "",
+      };
+
+      const contactUserData = {
+        id: contactUser.id,
+        firstName: contactUser.firstName,
+        lastName: contactUser.lastName,
+        email: contactUser.email,
+        bio: contactUser.bio,
+        role: contactUser.role,
+        studentId: contactUser.studentId,
+        yearGroup: contactUser.yearGroup,
+        major: contactUser.major,
+        country: contactUser.country,
+        gender: contactUser.gender,
+        department: contactUser.department,
+        phoneNumber: contactUser.phoneNumber,
+        profileImage: contactUser.profileImage,
+      };
+
+      const streamChannel = await StreamChatService.createDirectChat(
+        client?.userID || "",
+        contactId,
+        currentUserData,
+        contactUserData
+      );
+      console.log(
+        "✅ Stream Chat channel created in background:",
+        streamChannel.id
+      );
+    } catch (streamError) {
+      console.warn(
+        "⚠️ Background Stream Chat channel creation failed:",
+        streamError
+      );
     }
   };
 
@@ -296,8 +388,12 @@ export default function SelectContactScreen() {
     setSelectedContacts((prev) => prev.filter((id) => id !== contactId));
   };
 
-  const handleNext = () => {
-    if (selectedContacts.length > 0) {
+  const handleNext = async () => {
+    if (selectedContacts.length === 0) return;
+
+    setCreating(true);
+
+    try {
       switch (mode) {
         case "group":
           router.push({
@@ -309,14 +405,19 @@ export default function SelectContactScreen() {
           });
           break;
         case "broadcast":
-          // TODO: Navigate to broadcast details
+          // TODO: Implement broadcast creation
           console.log("Create broadcast with:", selectedContacts);
           break;
         case "community":
-          // TODO: Navigate to community details
+          // TODO: Implement community creation
           console.log("Create community with:", selectedContacts);
           break;
       }
+    } catch (error) {
+      console.error("Error in handleNext:", error);
+      Alert.alert("Error", "Failed to proceed");
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -347,10 +448,14 @@ export default function SelectContactScreen() {
   };
 
   const getHeaderSubtitle = () => {
+    const chatStatus = isConnected
+      ? "Chat features active"
+      : "Chat features limited";
+
     if (isMultiSelect) {
-      return `${selectedContacts.length} of ${filteredContacts.length} selected`;
+      return `${selectedContacts.length} of ${filteredContacts.length} selected • ${chatStatus}`;
     }
-    return `${filteredContacts.length} contacts`;
+    return `${filteredContacts.length} contacts • ${chatStatus}`;
   };
 
   const styles = StyleSheet.create({
@@ -514,7 +619,9 @@ export default function SelectContactScreen() {
       width: 56,
       height: 56,
       borderRadius: 28,
-      backgroundColor: theme.colors.primary,
+      backgroundColor: creating
+        ? theme.colors.textSecondary
+        : theme.colors.primary,
       justifyContent: "center",
       alignItems: "center",
       elevation: 8,
@@ -552,11 +659,45 @@ export default function SelectContactScreen() {
       marginTop: 2,
       fontWeight: "500",
     },
+    emptyContainer: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      padding: theme.spacing.md,
+    },
+    emptyText: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      textAlign: "center",
+      fontWeight: "500",
+    },
+    loadingOverlay: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: "rgba(0, 0, 0, 0.3)",
+      justifyContent: "center",
+      alignItems: "center",
+      zIndex: 1000,
+    },
+    loadingContainer: {
+      backgroundColor: theme.colors.surface,
+      padding: theme.spacing.lg,
+      borderRadius: 12,
+      alignItems: "center",
+    },
+    loadingText: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      marginTop: theme.spacing.md,
+      fontWeight: "500",
+    },
   });
 
   return (
     <View style={styles.container}>
-      {/* Show loading spinner when loading */}
       {loading ? (
         <LoadingSpinner />
       ) : (
@@ -584,6 +725,7 @@ export default function SelectContactScreen() {
               <TouchableOpacity
                 style={styles.backButton}
                 onPress={() => router.back()}
+                disabled={creating}
               >
                 <ArrowLeft size={24} color={theme.colors.text} />
               </TouchableOpacity>
@@ -592,11 +734,17 @@ export default function SelectContactScreen() {
                 <Text style={styles.headerSubtitle}>{getHeaderSubtitle()}</Text>
               </View>
               <View style={styles.headerActions}>
-                <TouchableOpacity onPress={handleSearchToggle}>
+                <TouchableOpacity
+                  onPress={handleSearchToggle}
+                  disabled={creating}
+                >
                   <Search size={24} color={theme.colors.text} />
                 </TouchableOpacity>
                 {mode === "chat" && (
-                  <TouchableOpacity onPress={() => setShowOptionsMenu(true)}>
+                  <TouchableOpacity
+                    onPress={() => setShowOptionsMenu(true)}
+                    disabled={creating}
+                  >
                     <MoreVertical size={24} color={theme.colors.text} />
                   </TouchableOpacity>
                 )}
@@ -619,6 +767,7 @@ export default function SelectContactScreen() {
               <Switch
                 value={isAnonymous}
                 onValueChange={setIsAnonymous}
+                disabled={creating}
                 trackColor={{
                   false: theme.colors.border,
                   true: theme.colors.primary + "40",
@@ -652,6 +801,7 @@ export default function SelectContactScreen() {
                       <TouchableOpacity
                         style={styles.removeButton}
                         onPress={() => handleRemoveSelected(contact.id)}
+                        disabled={creating}
                       >
                         <X size={16} color="white" />
                       </TouchableOpacity>
@@ -676,6 +826,7 @@ export default function SelectContactScreen() {
                       key={action.id}
                       style={styles.quickAction}
                       onPress={action.onPress}
+                      disabled={creating}
                     >
                       <View style={styles.quickActionIcon}>
                         <IconComponent size={20} color="white" />
@@ -685,6 +836,7 @@ export default function SelectContactScreen() {
                         <TouchableOpacity
                           style={styles.qrIcon}
                           onPress={() => console.log("QR Scanner")}
+                          disabled={creating}
                         >
                           <QrCode
                             size={20}
@@ -709,6 +861,7 @@ export default function SelectContactScreen() {
                     key={contact.id}
                     style={styles.contactItem}
                     onPress={() => handleContactPress(contact.id)}
+                    disabled={creating}
                   >
                     <Avatar
                       source={contact.avatar}
@@ -745,6 +898,7 @@ export default function SelectContactScreen() {
                 key={contact.id}
                 style={styles.contactItem}
                 onPress={() => handleContactPress(contact.id)}
+                disabled={creating}
               >
                 <Avatar
                   source={contact.avatar}
@@ -767,12 +921,29 @@ export default function SelectContactScreen() {
                 )}
               </TouchableOpacity>
             ))}
+
+            {/* Empty state */}
+            {regularContacts.length === 0 && (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>
+                  {searchQuery ? "No contacts found" : "No contacts available"}
+                </Text>
+              </View>
+            )}
           </ScrollView>
 
           {/* Floating Action Button (Multi-select modes only) */}
           {isMultiSelect && selectedContacts.length > 0 && (
-            <TouchableOpacity style={styles.fab} onPress={handleNext}>
-              <ArrowRight size={24} color="white" />
+            <TouchableOpacity
+              style={styles.fab}
+              onPress={handleNext}
+              disabled={creating}
+            >
+              {creating ? (
+                <ActivityIndicator size="small" color="white" />
+              ) : (
+                <ArrowRight size={24} color="white" />
+              )}
             </TouchableOpacity>
           )}
 
@@ -783,6 +954,16 @@ export default function SelectContactScreen() {
               onClose={() => setShowOptionsMenu(false)}
               options={menuOptions}
             />
+          )}
+
+          {/* Loading Overlay */}
+          {creating && (
+            <View style={styles.loadingOverlay}>
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={theme.colors.primary} />
+                <Text style={styles.loadingText}>Creating chat...</Text>
+              </View>
+            </View>
           )}
         </>
       )}
