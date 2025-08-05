@@ -6,17 +6,23 @@ export function streamChannelToChat(
 ) {
   const lastMessage = channel.state.messages[channel.state.messages.length - 1];
 
+  const isAnonymous =
+    (channel.data as { anonymous?: boolean })?.anonymous ||
+    (channel.data as { isAnonymous?: boolean })?.isAnonymous ||
+    false;
+
+
   return {
     id: channel.id || "",
     name: (channel.data as { name?: string })?.name || "Unnamed Chat",
-    type: (channel.data as { isAnonymous?: boolean })?.isAnonymous
+    type: isAnonymous
       ? ("anonymous" as const)
       : channel.type === "team"
         ? ("group" as const)
         : ("direct" as const),
     participants: Object.keys(channel.state.members),
     isVerified: (channel.data as { isVerified?: boolean })?.isVerified || false,
-    isAnonymous: (channel.data as { isAnonymous?: boolean })?.isAnonymous || false,
+    isAnonymous: isAnonymous,
     lastMessage: lastMessage?.text || "",
     timestamp: lastMessage
       ? new Date(lastMessage.created_at!).getTime()
@@ -51,6 +57,21 @@ export function getChannelDisplayName(
   channel: Channel,
   currentUserId: string
 ): string {
+
+  const isAnonymous =
+    (channel.data as { anonymous?: boolean })?.anonymous ||
+    (channel.data as { isAnonymous?: boolean })?.isAnonymous ||
+    false;
+  
+     if (channel.type === "team") {
+       if ((channel.data as { name?: string })?.name) {
+         const channelName = (channel.data as { name?: string }).name!;
+         console.log("🔍 Team channel name found:", channelName);
+         return isAnonymous ? `🎭 ${channelName}` : channelName;;
+       }
+       console.log("⚠️ Team channel without name:", channel.data);
+       return isAnonymous ? "🎭 Anonymous Group" : "Unnamed Group";
+     }
   if ((channel.data as { name?: string })?.name) {
     return (channel.data as { name?: string }).name!;
   }
