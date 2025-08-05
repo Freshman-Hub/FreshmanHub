@@ -167,21 +167,29 @@ export class StreamChatService {
     name: string,
     members: string[],
     createdBy: string,
-    isAnonymous: boolean = false
+      isAnonymous: boolean = false,
+    description?: string
   ): Promise<Channel> {
-    try {
-      const channel = this.client.channel("team", undefined, {
-        members,
-        created_by_id: createdBy,
-        // Only include custom fields that are allowed by your Stream configuration
-        // If 'name' and 'anonymous' are custom fields, ensure they are enabled in your dashboard
-        ...(name && { name }),
-        ...(isAnonymous && { anonymous: isAnonymous }),
-      });
+      try {
+        // Generate a custom channel ID for the group (required for member management)
+        const timestamp = Date.now();
+        const groupId = `members-${timestamp}_${createdBy.slice(0, 8)}`;
 
-      await channel.create();
-      return channel;
-    } catch (error: any) {
+        const channel = this.client.channel("team", groupId, {
+          name: name,
+          members,
+
+          created_by_id: createdBy,
+          // Only include custom fields that are allowed by your Stream configuration
+          // If 'name' and 'anonymous' are custom fields, ensure they are enabled in your dashboard
+          ...(name && { name }),
+          ...(description && { description: description }),
+          ...(isAnonymous && { anonymous: isAnonymous }),
+        });
+
+        await channel.create();
+        return channel;
+      } catch (error: any) {
       console.error("❌ Failed to create group chat:", error);
       throw error;
     }
