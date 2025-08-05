@@ -140,7 +140,7 @@ export default function GroupDetailsScreen() {
       );
 
       // Navigate to the new group chat
-      router.push({
+      router.replace({
         pathname: "/(routes)/chats/[id]",
         params: {
           id: groupChannel.id ?? "",
