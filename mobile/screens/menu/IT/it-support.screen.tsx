@@ -1,37 +1,39 @@
-import React, { useState } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  Image,
-  RefreshControl,
-  TextInput,
-  Linking,
-  TextStyle,
-  ViewStyle,
-  ImageStyle,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useTheme } from "@/contexts/ThemeContext";
 import { useRouter } from "expo-router";
 import {
   ArrowLeft,
-  Wifi,
-  Laptop,
-  Shield,
-  Settings,
-  Phone,
-  // Clock,
-  // CircleCheck as CheckCircle,
-  // Wrench,
   Bed,
+  ChevronRight,
   Droplets,
-  Zap,
   Hammer,
+  Laptop,
   Mail,
+  Phone,
+  Settings,
+  Shield,
+  Wifi,
+  X,
+  Zap,
+  ZoomIn,
 } from "lucide-react-native";
-import { useTheme } from "@/contexts/ThemeContext";
+import React, { useState } from "react";
+import {
+  Dimensions,
+  Image,
+  ImageStyle,
+  Linking,
+  Modal,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TextStyle,
+  TouchableOpacity,
+  View,
+  ViewStyle,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 // Mock IT support data
 const supportCenter = {
@@ -43,12 +45,12 @@ const supportCenter = {
   phone: "+233 302 610 330",
   email: "supportcentre@ashesi.edu.gh",
   hours: {
-    monday: "5:00 AM - 6:00 PM",
-    tuesday: "8:00 AM - 6:00 PM",
-    wednesday: "8:00 AM - 6:00 PM",
-    thursday: "8:00 AM - 6:00 PM",
-    friday: "8:00 AM - 6:00 PM",
-    saturday: "10:00 AM - 4:00 PM",
+    monday: "8:00 AM - 5:00 PM",
+    tuesday: "8:00 AM - 5:00 PM",
+    wednesday: "8:00 AM - 5:00 PM",
+    thursday: "8:00 AM - 5:00 PM",
+    friday: "8:00 AM - 5:00 PM",
+    saturday: "Closed",
     sunday: "Closed",
   },
   currentStatus: "Open",
@@ -158,34 +160,46 @@ const supportServices = [
 //   { label: "Available Services", value: "8", icon: Wrench, color: "#f59e0b" },
 // ];
 
-const knowledgeBase = [
+const galleryImages = [
   {
     id: 1,
-    title: "How to Connect to Campus WiFi",
-    category: "IT Services",
-    views: 1234,
-    helpful: 89,
+    title: "Support Center Main Desk",
+    image: require("../../../assets/menu/support-center.png"),
   },
   {
     id: 2,
-    title: "Reporting Room Maintenance Issues",
-    category: "Hostel Services",
-    views: 987,
-    helpful: 76,
+    title: "IT Help Station",
+    image: require("../../../assets/menu/ashesi-1.jpeg"),
   },
   {
     id: 3,
-    title: "Installing Required Software",
-    category: "IT Services",
-    views: 756,
-    helpful: 65,
+    title: "Laptop Repair Area",
+    image: require("../../../assets/menu/support-center.png"),
   },
   {
     id: 4,
-    title: "What to Do When Your Room Key Doesn't Work",
-    category: "Hostel Services",
-    views: 543,
-    helpful: 48,
+    title: "Student Assistance Zone",
+    image: require("../../../assets/menu/support-center.png"),
+  },
+  {
+    id: 5,
+    title: "Network Operations Center",
+    image: require("../../../assets/menu/support-center.png"),
+  },
+  {
+    id: 6,
+    title: "Software Installation Bay",
+    image: require("../../../assets/menu/support-center.png"),
+  },
+  {
+    id: 7,
+    title: "Hardware Testing Lab",
+    image: require("../../../assets/menu/support-center.png"),
+  },
+  {
+    id: 8,
+    title: "Student Waiting Area",
+    image: require("../../../assets/menu/support-center.png"),
   },
 ];
 
@@ -195,6 +209,9 @@ export default function ITSupportScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<any>(null);
+  const [showAllImages, setShowAllImages] = useState(false);
 
   const categories = ["All", "IT Services", "Hostel Services"];
 
@@ -215,7 +232,7 @@ export default function ITSupportScreen() {
     Linking.openURL(`mailto:${supportCenter.email}`);
   };
 
-  const handleKnowledgeBasePress = (articleId: number) => {
+  const handleHelpDocsPress = () => {
     Linking.openURL(`https://ashesi.helpscoutdocs.com/`);
   };
 
@@ -243,409 +260,555 @@ export default function ITSupportScreen() {
     return matchesCategory && matchesSearch;
   });
 
-    const styles = StyleSheet.create<{
-      container: ViewStyle;
-      header: ViewStyle;
-      backButton: ViewStyle;
-      headerTitle: TextStyle;
-      scrollContent: ViewStyle;
-      heroSection: ViewStyle;
-      heroImage: ImageStyle;
-      heroOverlay: ViewStyle;
-      heroTitle: TextStyle;
-      heroDescription: TextStyle;
-      statusBadge: ViewStyle;
-      statusText: TextStyle;
-      statsContainer: ViewStyle;
-      statsRow: ViewStyle;
-      statCard: ViewStyle;
-      statIcon: ViewStyle;
-      statValue: TextStyle;
-      statLabel: TextStyle;
-      searchContainer: ViewStyle;
-      searchInput: TextStyle;
-      categoriesContainer: ViewStyle;
-      categoriesScroll: ViewStyle;
-      categoryChip: ViewStyle;
-      categoryChipActive: ViewStyle;
-      categoryChipText: TextStyle;
-      categoryChipTextActive: TextStyle;
-      sectionContainer: ViewStyle;
-      sectionTitle: TextStyle;
-      servicesGrid: ViewStyle;
-      serviceCard: ViewStyle;
-      serviceIcon: ViewStyle;
-      serviceName: TextStyle;
-      serviceDescription: TextStyle;
-      serviceCategory: ViewStyle;
-      serviceCategoryText: TextStyle;
-      estimatedTime: ViewStyle;
-      estimatedTimeText: TextStyle;
-      knowledgeBaseCard: ViewStyle;
-      articleTitle: TextStyle;
-      articleMeta: ViewStyle;
-      articleCategory: TextStyle;
-      articleStats: TextStyle;
-      contactCard: ViewStyle;
-      hoursContainer: ViewStyle;
-      hoursRow: ViewStyle;
-      dayText: TextStyle;
-      hoursText: TextStyle;
-      currentDay: ViewStyle;
-      contactActions: ViewStyle;
-      contactButton: ViewStyle;
-      contactButtonSecondary: ViewStyle;
-      contactButtonText: TextStyle;
-      contactButtonTextSecondary: TextStyle;
-      noResultsContainer: ViewStyle;
-      noResultsText: TextStyle;
-    }>({
-      container: {
-        flex: 1,
-        backgroundColor: theme.colors.background,
+  const handleImagePress = (image: any) => {
+    setSelectedImage(image);
+    setModalVisible(true);
+  };
+
+  const closeModal = () => {
+    setModalVisible(false);
+    setSelectedImage(null);
+  };
+
+  const displayedImages = showAllImages
+    ? galleryImages
+    : galleryImages.slice(0, 2);
+
+  const styles = StyleSheet.create<{
+    container: ViewStyle;
+    header: ViewStyle;
+    backButton: ViewStyle;
+    headerTitle: TextStyle;
+    scrollContent: ViewStyle;
+    heroSection: ViewStyle;
+    heroImage: ImageStyle;
+    heroOverlay: ViewStyle;
+    heroTitle: TextStyle;
+    heroDescription: TextStyle;
+    statusBadge: ViewStyle;
+    statusText: TextStyle;
+    statsContainer: ViewStyle;
+    statsRow: ViewStyle;
+    statCard: ViewStyle;
+    statIcon: ViewStyle;
+    statValue: TextStyle;
+    statLabel: TextStyle;
+    searchContainer: ViewStyle;
+    searchInput: TextStyle;
+    categoriesContainer: ViewStyle;
+    categoriesScroll: ViewStyle;
+    categoryChip: ViewStyle;
+    categoryChipActive: ViewStyle;
+    categoryChipText: TextStyle;
+    categoryChipTextActive: TextStyle;
+    sectionContainer: ViewStyle;
+    sectionTitle: TextStyle;
+    sectionHeader: ViewStyle;
+    viewMoreButton: ViewStyle;
+    viewMoreText: TextStyle;
+    servicesGrid: ViewStyle;
+    serviceCard: ViewStyle;
+    serviceIcon: ViewStyle;
+    serviceName: TextStyle;
+    serviceDescription: TextStyle;
+    serviceCategory: ViewStyle;
+    serviceCategoryText: TextStyle;
+    estimatedTime: ViewStyle;
+    estimatedTimeText: TextStyle;
+    galleryScroll: ViewStyle;
+    galleryGrid: ViewStyle;
+    galleryItem: ViewStyle;
+    galleryImageContainer: ViewStyle;
+    galleryImage: ImageStyle;
+    galleryImageOverlay: ViewStyle;
+    galleryZoomIcon: ViewStyle;
+    galleryTitle: TextStyle;
+    modalContainer: ViewStyle;
+    modalBackdrop: ViewStyle;
+    modalContent: ViewStyle;
+    modalHeader: ViewStyle;
+    modalCloseButton: ViewStyle;
+    modalImage: ImageStyle;
+    modalTitle: TextStyle;
+    helpDocsButton: ViewStyle;
+    helpDocsContent: ViewStyle;
+    helpDocsIcon: ViewStyle;
+    helpDocsText: ViewStyle;
+    helpDocsTitle: TextStyle;
+    helpDocsDescription: TextStyle;
+    contactCard: ViewStyle;
+    hoursContainer: ViewStyle;
+    hoursRow: ViewStyle;
+    dayText: TextStyle;
+    hoursText: TextStyle;
+    currentDay: ViewStyle;
+    contactActions: ViewStyle;
+    contactButton: ViewStyle;
+    contactButtonSecondary: ViewStyle;
+    contactButtonText: TextStyle;
+    contactButtonTextSecondary: TextStyle;
+    noResultsContainer: ViewStyle;
+    noResultsText: TextStyle;
+  }>({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: theme.spacing.lg,
+      paddingVertical: theme.spacing.md,
+      backgroundColor: theme.colors.surface,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+    },
+    backButton: {
+      padding: theme.spacing.sm,
+      marginRight: theme.spacing.md,
+      borderRadius: theme.borderRadius.lg,
+      backgroundColor: theme.colors.background,
+    },
+    headerTitle: {
+      ...theme.typography.h5,
+      color: theme.colors.text,
+      fontWeight: "700",
+      flex: 1,
+    },
+    scrollContent: {
+      paddingBottom: theme.spacing.md,
+    },
+    heroSection: {
+      position: "relative",
+      height: 200,
+      margin: theme.spacing.md,
+      borderRadius: theme.borderRadius.xl,
+      overflow: "hidden",
+    },
+    heroImage: {
+      width: "100%",
+      height: "100%",
+    },
+    heroOverlay: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: "rgba(0,0,0,0.5)",
+      justifyContent: "center",
+      alignItems: "center",
+      padding: theme.spacing.lg,
+    },
+    heroTitle: {
+      ...theme.typography.h4,
+      color: "white",
+      fontWeight: "700",
+      textAlign: "center",
+      marginBottom: theme.spacing.sm,
+    },
+    heroDescription: {
+      ...theme.typography.body,
+      color: "rgba(255,255,255,0.9)",
+      textAlign: "center",
+      lineHeight: 22,
+    } as TextStyle,
+    statusBadge: {
+      position: "absolute",
+      top: theme.spacing.lg,
+      right: theme.spacing.lg,
+      backgroundColor: "#22c55e",
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: theme.spacing.xs,
+      borderRadius: theme.borderRadius.xxxl,
+    },
+    statusText: {
+      ...theme.typography.captionSmall,
+      color: "white",
+      fontWeight: "700",
+    },
+    statsContainer: {
+      paddingHorizontal: theme.spacing.md,
+      marginBottom: theme.spacing.md,
+    },
+    statsRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      gap: theme.spacing.xs,
+    },
+    statCard: {
+      flex: 1,
+      backgroundColor: theme.colors.surface,
+      padding: theme.spacing.sm,
+      borderRadius: theme.borderRadius.lg,
+      alignItems: "center",
+      shadowColor: "#000",
+      shadowOffset: {
+        width: 0,
+        height: 4,
       },
-      header: {
-        flexDirection: "row",
-        alignItems: "center",
-        paddingHorizontal: theme.spacing.lg,
-        paddingVertical: theme.spacing.md,
-        backgroundColor: theme.colors.surface,
-        borderBottomWidth: 1,
-        borderBottomColor: theme.colors.border,
+      shadowOpacity: 0.1,
+      shadowRadius: 10,
+      elevation: 5,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    statIcon: {
+      marginBottom: theme.spacing.sm,
+    },
+    statValue: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      fontWeight: "700",
+      marginBottom: 2,
+      textAlign: "center",
+    },
+    statLabel: {
+      ...theme.typography.captionSmall,
+      color: theme.colors.textSecondary,
+      textAlign: "center",
+      fontWeight: "600",
+    },
+    searchContainer: {
+      paddingHorizontal: theme.spacing.lg,
+      marginBottom: theme.spacing.md,
+    },
+    searchInput: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: theme.borderRadius.xxl,
+      paddingHorizontal: theme.spacing.lg,
+      paddingVertical: theme.spacing.sm,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      ...theme.typography.body,
+      color: theme.colors.text,
+    } as TextStyle,
+    categoriesContainer: {
+      paddingHorizontal: theme.spacing.lg,
+      marginBottom: theme.spacing.lg,
+    },
+    categoriesScroll: {
+      flexDirection: "row",
+      gap: theme.spacing.sm,
+    },
+    categoryChip: {
+      paddingHorizontal: theme.spacing.lg,
+      paddingVertical: theme.spacing.sm,
+      borderRadius: theme.borderRadius.xxxl,
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    categoryChipActive: {
+      backgroundColor: theme.colors.primary,
+      borderColor: theme.colors.primary,
+    },
+    categoryChipText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      fontWeight: "600",
+    },
+    categoryChipTextActive: {
+      color: "white",
+      fontWeight: "700",
+    },
+    sectionContainer: {
+      paddingHorizontal: theme.spacing.md,
+      marginBottom: theme.spacing.md,
+    },
+    sectionHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: theme.spacing.lg,
+    },
+    sectionTitle: {
+      ...theme.typography.h5,
+      color: theme.colors.text,
+      fontWeight: "700",
+    },
+    viewMoreButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: theme.spacing.xs,
+    },
+    viewMoreText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.primary,
+      fontWeight: "600",
+    },
+    servicesGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      justifyContent: "space-between",
+      gap: theme.spacing.sm,
+    },
+    serviceCard: {
+      width: "48%",
+      backgroundColor: theme.colors.surface,
+      padding: theme.spacing.md,
+      borderRadius: theme.borderRadius.xl,
+      alignItems: "center",
+      shadowColor: "#000",
+      shadowOffset: {
+        width: 0,
+        height: 4,
       },
-      backButton: {
-        padding: theme.spacing.sm,
-        marginRight: theme.spacing.md,
-        borderRadius: theme.borderRadius.lg,
-        backgroundColor: theme.colors.background,
+      shadowOpacity: 0.1,
+      shadowRadius: 10,
+      elevation: 5,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    serviceIcon: {
+      marginBottom: theme.spacing.md,
+    },
+    serviceName: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      fontWeight: "600",
+      textAlign: "center",
+      marginBottom: theme.spacing.sm,
+    },
+    serviceDescription: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      textAlign: "center",
+      marginBottom: theme.spacing.sm,
+    } as TextStyle,
+    serviceCategory: {
+      backgroundColor: theme.colors.primary + "20",
+      paddingHorizontal: theme.spacing.sm,
+      paddingVertical: 2,
+      borderRadius: theme.borderRadius.sm,
+      marginBottom: theme.spacing.sm,
+    },
+    serviceCategoryText: {
+      ...theme.typography.captionSmall,
+      color: theme.colors.primary,
+      fontWeight: "600",
+    },
+    estimatedTime: {
+      backgroundColor: theme.colors.accent + "20",
+      paddingHorizontal: theme.spacing.sm,
+      paddingVertical: 2,
+      borderRadius: theme.borderRadius.sm,
+    },
+    estimatedTimeText: {
+      ...theme.typography.captionSmall,
+      color: theme.colors.accent,
+      fontWeight: "600",
+    },
+    galleryScroll: {
+      paddingRight: theme.spacing.md,
+      gap: theme.spacing.md,
+    },
+    galleryGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      justifyContent: "space-between",
+      gap: theme.spacing.sm,
+    },
+    galleryItem: {
+      width: "48%",
+      marginBottom: theme.spacing.md,
+    },
+    galleryImageContainer: {
+      position: "relative",
+      borderRadius: theme.borderRadius.lg,
+      overflow: "hidden",
+    },
+    galleryImage: {
+      width: "100%",
+      height: 120,
+      borderRadius: theme.borderRadius.lg,
+    },
+    galleryImageOverlay: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: "rgba(0,0,0,0.3)",
+      justifyContent: "center",
+      alignItems: "center",
+      opacity: 0,
+    },
+    galleryZoomIcon: {
+      backgroundColor: "rgba(255,255,255,0.9)",
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.sm,
+    },
+    galleryTitle: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.text,
+      fontWeight: "600",
+      textAlign: "center",
+      marginTop: theme.spacing.sm,
+      lineHeight: 18,
+    } as TextStyle,
+    modalContainer: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,1)",
+    },
+    modalBackdrop: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+    },
+    modalContent: {
+      flex: 1,
+      backgroundColor: "black",
+    },
+    modalHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      padding: theme.spacing.md,
+      backgroundColor: "rgba(0,0,0,0.8)",
+      position: "absolute",
+      top: 50,
+      left: 0,
+      right: 0,
+      zIndex: 1,
+    },
+    modalCloseButton: {
+      padding: theme.spacing.sm,
+      borderRadius: theme.borderRadius.lg,
+      backgroundColor: "rgba(255,255,255,0.2)",
+    },
+    modalImage: {
+      width: Dimensions.get("window").width,
+      height: Dimensions.get("window").height,
+      resizeMode: "contain",
+    },
+    modalTitle: {
+      ...theme.typography.h6,
+      color: "white",
+      fontWeight: "600",
+      flex: 1,
+      marginRight: theme.spacing.md,
+    },
+    helpDocsButton: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: theme.borderRadius.xl,
+      padding: theme.spacing.md,
+      shadowColor: "#000",
+      shadowOffset: {
+        width: 0,
+        height: 4,
       },
-      headerTitle: {
-        ...theme.typography.h5,
-        color: theme.colors.text,
-        fontWeight: "700",
-        flex: 1,
+      shadowOpacity: 0.1,
+      shadowRadius: 10,
+      elevation: 5,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    helpDocsContent: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: theme.spacing.md,
+    },
+    helpDocsIcon: {
+      width: 48,
+      height: 48,
+      borderRadius: theme.borderRadius.lg,
+      backgroundColor: theme.colors.primary + "20",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    helpDocsText: {
+      flex: 1,
+    },
+    helpDocsTitle: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      fontWeight: "600",
+      marginBottom: 4,
+    },
+    helpDocsDescription: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      lineHeight: 18,
+    } as TextStyle,
+    contactCard: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: theme.borderRadius.xl,
+      padding: theme.spacing.md,
+      shadowColor: "#000",
+      shadowOffset: {
+        width: 0,
+        height: 4,
       },
-      scrollContent: {
-        paddingBottom: theme.spacing.md,
-      },
-      heroSection: {
-        position: "relative",
-        height: 200,
-        margin: theme.spacing.md,
-        borderRadius: theme.borderRadius.xl,
-        overflow: "hidden",
-      },
-      heroImage: {
-        width: "100%",
-        height: "100%",
-      },
-      heroOverlay: {
-        position: "absolute",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: "rgba(0,0,0,0.5)",
-        justifyContent: "center",
-        alignItems: "center",
-        padding: theme.spacing.lg,
-      },
-      heroTitle: {
-        ...theme.typography.h4,
-        color: "white",
-        fontWeight: "700",
-        textAlign: "center",
-        marginBottom: theme.spacing.sm,
-      },
-      heroDescription: {
-        ...theme.typography.body,
-        color: "rgba(255,255,255,0.9)",
-        textAlign: "center",
-        lineHeight: 22,
-      } as TextStyle,
-      statusBadge: {
-        position: "absolute",
-        top: theme.spacing.lg,
-        right: theme.spacing.lg,
-        backgroundColor: "#22c55e",
-        paddingHorizontal: theme.spacing.md,
-        paddingVertical: theme.spacing.xs,
-        borderRadius: theme.borderRadius.xxxl,
-      },
-      statusText: {
-        ...theme.typography.captionSmall,
-        color: "white",
-        fontWeight: "700",
-      },
-      statsContainer: {
-        paddingHorizontal: theme.spacing.md,
-        marginBottom: theme.spacing.md,
-      },
-      statsRow: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        gap: theme.spacing.xs,
-      },
-      statCard: {
-        flex: 1,
-        backgroundColor: theme.colors.surface,
-        padding: theme.spacing.sm,
-        borderRadius: theme.borderRadius.lg,
-        alignItems: "center",
-        shadowColor: "#000",
-        shadowOffset: {
-          width: 0,
-          height: 4,
-        },
-        shadowOpacity: 0.1,
-        shadowRadius: 10,
-        elevation: 5,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-      },
-      statIcon: {
-        marginBottom: theme.spacing.sm,
-      },
-      statValue: {
-        ...theme.typography.body,
-        color: theme.colors.text,
-        fontWeight: "700",
-        marginBottom: 2,
-        textAlign: "center",
-      },
-      statLabel: {
-        ...theme.typography.captionSmall,
-        color: theme.colors.textSecondary,
-        textAlign: "center",
-        fontWeight: "600",
-      },
-      searchContainer: {
-        paddingHorizontal: theme.spacing.lg,
-        marginBottom: theme.spacing.md,
-      },
-      searchInput: {
-        backgroundColor: theme.colors.surface,
-        borderRadius: theme.borderRadius.xxl,
-        paddingHorizontal: theme.spacing.lg,
-        paddingVertical: theme.spacing.sm,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-        ...theme.typography.body,
-        color: theme.colors.text,
-      } as TextStyle,
-      categoriesContainer: {
-        paddingHorizontal: theme.spacing.lg,
-        marginBottom: theme.spacing.lg,
-      },
-      categoriesScroll: {
-        flexDirection: "row",
-        gap: theme.spacing.sm,
-      },
-      categoryChip: {
-        paddingHorizontal: theme.spacing.lg,
-        paddingVertical: theme.spacing.sm,
-        borderRadius: theme.borderRadius.xxxl,
-        backgroundColor: theme.colors.surface,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-      },
-      categoryChipActive: {
-        backgroundColor: theme.colors.primary,
-        borderColor: theme.colors.primary,
-      },
-      categoryChipText: {
-        ...theme.typography.bodySmall,
-        color: theme.colors.textSecondary,
-        fontWeight: "600",
-      },
-      categoryChipTextActive: {
-        color: "white",
-        fontWeight: "700",
-      },
-      sectionContainer: {
-        paddingHorizontal: theme.spacing.md,
-        marginBottom: theme.spacing.md,
-      },
-      sectionTitle: {
-        ...theme.typography.h5,
-        color: theme.colors.text,
-        fontWeight: "700",
-        marginBottom: theme.spacing.lg,
-      },
-      servicesGrid: {
-        flexDirection: "row",
-        flexWrap: "wrap",
-        justifyContent: "space-between",
-        gap: theme.spacing.sm,
-      },
-      serviceCard: {
-        width: "48%",
-        backgroundColor: theme.colors.surface,
-        padding: theme.spacing.md,
-        borderRadius: theme.borderRadius.xl,
-        alignItems: "center",
-        shadowColor: "#000",
-        shadowOffset: {
-          width: 0,
-          height: 4,
-        },
-        shadowOpacity: 0.1,
-        shadowRadius: 10,
-        elevation: 5,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-      },
-      serviceIcon: {
-        marginBottom: theme.spacing.md,
-      },
-      serviceName: {
-        ...theme.typography.body,
-        color: theme.colors.text,
-        fontWeight: "600",
-        textAlign: "center",
-        marginBottom: theme.spacing.sm,
-      },
-      serviceDescription: {
-        ...theme.typography.bodySmall,
-        color: theme.colors.textSecondary,
-        textAlign: "center",
-        marginBottom: theme.spacing.sm,
-      } as TextStyle,
-      serviceCategory: {
-        backgroundColor: theme.colors.primary + "20",
-        paddingHorizontal: theme.spacing.sm,
-        paddingVertical: 2,
-        borderRadius: theme.borderRadius.sm,
-        marginBottom: theme.spacing.sm,
-      },
-      serviceCategoryText: {
-        ...theme.typography.captionSmall,
-        color: theme.colors.primary,
-        fontWeight: "600",
-      },
-      estimatedTime: {
-        backgroundColor: theme.colors.accent + "20",
-        paddingHorizontal: theme.spacing.sm,
-        paddingVertical: 2,
-        borderRadius: theme.borderRadius.sm,
-      },
-      estimatedTimeText: {
-        ...theme.typography.captionSmall,
-        color: theme.colors.accent,
-        fontWeight: "600",
-      },
-      knowledgeBaseCard: {
-        backgroundColor: theme.colors.surface,
-        borderRadius: theme.borderRadius.lg,
-        padding: theme.spacing.md,
-        marginBottom: theme.spacing.md,
-        shadowColor: "#000",
-        shadowOffset: {
-          width: 0,
-          height: 4,
-        },
-        shadowOpacity: 0.1,
-        shadowRadius: 10,
-        elevation: 5,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-      },
-      articleTitle: {
-        ...theme.typography.body,
-        color: theme.colors.text,
-        fontWeight: "600",
-        marginBottom: theme.spacing.sm,
-      },
-      articleMeta: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-      },
-      articleCategory: {
-        ...theme.typography.bodySmall,
-        color: theme.colors.primary,
-        fontWeight: "600",
-      },
-      articleStats: {
-        ...theme.typography.bodySmall,
-        color: theme.colors.textSecondary,
-      } as TextStyle,
-      contactCard: {
-        backgroundColor: theme.colors.surface,
-        borderRadius: theme.borderRadius.xl,
-        padding: theme.spacing.md,
-        shadowColor: "#000",
-        shadowOffset: {
-          width: 0,
-          height: 4,
-        },
-        shadowOpacity: 0.1,
-        shadowRadius: 10,
-        elevation: 5,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-      },
-      hoursContainer: {
-        gap: theme.spacing.sm,
-        marginBottom: theme.spacing.lg,
-      },
-      hoursRow: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        paddingVertical: theme.spacing.xs,
-      },
-      dayText: {
-        ...theme.typography.bodySmall,
-        color: theme.colors.text,
-        fontWeight: "600",
-        textTransform: "capitalize",
-      },
-      hoursText: {
-        ...theme.typography.bodySmall,
-        color: theme.colors.textSecondary,
-      } as TextStyle,
-      currentDay: {
-        backgroundColor: theme.colors.primary + "20",
-        paddingHorizontal: theme.spacing.sm,
-        borderRadius: theme.borderRadius.sm,
-      },
-      contactActions: {
-        flexDirection: "row",
-        gap: theme.spacing.md,
-      },
-      contactButton: {
-        flex: 1,
-        backgroundColor: theme.colors.primary,
-        paddingVertical: theme.spacing.md,
-        borderRadius: theme.borderRadius.xxxl,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: theme.spacing.sm,
-      },
-      contactButtonSecondary: {
-        backgroundColor: theme.colors.background,
-        borderWidth: 2,
-        borderColor: theme.colors.border,
-      },
-      contactButtonText: {
-        ...theme.typography.button,
-        color: "white",
-        fontWeight: "600",
-      },
-      contactButtonTextSecondary: {
-        color: theme.colors.text,
-      },
-      noResultsContainer: {
-        alignItems: "center",
-        paddingVertical: theme.spacing.xxl,
-      },
-      noResultsText: {
-        ...theme.typography.body,
-        color: theme.colors.textSecondary,
-        textAlign: "center",
-      } as TextStyle,
-    });
+      shadowOpacity: 0.1,
+      shadowRadius: 10,
+      elevation: 5,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    hoursContainer: {
+      gap: theme.spacing.sm,
+      marginBottom: theme.spacing.lg,
+    },
+    hoursRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      paddingVertical: theme.spacing.xs,
+    },
+    dayText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.text,
+      fontWeight: "600",
+      textTransform: "capitalize",
+    },
+    hoursText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+    } as TextStyle,
+    currentDay: {
+      backgroundColor: theme.colors.primary + "20",
+      paddingHorizontal: theme.spacing.sm,
+      borderRadius: theme.borderRadius.sm,
+    },
+    contactActions: {
+      flexDirection: "row",
+      gap: theme.spacing.md,
+    },
+    contactButton: {
+      flex: 1,
+      backgroundColor: theme.colors.primary,
+      paddingVertical: theme.spacing.md,
+      borderRadius: theme.borderRadius.xxxl,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: theme.spacing.sm,
+    },
+    contactButtonSecondary: {
+      backgroundColor: theme.colors.background,
+      borderWidth: 2,
+      borderColor: theme.colors.border,
+    },
+    contactButtonText: {
+      ...theme.typography.button,
+      color: "white",
+      fontWeight: "600",
+    },
+    contactButtonTextSecondary: {
+      color: theme.colors.text,
+    },
+    noResultsContainer: {
+      alignItems: "center",
+      paddingVertical: theme.spacing.xxl,
+    },
+    noResultsText: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      textAlign: "center",
+    } as TextStyle,
+  });
 
   return (
     <SafeAreaView style={styles.container}>
@@ -786,22 +949,84 @@ export default function ITSupportScreen() {
         </View>
 
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Knowledge Base</Text>
-          {knowledgeBase.map((article) => (
-            <TouchableOpacity
-              key={article.id}
-              style={styles.knowledgeBaseCard}
-              onPress={() => handleKnowledgeBasePress(article.id)}
-            >
-              <Text style={styles.articleTitle}>{article.title}</Text>
-              <View style={styles.articleMeta}>
-                <Text style={styles.articleCategory}>{article.category}</Text>
-                <Text style={styles.articleStats}>
-                  {article.views} views • {article.helpful}% helpful
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Gallery</Text>
+            {!showAllImages && galleryImages.length > 2 && (
+              <TouchableOpacity
+                style={styles.viewMoreButton}
+                onPress={() => setShowAllImages(true)}
+              >
+                <Text style={styles.viewMoreText}>
+                  View More ({galleryImages.length - 2})
+                </Text>
+                <ChevronRight color={theme.colors.primary} size={16} />
+              </TouchableOpacity>
+            )}
+            {showAllImages && (
+              <TouchableOpacity
+                style={styles.viewMoreButton}
+                onPress={() => setShowAllImages(false)}
+              >
+                <Text style={styles.viewMoreText}>Show Less</Text>
+                <ChevronRight
+                  color={theme.colors.primary}
+                  size={16}
+                  style={{ transform: [{ rotate: "270deg" }] }}
+                />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <View style={styles.galleryGrid}>
+            {displayedImages.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                style={styles.galleryItem}
+                onPress={() => handleImagePress(item)}
+                activeOpacity={0.8}
+              >
+                <View style={styles.galleryImageContainer}>
+                  <Image
+                    source={item.image}
+                    style={styles.galleryImage}
+                    resizeMode="cover"
+                  />
+                  <View style={styles.galleryImageOverlay}>
+                    <View style={styles.galleryZoomIcon}>
+                      <ZoomIn color={theme.colors.text} size={20} />
+                    </View>
+                  </View>
+                </View>
+                <Text style={styles.galleryTitle}>{item.title}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.sectionContainer}>
+          <Text style={styles.sectionTitle}>Help Documentation</Text>
+          <TouchableOpacity
+            style={styles.helpDocsButton}
+            onPress={handleHelpDocsPress}
+          >
+            <View style={styles.helpDocsContent}>
+              <View style={styles.helpDocsIcon}>
+                <Mail color={theme.colors.primary} size={24} />
+              </View>
+              <View style={styles.helpDocsText}>
+                <Text style={styles.helpDocsTitle}>Browse Help Articles</Text>
+                <Text style={styles.helpDocsDescription}>
+                  Access our comprehensive knowledge base with step-by-step
+                  guides and FAQs
                 </Text>
               </View>
-            </TouchableOpacity>
-          ))}
+              <ArrowLeft
+                color={theme.colors.textSecondary}
+                size={20}
+                style={{ transform: [{ rotate: "180deg" }] }}
+              />
+            </View>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.sectionContainer}>
@@ -851,6 +1076,39 @@ export default function ITSupportScreen() {
           </View>
         </View>
       </ScrollView>
+
+      <Modal
+        visible={modalVisible}
+        transparent={false}
+        animationType="fade"
+        onRequestClose={closeModal}
+      >
+        <View style={styles.modalContainer}>
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            onPress={closeModal}
+            activeOpacity={1}
+          />
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>
+              {selectedImage?.title || "Gallery Image"}
+            </Text>
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={closeModal}
+            >
+              <X color="white" size={24} />
+            </TouchableOpacity>
+          </View>
+          {selectedImage && (
+            <Image
+              source={selectedImage.image}
+              style={styles.modalImage}
+              resizeMode="contain"
+            />
+          )}
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
