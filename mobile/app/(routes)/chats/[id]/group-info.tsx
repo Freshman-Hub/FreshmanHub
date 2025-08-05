@@ -20,6 +20,7 @@ import {
   Flag,
   Settings,
   Edit,
+  EyeOff,
 } from "lucide-react-native";
 import { Avatar } from "@/components/chats/Avatar";
 import { MemberActionModal } from "@/components/chats/MemberActionModal";
@@ -46,6 +47,7 @@ interface GroupMember {
   avatar: string | null;
   isAdmin: boolean;
   isCurrentUser: boolean;
+  isAnonymous?: boolean; // For anonymous members
 }
 
 interface GroupData {
@@ -57,6 +59,7 @@ interface GroupData {
   createdAt: string;
   description: string;
   members: GroupMember[];
+  isAnonymous: boolean; // Group-level anonymous flag
 }
 
 export default function GroupInfoScreen() {
@@ -79,7 +82,7 @@ export default function GroupInfoScreen() {
 
   useEffect(() => {
     loadGroupData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupId, client, isConnected]);
 
   const loadGroupData = async () => {
@@ -95,6 +98,10 @@ export default function GroupInfoScreen() {
       const members = Object.values(streamChannel.state.members || {});
       const channelData = streamChannel.data as any;
 
+      // Check if group is anonymous
+      const isAnonymousGroup =
+        channelData?.anonymous || channelData?.isAnonymous || false;
+
       // Get display name and avatar
       const displayName = getChannelDisplayName(
         streamChannel,
@@ -102,9 +109,11 @@ export default function GroupInfoScreen() {
       );
       const avatar = getChannelAvatar(streamChannel, client.userID || "");
 
-      // FIXED: Get creator name directly from created_by object
+      // FIXED: Handle anonymous group creator
       let createdBy = "Someone";
-      if (channelData?.created_by?.id === user?.id) {
+      if (isAnonymousGroup) {
+        createdBy = "Anonymous"; // Don't reveal creator in anonymous groups
+      } else if (channelData?.created_by?.id === user?.id) {
         createdBy = "You";
       } else if (channelData?.created_by?.name) {
         createdBy = channelData.created_by.name;
@@ -112,23 +121,49 @@ export default function GroupInfoScreen() {
         createdBy = `User ${channelData.created_by.id.slice(0, 8)}`;
       }
 
-      // Format members
+      // Format members with anonymous handling
       const formattedMembers: GroupMember[] = members.map((member: any) => {
         const isCurrentUser = member.user_id === user?.id;
-        const memberName = isCurrentUser
-          ? "You"
-          : member.user?.name || `User ${member.user_id.slice(0, 8)}`;
+
+        let memberName: string;
+        let memberSubtitle: string = "";
+        let memberAvatar: string | null = null;
+
+        if (isAnonymousGroup) {
+          // For anonymous groups, only show current user's identity
+          if (isCurrentUser) {
+            memberName = "You";
+            memberSubtitle = user?.bio || "";
+            memberAvatar = user?.profileImage || null;
+          } else {
+            // Anonymous members get generic names
+            const memberIndex = members.findIndex(
+              (m) => m.user_id === member.user_id
+            );
+            memberName = `Anonymous ${memberIndex + 1}`;
+            memberSubtitle = "Anonymous member";
+            memberAvatar = null; // No avatar for anonymous members
+          }
+        } else {
+          // Regular group - show normal member info
+          memberName = isCurrentUser
+            ? "You"
+            : member.user?.name || `User ${member.user_id.slice(0, 8)}`;
+          memberSubtitle = member.user?.bio || "";
+          memberAvatar = member.user?.image || null;
+        }
 
         return {
           id: member.user_id,
           name: memberName,
-          subtitle: member.user?.bio || "",
-          avatar: member.user?.image || null,
+          subtitle: memberSubtitle,
+          avatar: memberAvatar,
           isAdmin:
             member.role === "admin" ||
             member.role === "owner" ||
             member.user_id === channelData?.created_by?.id,
           isCurrentUser,
+          isAnonymous: isAnonymousGroup && !isCurrentUser,
         };
       });
 
@@ -137,6 +172,11 @@ export default function GroupInfoScreen() {
         // Put current user first
         if (a.isCurrentUser) return -1;
         if (b.isCurrentUser) return 1;
+
+        // For anonymous groups, sort by anonymous name
+        if (isAnonymousGroup) {
+          return a.name.localeCompare(b.name);
+        }
 
         // Sort others alphabetically
         return a.name.localeCompare(b.name);
@@ -162,6 +202,13 @@ export default function GroupInfoScreen() {
         createdAt: createdAt,
         description: channelData?.description || "",
         members: sortedMembers,
+        isAnonymous: isAnonymousGroup,
+      });
+
+      console.log("🔍 Group data loaded:", {
+        isAnonymous: isAnonymousGroup,
+        memberCount: members.length,
+        displayName,
       });
     } catch (error) {
       console.error("❌ Error loading group data:", error);
@@ -170,11 +217,41 @@ export default function GroupInfoScreen() {
     }
   };
 
-  const handleAddMembers = () => {
-    router.push(`/(routes)/chats/${groupId}/add-members`);
+  const handleAddMembers = async () => {
+    if (!channel) return;
+
+    try {
+      // Get existing group members to pass as disabled
+      const existingMembers = Object.keys(channel.state.members || {});
+
+      // Navigate directly to select contact with add-members mode
+      router.push({
+        pathname: "/(routes)/chats/select-contact",
+        params: {
+          mode: "add-members",
+          groupId: groupId,
+          existingMembers: JSON.stringify(existingMembers),
+        },
+      });
+    } catch (error) {
+      console.error("❌ Error getting group members:", error);
+      // Navigate anyway, just without existing members list
+      router.push({
+        pathname: "/(routes)/chats/select-contact",
+        params: {
+          mode: "add-members",
+          groupId: groupId,
+          existingMembers: JSON.stringify([]),
+        },
+      });
+    }
   };
 
   const handleMemberPress = (member: GroupMember) => {
+    // Don't allow actions on anonymous members (except yourself)
+    if (member.isAnonymous && !member.isCurrentUser) {
+      return;
+    }
     setSelectedMember(member);
     setShowMemberModal(true);
   };
@@ -213,10 +290,6 @@ export default function GroupInfoScreen() {
     } catch (error) {
       console.error("❌ Failed to change group name:", error);
     }
-  };
-
-  const handleAddDescription = () => {
-    setShowDescriptionModal(true);
   };
 
   const handleSaveDescription = async (newDescription: string) => {
@@ -319,11 +392,28 @@ export default function GroupInfoScreen() {
       color: theme.colors.text,
       fontWeight: "600",
       marginBottom: theme.spacing.xs,
+      textAlign: "center",
     },
     groupSubtitle: {
       ...theme.typography.bodySmall,
       color: theme.colors.textSecondary,
       fontWeight: "500",
+      textAlign: "center",
+    },
+    anonymousBadge: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: theme.colors.primary + "20",
+      paddingHorizontal: theme.spacing.sm,
+      paddingVertical: theme.spacing.xs,
+      borderRadius: theme.spacing.md,
+      marginTop: theme.spacing.sm,
+    },
+    anonymousBadgeText: {
+      ...theme.typography.captionSmall,
+      color: theme.colors.primary,
+      fontWeight: "600",
+      marginLeft: theme.spacing.xs,
     },
     descriptionSection: {
       paddingHorizontal: theme.spacing.md,
@@ -367,6 +457,10 @@ export default function GroupInfoScreen() {
       alignItems: "center",
       paddingHorizontal: theme.spacing.md,
       paddingVertical: theme.spacing.md,
+      opacity: 1,
+    },
+    anonymousMemberItem: {
+      opacity: 0.7, // Slightly faded for anonymous members
     },
     memberAvatar: {
       marginRight: theme.spacing.md,
@@ -378,6 +472,10 @@ export default function GroupInfoScreen() {
       ...theme.typography.body,
       color: theme.colors.text,
       fontWeight: "500",
+    },
+    anonymousMemberName: {
+      fontStyle: "italic",
+      color: theme.colors.textSecondary,
     },
     memberSubtitle: {
       ...theme.typography.bodySmall,
@@ -456,7 +554,7 @@ export default function GroupInfoScreen() {
               source={groupData.avatar}
               name={groupData.name}
               size={32}
-              type="group"
+              type={groupData.isAnonymous ? "anonymous" : "group"}
             />
           </View>
           <Text style={styles.headerTitle}>{groupData.name}</Text>
@@ -477,25 +575,40 @@ export default function GroupInfoScreen() {
               source={groupData.avatar}
               name={groupData.name}
               size={120}
-              type="group"
+              type={groupData.isAnonymous ? "anonymous" : "group"}
             />
           </View>
           <Text style={styles.groupName}>{groupData.name}</Text>
           <Text style={styles.groupSubtitle}>
             Group • {groupData.memberCount} members
           </Text>
+
+          {/* Anonymous Group Badge */}
+          {groupData.isAnonymous && (
+            <View style={styles.anonymousBadge}>
+              <EyeOff size={14} color={theme.colors.primary} />
+              <Text style={styles.anonymousBadgeText}>Anonymous Group</Text>
+            </View>
+          )}
         </View>
 
         {/* Description Section */}
         <View style={styles.descriptionSection}>
-          <TouchableOpacity onPress={handleAddDescription}>
-            <Text style={styles.addDescription}>
-              {groupData.description || "Add group description"}
-            </Text>
-          </TouchableOpacity>
+          {groupData.description ? (
+            <Text style={styles.addDescription}>{groupData.description}</Text>
+          ) : (
+            <TouchableOpacity onPress={() => setShowDescriptionModal(true)}>
+              <Text style={styles.addDescription}>Add group description</Text>
+            </TouchableOpacity>
+          )}
           <Text style={styles.createdBy}>
             Created by {groupData.createdBy}, {groupData.createdAt}
           </Text>
+          {groupData.isAnonymous && (
+            <Text style={[styles.createdBy, { marginTop: theme.spacing.xs }]}>
+              Member identities are hidden in this group
+            </Text>
+          )}
         </View>
 
         {/* Members Section */}
@@ -504,12 +617,14 @@ export default function GroupInfoScreen() {
             <Text style={styles.membersTitle}>
               {groupData.memberCount} members
             </Text>
-            <TouchableOpacity
-              style={styles.searchButton}
-              onPress={handleSearchMembers}
-            >
-              <Search size={20} color={theme.colors.textSecondary} />
-            </TouchableOpacity>
+            {!groupData.isAnonymous && (
+              <TouchableOpacity
+                style={styles.searchButton}
+                onPress={handleSearchMembers}
+              >
+                <Search size={20} color={theme.colors.textSecondary} />
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Add Members Button */}
@@ -540,21 +655,35 @@ export default function GroupInfoScreen() {
           {groupData.members.map((member) => (
             <TouchableOpacity
               key={member.id}
-              style={styles.memberItem}
+              style={[
+                styles.memberItem,
+                member.isAnonymous && styles.anonymousMemberItem,
+              ]}
               onPress={() => handleMemberPress(member)}
+              disabled={member.isAnonymous && !member.isCurrentUser}
             >
               <View style={styles.memberAvatar}>
                 <Avatar
                   source={member.avatar}
                   name={member.name}
                   size={40}
-                  type="direct"
+                  type={member.isAnonymous ? "anonymous" : "direct"}
                 />
               </View>
               <View style={styles.memberContent}>
-                <Text style={styles.memberName}>{member.name}</Text>
-                {member.subtitle && (
+                <Text
+                  style={[
+                    styles.memberName,
+                    member.isAnonymous && styles.anonymousMemberName,
+                  ]}
+                >
+                  {member.name}
+                </Text>
+                {member.subtitle && !member.isAnonymous && (
                   <Text style={styles.memberSubtitle}>{member.subtitle}</Text>
+                )}
+                {member.isAnonymous && !member.isCurrentUser && (
+                  <Text style={styles.memberSubtitle}>Anonymous member</Text>
                 )}
               </View>
               {member.isAdmin && (
