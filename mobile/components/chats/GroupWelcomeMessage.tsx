@@ -8,6 +8,7 @@ interface GroupWelcomeMessageProps {
   groupName: string;
   memberCount: number;
   createdBy: string;
+  isAnonymous: boolean;
 }
 
 export function GroupWelcomeMessage({
