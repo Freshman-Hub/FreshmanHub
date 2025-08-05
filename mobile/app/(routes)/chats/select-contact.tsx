@@ -7,6 +7,7 @@ import {
 import { useStreamChat } from "@/contexts/StreamChatContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useUser } from "@/contexts/UserContext";
+import { StreamChatService } from "@/services/stream-chat.service";
 import { UserService } from "@/services/user.service";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -26,6 +27,8 @@ import {
 } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   ScrollView,
   StyleSheet,
   Switch,
@@ -33,8 +36,6 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  ActivityIndicator,
-  Alert,
 } from "react-native";
 
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
@@ -44,7 +45,16 @@ const CONTACTS_CACHE_KEY = "cached_contacts";
 const CONTACTS_CACHE_TIMESTAMP_KEY = "cached_contacts_timestamp";
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
 
-type SelectMode = "chat" | "group" | "broadcast" | "community";
+type SelectMode = "chat" | "group" | "broadcast" | "community" | "add-members";
+
+interface Contact {
+  id: string;
+  name: string;
+  subtitle: string;
+  avatar: string | null;
+  type: string;
+  disabled?: boolean;
+}
 
 export default function SelectContactScreen() {
   const { theme } = useTheme();
@@ -60,9 +70,13 @@ export default function SelectContactScreen() {
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
   const [isAnonymous, setIsAnonymous] = useState(false);
-  const [contacts, setContacts] = useState<any[]>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+
+  // Add-members specific state
+  const [existingMembers, setExistingMembers] = useState<string[]>([]);
+  const [groupId, setGroupId] = useState<string | null>(null);
 
   // Function to refresh contacts from Firebase
   const refreshContacts = async () => {
@@ -83,14 +97,19 @@ export default function SelectContactScreen() {
         return;
       }
 
-      const contactsList = [
-        {
-          id: "self",
-          name: `${user?.firstName} ${user?.lastName} (You)`,
-          subtitle: "Message yourself",
-          avatar: user?.profileImage || null,
-          type: "self",
-        },
+      const contactsList: Contact[] = [
+        // Don't show "self" for add-members mode
+        ...(mode !== "add-members"
+          ? [
+              {
+                id: "self",
+                name: `${user?.firstName} ${user?.lastName} (You)`,
+                subtitle: "Message yourself",
+                avatar: user?.profileImage || null,
+                type: "self",
+              },
+            ]
+          : []),
         ...users
           .filter((u) => u.id !== user?.id)
           .map((u) => ({
@@ -99,6 +118,8 @@ export default function SelectContactScreen() {
             subtitle: u.bio || u.role || "",
             avatar: u.profileImage || null,
             type: "contact",
+            // Mark existing members as disabled for add-members mode
+            disabled: mode === "add-members" && existingMembers.includes(u.id),
           })),
       ];
 
@@ -120,14 +141,42 @@ export default function SelectContactScreen() {
     }
   };
 
-  // Load contacts on component mount
+  // Fix the useEffect dependency and logic
   useEffect(() => {
     let isMounted = true;
     setLoading(true);
 
+    // Handle add-members mode parameters FIRST
+    const setupAddMembersMode = () => {
+      if (mode === "add-members") {
+        const existingMembersParam = params.existingMembers as string;
+        const groupIdParam = params.groupId as string;
+
+        if (existingMembersParam) {
+          try {
+            const membersList = JSON.parse(existingMembersParam);
+            setExistingMembers(membersList);
+            return membersList; // Return for immediate use
+          } catch (error) {
+            console.error("Error parsing existing members:", error);
+            setExistingMembers([]);
+            return [];
+          }
+        }
+
+        if (groupIdParam) {
+          setGroupId(groupIdParam);
+        }
+      }
+      return [];
+    };
+
+    // Get existing members immediately
+    const currentExistingMembers = setupAddMembersMode();
+
     const loadContacts = async () => {
       try {
-        // Check if we have cached contacts
+        // Check cached contacts
         const cachedContacts = await AsyncStorage.getItem(CONTACTS_CACHE_KEY);
         const cacheTimestamp = await AsyncStorage.getItem(
           CONTACTS_CACHE_TIMESTAMP_KEY
@@ -139,7 +188,18 @@ export default function SelectContactScreen() {
 
         if (cachedContacts && isCacheValid) {
           console.log("✅ Using cached contacts");
-          const contactsList = JSON.parse(cachedContacts);
+          let contactsList = JSON.parse(cachedContacts);
+
+          // Apply add-members mode filtering with CURRENT existing members
+          if (mode === "add-members") {
+            contactsList = contactsList
+              .filter((contact: Contact) => contact.type !== "self")
+              .map((contact: Contact) => ({
+                ...contact,
+                disabled: currentExistingMembers.includes(contact.id),
+              }));
+          }
+
           if (isMounted) {
             setContacts(contactsList);
             setLoading(false);
@@ -147,7 +207,7 @@ export default function SelectContactScreen() {
           return;
         }
 
-        // Fetch fresh contacts from UserService
+        // Fetch fresh contacts
         const { users, error } = await UserService.getAllUsers();
 
         if (error) {
@@ -160,14 +220,19 @@ export default function SelectContactScreen() {
         }
 
         if (isMounted && users.length > 0) {
-          const contactsList = [
-            {
-              id: "self",
-              name: `${user?.firstName} ${user?.lastName} (You)`,
-              subtitle: "Message yourself",
-              avatar: user?.profileImage || null,
-              type: "self",
-            },
+          const contactsList: Contact[] = [
+            // Don't show "self" for add-members mode
+            ...(mode !== "add-members"
+              ? [
+                  {
+                    id: "self",
+                    name: `${user?.firstName} ${user?.lastName} (You)`,
+                    subtitle: "Message yourself",
+                    avatar: user?.profileImage || null,
+                    type: "self",
+                  },
+                ]
+              : []),
             ...users
               .filter((u) => u.id !== user?.id)
               .map((u) => ({
@@ -176,6 +241,10 @@ export default function SelectContactScreen() {
                 subtitle: u.bio || u.role || "",
                 avatar: u.profileImage || null,
                 type: "contact",
+                // Use current existing members, not state
+                disabled:
+                  mode === "add-members" &&
+                  currentExistingMembers.includes(u.id),
               })),
           ];
 
@@ -210,10 +279,14 @@ export default function SelectContactScreen() {
     return () => {
       isMounted = false;
     };
-  }, [user]);
+    // Fix dependency array - use the actual params instead of state
+  }, [user, mode, params.existingMembers, params.groupId]);
 
   const isMultiSelect =
-    mode === "group" || mode === "broadcast" || mode === "community";
+    mode === "group" ||
+    mode === "broadcast" ||
+    mode === "community" ||
+    mode === "add-members";
 
   const quickActions = [
     {
@@ -256,9 +329,14 @@ export default function SelectContactScreen() {
   const regularContacts = filteredContacts.filter(
     (contact) => contact.type === "contact" || contact.type === "self"
   );
-  // Fix handleContactPress to check for existing channels first:
 
   const handleContactPress = async (contactId: string) => {
+    // Find contact to check if disabled
+    const contact = contacts.find((c) => c.id === contactId);
+    if (contact?.disabled) {
+      return; // Don't allow selection of disabled contacts
+    }
+
     if (isMultiSelect) {
       setSelectedContacts((prev) =>
         prev.includes(contactId)
@@ -358,8 +436,52 @@ export default function SelectContactScreen() {
 
     try {
       switch (mode) {
+        case "add-members":
+          // Debug: Log the values to see what's missing
+          console.log("🔍 Add members debug:", {
+            groupId,
+            groupIdFromParams: params.groupId,
+            client: !!client,
+            isConnected,
+            selectedContacts,
+          });
+
+          // Use groupId from params as fallback
+          const targetGroupId = groupId || (params.groupId as string);
+
+          if (!targetGroupId || !client || !isConnected) {
+            console.error("❌ Missing required data:", {
+              groupId: targetGroupId,
+              client: !!client,
+              isConnected,
+            });
+            throw new Error(
+              `Missing required data: groupId=${!!targetGroupId}, client=${!!client}, connected=${isConnected}`
+            );
+          }
+
+          console.log("🔄 Adding members to group:", {
+            groupId: targetGroupId,
+            members: selectedContacts,
+          });
+
+          // Get the group channel
+          const channel = await StreamChatService.getChannel(
+            "team",
+            targetGroupId
+          );
+
+          // Add members to the group
+          await StreamChatService.addMembersToGroup(channel, selectedContacts);
+
+          console.log("✅ Members added successfully");
+
+          // Navigate back to group chat
+          router.replace(`/(routes)/chats/${targetGroupId}`);
+          break;
+
         case "group":
-          router.push({
+          router.replace({
             pathname: "/(routes)/chats/create-group/details",
             params: {
               selectedContacts: JSON.stringify(selectedContacts),
@@ -367,10 +489,12 @@ export default function SelectContactScreen() {
             },
           });
           break;
+
         case "broadcast":
           // TODO: Implement broadcast creation
           console.log("Create broadcast with:", selectedContacts);
           break;
+
         case "community":
           // TODO: Implement community creation
           console.log("Create community with:", selectedContacts);
@@ -378,7 +502,11 @@ export default function SelectContactScreen() {
       }
     } catch (error) {
       console.error("Error in handleNext:", error);
-      Alert.alert("Error", "Failed to proceed");
+      const errorMessage =
+        typeof error === "object" && error !== null && "message" in error
+          ? (error as { message?: string }).message
+          : String(error);
+      Alert.alert("Error", `Failed to proceed: ${errorMessage}`);
     } finally {
       setCreating(false);
     }
@@ -401,6 +529,8 @@ export default function SelectContactScreen() {
     switch (mode) {
       case "group":
         return "New group";
+      case "add-members":
+        return "Add members";
       case "broadcast":
         return "New broadcast";
       case "community":
@@ -416,7 +546,7 @@ export default function SelectContactScreen() {
       : "Chat features limited";
 
     if (isMultiSelect) {
-      return `${selectedContacts.length} of ${filteredContacts.length} selected • ${chatStatus}`;
+      return `${selectedContacts.length} of ${filteredContacts.filter((c) => !c.disabled).length} selected • ${chatStatus}`;
     }
     return `${filteredContacts.length} contacts • ${chatStatus}`;
   };
@@ -551,6 +681,9 @@ export default function SelectContactScreen() {
       paddingVertical: theme.spacing.md,
       backgroundColor: theme.colors.background,
     },
+    disabledContactItem: {
+      opacity: 0.5,
+    },
     contactContent: {
       flex: 1,
       marginLeft: theme.spacing.md,
@@ -565,6 +698,12 @@ export default function SelectContactScreen() {
       color: theme.colors.textSecondary,
       marginTop: 2,
       fontWeight: "500",
+    },
+    disabledText: {
+      color: theme.colors.textSecondary,
+    },
+    disabledAvatar: {
+      opacity: 0.6,
     },
     checkmark: {
       width: 24,
@@ -595,6 +734,22 @@ export default function SelectContactScreen() {
       },
       shadowOpacity: 0.3,
       shadowRadius: 8,
+    },
+    fabBadge: {
+      position: "absolute",
+      top: -5,
+      right: -5,
+      backgroundColor: theme.colors.accent || "#FF6B6B",
+      borderRadius: 10,
+      minWidth: 20,
+      height: 20,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    fabBadgeText: {
+      color: "white",
+      fontSize: 12,
+      fontWeight: "600",
     },
     anonymousToggle: {
       flexDirection: "row",
@@ -822,29 +977,50 @@ export default function SelectContactScreen() {
                 {frequentContacts.map((contact) => (
                   <TouchableOpacity
                     key={contact.id}
-                    style={styles.contactItem}
+                    style={[
+                      styles.contactItem,
+                      contact.disabled && styles.disabledContactItem,
+                    ]}
                     onPress={() => handleContactPress(contact.id)}
-                    disabled={creating}
+                    disabled={creating || contact.disabled}
                   >
-                    <Avatar
-                      source={contact.avatar}
-                      name={contact.name}
-                      size={40}
-                      type="direct"
-                    />
+                    <View style={contact.disabled && styles.disabledAvatar}>
+                      <Avatar
+                        source={contact.avatar}
+                        name={contact.name}
+                        size={40}
+                        type="direct"
+                      />
+                    </View>
                     <View style={styles.contactContent}>
-                      <Text style={styles.contactName}>{contact.name}</Text>
+                      <Text
+                        style={[
+                          styles.contactName,
+                          contact.disabled && styles.disabledText,
+                        ]}
+                      >
+                        {contact.name}
+                      </Text>
                       {contact.subtitle && (
-                        <Text style={styles.contactSubtitle}>
-                          {contact.subtitle}
+                        <Text
+                          style={[
+                            styles.contactSubtitle,
+                            contact.disabled && styles.disabledText,
+                          ]}
+                        >
+                          {contact.disabled
+                            ? "Already in group"
+                            : contact.subtitle}
                         </Text>
                       )}
                     </View>
-                    {isMultiSelect && selectedContacts.includes(contact.id) && (
-                      <View style={styles.checkmark}>
-                        <Check size={16} color="white" />
-                      </View>
-                    )}
+                    {isMultiSelect &&
+                      selectedContacts.includes(contact.id) &&
+                      !contact.disabled && (
+                        <View style={styles.checkmark}>
+                          <Check size={16} color="white" />
+                        </View>
+                      )}
                   </TouchableOpacity>
                 ))}
               </>
@@ -852,16 +1028,23 @@ export default function SelectContactScreen() {
 
             {/* Section Header */}
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Contacts on Freshman Hub</Text>
+              <Text style={styles.sectionTitle}>
+                {mode === "add-members"
+                  ? "Available contacts"
+                  : "Contacts on Freshman Hub"}
+              </Text>
             </View>
 
             {/* Contacts List */}
             {regularContacts.map((contact) => (
               <TouchableOpacity
                 key={contact.id}
-                style={styles.contactItem}
+                style={[
+                  styles.contactItem,
+                  contact.disabled && styles.disabledContactItem,
+                ]}
                 onPress={() => handleContactPress(contact.id)}
-                disabled={creating}
+                disabled={creating || contact.disabled}
               >
                 <Avatar
                   source={contact.avatar}
@@ -870,18 +1053,32 @@ export default function SelectContactScreen() {
                   type={contact.type === "self" ? "direct" : "direct"}
                 />
                 <View style={styles.contactContent}>
-                  <Text style={styles.contactName}>{contact.name}</Text>
+                  <Text
+                    style={[
+                      styles.contactName,
+                      contact.disabled && styles.disabledText,
+                    ]}
+                  >
+                    {contact.name}
+                  </Text>
                   {contact.subtitle && (
-                    <Text style={styles.contactSubtitle}>
-                      {contact.subtitle}
+                    <Text
+                      style={[
+                        styles.contactSubtitle,
+                        contact.disabled && styles.disabledText,
+                      ]}
+                    >
+                      {contact.disabled ? "Already in group" : contact.subtitle}
                     </Text>
                   )}
                 </View>
-                {isMultiSelect && selectedContacts.includes(contact.id) && (
-                  <View style={styles.checkmark}>
-                    <Check size={16} color="white" />
-                  </View>
-                )}
+                {isMultiSelect &&
+                  selectedContacts.includes(contact.id) &&
+                  !contact.disabled && (
+                    <View style={styles.checkmark}>
+                      <Check size={16} color="white" />
+                    </View>
+                  )}
               </TouchableOpacity>
             ))}
 
@@ -889,7 +1086,11 @@ export default function SelectContactScreen() {
             {regularContacts.length === 0 && (
               <View style={styles.emptyContainer}>
                 <Text style={styles.emptyText}>
-                  {searchQuery ? "No contacts found" : "No contacts available"}
+                  {searchQuery
+                    ? "No contacts found"
+                    : mode === "add-members"
+                      ? "All available contacts are already in this group"
+                      : "No contacts available"}
                 </Text>
               </View>
             )}
@@ -905,7 +1106,14 @@ export default function SelectContactScreen() {
               {creating ? (
                 <ActivityIndicator size="small" color="white" />
               ) : (
-                <ArrowRight size={24} color="white" />
+                <>
+                  <ArrowRight size={24} color="white" />
+                  <View style={styles.fabBadge}>
+                    <Text style={styles.fabBadgeText}>
+                      {selectedContacts.length}
+                    </Text>
+                  </View>
+                </>
               )}
             </TouchableOpacity>
           )}
@@ -924,7 +1132,11 @@ export default function SelectContactScreen() {
             <View style={styles.loadingOverlay}>
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color={theme.colors.primary} />
-                <Text style={styles.loadingText}>Creating chat...</Text>
+                <Text style={styles.loadingText}>
+                  {mode === "add-members"
+                    ? "Adding members..."
+                    : "Creating chat..."}
+                </Text>
               </View>
             </View>
           )}
