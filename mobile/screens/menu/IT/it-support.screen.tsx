@@ -22,9 +22,9 @@ import {
   Shield,
   Settings,
   Phone,
-  Clock,
-  CircleCheck as CheckCircle,
-  Wrench,
+  // Clock,
+  // CircleCheck as CheckCircle,
+  // Wrench,
   Bed,
   Droplets,
   Zap,
@@ -37,14 +37,13 @@ import { useTheme } from "@/contexts/ThemeContext";
 const supportCenter = {
   name: "Ashesi Support Center",
   description:
-    "Comprehensive support center managing IT services, hostel operations, maintenance, and all campus support needs for students, faculty, and staff.",
-  image:
-    "https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=400",
-  location: "Student Center, 2nd Floor",
-  phone: "+233 30 610 360",
-  email: "support@ashesi.edu.gh",
+    "The Ashesi Support Centre helps students with all technology-related issues on campus. From setting up email accounts and fixing Wi-Fi problems to assisting with laptops and school platforms like Outlook or Canvas.",
+  image: require("../../../assets/menu/support-center.png"),
+  location: "Support Center",
+  phone: "+233 302 610 330",
+  email: "supportcentre@ashesi.edu.gh",
   hours: {
-    monday: "8:00 AM - 6:00 PM",
+    monday: "5:00 AM - 6:00 PM",
     tuesday: "8:00 AM - 6:00 PM",
     wednesday: "8:00 AM - 6:00 PM",
     thursday: "8:00 AM - 6:00 PM",
@@ -142,22 +141,22 @@ const supportServices = [
   },
 ];
 
-const quickStats = [
-  { label: "Response Time", value: "15 min", icon: Clock, color: "#3b82f6" },
-  {
-    label: "Issues Resolved",
-    value: "18",
-    icon: CheckCircle,
-    color: "#22c55e",
-  },
-  {
-    label: "Support Rating",
-    value: "4.8★",
-    icon: CheckCircle,
-    color: "#7c3aed",
-  },
-  { label: "Available Services", value: "8", icon: Wrench, color: "#f59e0b" },
-];
+// const quickStats = [
+//   { label: "Response Time", value: "15 min", icon: Clock, color: "#3b82f6" },
+//   {
+//     label: "Issues Resolved",
+//     value: "18",
+//     icon: CheckCircle,
+//     color: "#22c55e",
+//   },
+//   {
+//     label: "Support Rating",
+//     value: "4.8★",
+//     icon: CheckCircle,
+//     color: "#7c3aed",
+//   },
+//   { label: "Available Services", value: "8", icon: Wrench, color: "#f59e0b" },
+// ];
 
 const knowledgeBase = [
   {
@@ -217,7 +216,7 @@ export default function ITSupportScreen() {
   };
 
   const handleKnowledgeBasePress = (articleId: number) => {
-    console.log("Opening knowledge base article:", articleId);
+    Linking.openURL(`https://ashesi.helpscoutdocs.com/`);
   };
 
   const getCurrentDay = () => {
@@ -669,7 +668,7 @@ export default function ITSupportScreen() {
       >
         <View style={styles.heroSection}>
           <Image
-            source={{ uri: supportCenter.image }}
+            source={supportCenter.image}
             style={styles.heroImage}
             resizeMode="cover"
           />
@@ -684,7 +683,7 @@ export default function ITSupportScreen() {
           </View>
         </View>
 
-        <View style={styles.statsContainer}>
+        {/* <View style={styles.statsContainer}>
           <View style={styles.statsRow}>
             {quickStats.map((stat, index) => {
               const IconComponent = stat.icon;
@@ -701,7 +700,7 @@ export default function ITSupportScreen() {
               );
             })}
           </View>
-        </View>
+        </View> */}
 
         <View style={styles.searchContainer}>
           <TextInput
