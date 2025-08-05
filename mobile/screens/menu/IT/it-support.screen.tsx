@@ -16,7 +16,7 @@ import {
   Zap,
   ZoomIn,
 } from "lucide-react-native";
-import React, { useState } from "react";
+import React, { JSX, useState } from "react";
 import {
   Dimensions,
   Image,
@@ -35,8 +35,51 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-// Mock IT support data
-const supportCenter = {
+/**
+ * Interface for support center contact information and operational details
+ */
+interface SupportCenter {
+  name: string;
+  description: string;
+  image: any;
+  location: string;
+  phone: string;
+  email: string;
+  hours: Record<string, string>;
+  currentStatus: string;
+  averageWaitTime: string;
+  ticketsToday: number;
+  resolvedToday: number;
+}
+
+/**
+ * Interface for support service items
+ */
+interface SupportService {
+  id: number;
+  name: string;
+  description: string;
+  icon: any;
+  color: string;
+  available: boolean;
+  estimatedTime: string;
+  category: "IT Services" | "Hostel Services";
+}
+
+/**
+ * Interface for gallery image items
+ */
+interface GalleryImage {
+  id: number;
+  title: string;
+  image: any;
+}
+
+/**
+ * Support center configuration data
+ * Contains all the operational information for the Ashesi Support Center
+ */
+const supportCenter: SupportCenter = {
   name: "Ashesi Support Center",
   description:
     "The Ashesi Support Centre helps students with all technology-related issues on campus. From setting up email accounts and fixing Wi-Fi problems to assisting with laptops and school platforms like Outlook or Canvas.",
@@ -54,12 +97,16 @@ const supportCenter = {
     sunday: "Closed",
   },
   currentStatus: "Open",
-  averageWaitTime: "15 minutes",
+  averageWaitTime: "30 minutes",
   ticketsToday: 23,
   resolvedToday: 18,
 };
 
-const supportServices = [
+/**
+ * Available support services configuration
+ * Includes both IT and Hostel services with their respective details
+ */
+const supportServices: SupportService[] = [
   {
     id: 1,
     name: "Laptop Repair",
@@ -143,24 +190,11 @@ const supportServices = [
   },
 ];
 
-// const quickStats = [
-//   { label: "Response Time", value: "15 min", icon: Clock, color: "#3b82f6" },
-//   {
-//     label: "Issues Resolved",
-//     value: "18",
-//     icon: CheckCircle,
-//     color: "#22c55e",
-//   },
-//   {
-//     label: "Support Rating",
-//     value: "4.8★",
-//     icon: CheckCircle,
-//     color: "#7c3aed",
-//   },
-//   { label: "Available Services", value: "8", icon: Wrench, color: "#f59e0b" },
-// ];
-
-const galleryImages = [
+/**
+ * Gallery images for the support center
+ * Showcases different areas and facilities of the support center
+ */
+const galleryImages: GalleryImage[] = [
   {
     id: 1,
     title: "Support Center Main Desk",
@@ -203,40 +237,83 @@ const galleryImages = [
   },
 ];
 
-export default function ITSupportScreen() {
+/**
+ * IT Support Screen Component
+ *
+ * A comprehensive screen that displays information about the Ashesi Support Center,
+ * including available services, gallery, contact information, and operational hours.
+ * Features include:
+ * - Service filtering by category and search
+ * - Image gallery with modal viewer
+ * - Contact integration (phone/email)
+ * - External help documentation link
+ *
+ * @returns {JSX.Element} The IT Support screen component
+ */
+export default function ITSupportScreen(): JSX.Element {
   const { theme } = useTheme();
   const router = useRouter();
-  const [refreshing, setRefreshing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("All");
-  const [modalVisible, setModalVisible] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<any>(null);
-  const [showAllImages, setShowAllImages] = useState(false);
 
+  // Screen state management
+  const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("All");
+  const [modalVisible, setModalVisible] = useState<boolean>(false);
+  const [selectedImage, setSelectedImage] = useState<GalleryImage | null>(null);
+  const [showAllImages, setShowAllImages] = useState<boolean>(false);
+
+  // Service categories for filtering
   const categories = ["All", "IT Services", "Hostel Services"];
 
-  const onRefresh = () => {
+  /**
+   * Handles pull-to-refresh functionality
+   * Simulates data refresh with a 2-second delay
+   */
+  const onRefresh = (): void => {
     setRefreshing(true);
     setTimeout(() => setRefreshing(false), 2000);
   };
 
-  const handleServicePress = (serviceId: number) => {
+  /**
+   * Handles service card press events
+   * TODO: Implement actual service request functionality
+   *
+   * @param {number} serviceId - The ID of the selected service
+   */
+  const handleServicePress = (serviceId: number): void => {
     console.log("Requesting support service:", serviceId);
+    // TODO: Navigate to service request form or open contact modal
   };
 
-  const handleCallSupport = () => {
+  /**
+   * Initiates a phone call to the support center
+   * Uses the device's default phone app
+   */
+  const handleCallSupport = (): void => {
     Linking.openURL(`tel:${supportCenter.phone}`);
   };
 
-  const handleEmailSupport = () => {
+  /**
+   * Opens the default email client with the support center email
+   */
+  const handleEmailSupport = (): void => {
     Linking.openURL(`mailto:${supportCenter.email}`);
   };
 
-  const handleHelpDocsPress = () => {
+  /**
+   * Opens the external help documentation website
+   */
+  const handleHelpDocsPress = (): void => {
     Linking.openURL(`https://ashesi.helpscoutdocs.com/`);
   };
 
-  const getCurrentDay = () => {
+  /**
+   * Gets the current day of the week in lowercase
+   * Used to highlight current day in operating hours
+   *
+   * @returns {string} Current day of the week
+   */
+  const getCurrentDay = (): string => {
     const days = [
       "sunday",
       "monday",
@@ -249,6 +326,25 @@ export default function ITSupportScreen() {
     return days[new Date().getDay()];
   };
 
+  /**
+   * Opens the image modal viewer
+   *
+   * @param {GalleryImage} image - The image object to display
+   */
+  const handleImagePress = (image: GalleryImage): void => {
+    setSelectedImage(image);
+    setModalVisible(true);
+  };
+
+  /**
+   * Closes the image modal viewer and resets state
+   */
+  const closeModal = (): void => {
+    setModalVisible(false);
+    setSelectedImage(null);
+  };
+
+  // Filter services based on category and search query
   const filteredServices = supportServices.filter((service) => {
     const matchesCategory =
       selectedCategory === "All" || service.category === selectedCategory;
@@ -260,16 +356,7 @@ export default function ITSupportScreen() {
     return matchesCategory && matchesSearch;
   });
 
-  const handleImagePress = (image: any) => {
-    setSelectedImage(image);
-    setModalVisible(true);
-  };
-
-  const closeModal = () => {
-    setModalVisible(false);
-    setSelectedImage(null);
-  };
-
+  // Determine which images to display based on showAllImages state
   const displayedImages = showAllImages
     ? galleryImages
     : galleryImages.slice(0, 2);
@@ -811,17 +898,22 @@ export default function ITSupportScreen() {
   });
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+      
+      {/* Header Section */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
+          accessibilityLabel="Go back"
+          accessibilityRole="button"
         >
           <ArrowLeft color={theme.colors.text} size={24} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Support Center</Text>
       </View>
 
+      {/* Main Content Scroll View */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -829,6 +921,7 @@ export default function ITSupportScreen() {
         }
         contentContainerStyle={styles.scrollContent}
       >
+        {/* Hero Section - Support Center Overview */}
         <View style={styles.heroSection}>
           <Image
             source={supportCenter.image}
@@ -841,30 +934,14 @@ export default function ITSupportScreen() {
               {supportCenter.description}
             </Text>
           </View>
+
+          {/* Status Badge */}
           <View style={styles.statusBadge}>
             <Text style={styles.statusText}>{supportCenter.currentStatus}</Text>
           </View>
         </View>
 
-        {/* <View style={styles.statsContainer}>
-          <View style={styles.statsRow}>
-            {quickStats.map((stat, index) => {
-              const IconComponent = stat.icon;
-              return (
-                <View key={index} style={styles.statCard}>
-                  <IconComponent
-                    color={stat.color}
-                    size={24}
-                    style={styles.statIcon}
-                  />
-                  <Text style={styles.statValue}>{stat.value}</Text>
-                  <Text style={styles.statLabel}>{stat.label}</Text>
-                </View>
-              );
-            })}
-          </View>
-        </View> */}
-
+        {/* Search Section */}
         <View style={styles.searchContainer}>
           <TextInput
             style={styles.searchInput}
@@ -872,9 +949,11 @@ export default function ITSupportScreen() {
             placeholderTextColor={theme.colors.textSecondary}
             value={searchQuery}
             onChangeText={setSearchQuery}
+            accessibilityLabel="Search services"
           />
         </View>
 
+        {/* Category Filter Section */}
         <View style={styles.categoriesContainer}>
           <ScrollView
             horizontal
@@ -889,6 +968,8 @@ export default function ITSupportScreen() {
                   selectedCategory === category && styles.categoryChipActive,
                 ]}
                 onPress={() => setSelectedCategory(category)}
+                accessibilityLabel={`Filter by ${category}`}
+                accessibilityRole="button"
               >
                 <Text
                   style={[
@@ -904,6 +985,7 @@ export default function ITSupportScreen() {
           </ScrollView>
         </View>
 
+        {/* Support Services Grid */}
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>Support Services</Text>
           {filteredServices.length > 0 ? (
@@ -915,6 +997,8 @@ export default function ITSupportScreen() {
                     key={service.id}
                     style={styles.serviceCard}
                     onPress={() => handleServicePress(service.id)}
+                    accessibilityLabel={`${service.name}: ${service.description}`}
+                    accessibilityRole="button"
                   >
                     <IconComponent
                       color={service.color}
@@ -925,11 +1009,13 @@ export default function ITSupportScreen() {
                     <Text style={styles.serviceDescription}>
                       {service.description}
                     </Text>
+                    {/* Service Category Badge */}
                     <View style={styles.serviceCategory}>
                       <Text style={styles.serviceCategoryText}>
                         {service.category}
                       </Text>
                     </View>
+                    {/* Estimated Time Badge */}
                     <View style={styles.estimatedTime}>
                       <Text style={styles.estimatedTimeText}>
                         {service.estimatedTime}
@@ -940,6 +1026,7 @@ export default function ITSupportScreen() {
               })}
             </View>
           ) : (
+            // No Results State
             <View style={styles.noResultsContainer}>
               <Text style={styles.noResultsText}>
                 No services found for &quot;{searchQuery}&quot;
@@ -948,13 +1035,18 @@ export default function ITSupportScreen() {
           )}
         </View>
 
+        {/* Gallery Section */}
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Gallery</Text>
+            
+            {/* View More/Less Toggle Button */}
             {!showAllImages && galleryImages.length > 2 && (
               <TouchableOpacity
                 style={styles.viewMoreButton}
                 onPress={() => setShowAllImages(true)}
+                accessibilityLabel={`View ${galleryImages.length - 2} more images`}
+                accessibilityRole="button"
               >
                 <Text style={styles.viewMoreText}>
                   View More ({galleryImages.length - 2})
@@ -966,6 +1058,8 @@ export default function ITSupportScreen() {
               <TouchableOpacity
                 style={styles.viewMoreButton}
                 onPress={() => setShowAllImages(false)}
+                accessibilityLabel="Show fewer images"
+                accessibilityRole="button"
               >
                 <Text style={styles.viewMoreText}>Show Less</Text>
                 <ChevronRight
@@ -977,6 +1071,7 @@ export default function ITSupportScreen() {
             )}
           </View>
 
+          {/* Gallery Grid */}
           <View style={styles.galleryGrid}>
             {displayedImages.map((item) => (
               <TouchableOpacity
@@ -984,6 +1079,8 @@ export default function ITSupportScreen() {
                 style={styles.galleryItem}
                 onPress={() => handleImagePress(item)}
                 activeOpacity={0.8}
+                accessibilityLabel={`View ${item.title} image`}
+                accessibilityRole="button"
               >
                 <View style={styles.galleryImageContainer}>
                   <Image
@@ -991,6 +1088,7 @@ export default function ITSupportScreen() {
                     style={styles.galleryImage}
                     resizeMode="cover"
                   />
+                  {/* Zoom Overlay */}
                   <View style={styles.galleryImageOverlay}>
                     <View style={styles.galleryZoomIcon}>
                       <ZoomIn color={theme.colors.text} size={20} />
@@ -1003,11 +1101,14 @@ export default function ITSupportScreen() {
           </View>
         </View>
 
+        {/* Help Documentation Section */}
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>Help Documentation</Text>
           <TouchableOpacity
             style={styles.helpDocsButton}
             onPress={handleHelpDocsPress}
+            accessibilityLabel="Browse help articles and documentation"
+            accessibilityRole="button"
           >
             <View style={styles.helpDocsContent}>
               <View style={styles.helpDocsIcon}>
@@ -1029,9 +1130,12 @@ export default function ITSupportScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Contact Information and Operating Hours */}
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>Contact & Hours</Text>
           <View style={styles.contactCard}>
+
+            {/* Operating Hours */}
             <View style={styles.hoursContainer}>
               {Object.entries(supportCenter.hours).map(([day, hours]) => {
                 const currentDay = getCurrentDay();
@@ -1040,7 +1144,7 @@ export default function ITSupportScreen() {
                     key={day}
                     style={[
                       styles.hoursRow,
-                      day === currentDay && styles.currentDay,
+                      day === currentDay && styles.currentDay, // Highlight current day
                     ]}
                   >
                     <Text style={styles.dayText}>{day}</Text>
@@ -1050,10 +1154,13 @@ export default function ITSupportScreen() {
               })}
             </View>
 
+            {/* Contact Action Buttons */}
             <View style={styles.contactActions}>
               <TouchableOpacity
                 style={styles.contactButton}
                 onPress={handleCallSupport}
+                accessibilityLabel={`Call support at ${supportCenter.phone}`}
+                accessibilityRole="button"
               >
                 <Phone color="white" size={20} />
                 <Text style={styles.contactButtonText}>Call Support</Text>
@@ -1061,6 +1168,8 @@ export default function ITSupportScreen() {
               <TouchableOpacity
                 style={[styles.contactButton, styles.contactButtonSecondary]}
                 onPress={handleEmailSupport}
+                accessibilityLabel={`Email support at ${supportCenter.email}`}
+                accessibilityRole="button"
               >
                 <Mail color={theme.colors.text} size={20} />
                 <Text
@@ -1077,18 +1186,26 @@ export default function ITSupportScreen() {
         </View>
       </ScrollView>
 
+      {/* Full-Screen Image Modal */}
       <Modal
         visible={modalVisible}
         transparent={false}
         animationType="fade"
         onRequestClose={closeModal}
+        accessibilityViewIsModal={true}
       >
         <View style={styles.modalContainer}>
+
+          {/* Backdrop Touch Area */}
           <TouchableOpacity
             style={styles.modalBackdrop}
             onPress={closeModal}
             activeOpacity={1}
+            accessibilityLabel="Close image viewer"
+            accessibilityRole="button"
           />
+
+          {/* Modal Header */}
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>
               {selectedImage?.title || "Gallery Image"}
@@ -1096,15 +1213,20 @@ export default function ITSupportScreen() {
             <TouchableOpacity
               style={styles.modalCloseButton}
               onPress={closeModal}
+              accessibilityLabel="Close image viewer"
+              accessibilityRole="button"
             >
               <X color="white" size={24} />
             </TouchableOpacity>
           </View>
+          
+          {/* Full-Screen Image */}
           {selectedImage && (
             <Image
               source={selectedImage.image}
               style={styles.modalImage}
               resizeMode="contain"
+              accessibilityLabel={selectedImage.title}
             />
           )}
         </View>
