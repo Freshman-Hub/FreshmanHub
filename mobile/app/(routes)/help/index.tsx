@@ -1,4 +1,4 @@
-import HelpDeskScreen from "@/screens/common/help/help.screen";
+import HelpDeskScreen from "@/screens/menu/help/help.screen";
 
 const index = () => {
   return <HelpDeskScreen />;
