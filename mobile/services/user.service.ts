@@ -13,8 +13,275 @@ import {
 import { db } from "@/firebase/config/firebaseConfig";
 import type { User, UserRequest } from "../types/user.types";
 import { logAdminAction, logSystemAction } from "./logging.service";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+// import { useSQLiteContext } from "expo-sqlite";
+
+const LAST_SYNC_KEY = "lastUserSync";
 
 export class UserService {
+  private static sqliteDb: any = null;
+
+  // Initialize SQLite context (call this from your component that has access to useSQLiteContext)
+  static setSQLiteContext(db: any) {
+    this.sqliteDb = db;
+  }
+
+  // Get last sync timestamp from AsyncStorage
+  private static async getLastSyncTime(): Promise<string | null> {
+    try {
+      const value = await AsyncStorage.getItem(LAST_SYNC_KEY);
+      console.log("📅 Last sync time:", value || "First time sync");
+      return value;
+    } catch (error) {
+      console.error("Error getting last sync time:", error);
+      return null;
+    }
+  }
+
+  // Update last sync timestamp
+  private static async updateLastSyncTime(timestamp: string): Promise<void> {
+    try {
+      await AsyncStorage.setItem(LAST_SYNC_KEY, timestamp);
+      console.log("✅ Updated last sync time to:", timestamp);
+    } catch (error) {
+      console.error("Error updating last sync time:", error);
+    }
+  }
+
+  // Sync users from Firebase to SQLite
+  private static async syncUsersFromFirebase(): Promise<{
+    users: User[];
+    error: string | null;
+  }> {
+    try {
+      console.log("🔄 Starting user sync from Firebase...");
+
+      const lastSync = await this.getLastSyncTime();
+      let firebaseQuery;
+
+      if (lastSync) {
+        console.log("📥 Fetching users updated after:", lastSync);
+        firebaseQuery = query(
+          collection(db, "users"),
+          where("updatedAt", ">", lastSync),
+          orderBy("updatedAt", "asc")
+        );
+      } else {
+        console.log("📥 First time sync - fetching all users from Firebase");
+        firebaseQuery = query(
+          collection(db, "users"),
+          orderBy("updatedAt", "asc")
+        );
+      }
+
+      const querySnapshot = await getDocs(firebaseQuery);
+      const users: User[] = [];
+
+      querySnapshot.forEach((doc) => {
+        users.push({ id: doc.id, ...doc.data() } as User);
+      });
+
+      console.log(`🔥 Firebase returned ${users.length} users`);
+
+      // Insert/update users in SQLite
+      if (users.length > 0 && this.sqliteDb) {
+        for (const user of users) {
+          await this.insertOrUpdateUserInSQLite(user);
+        }
+
+        // Update last sync time with the latest user's updatedAt
+        const latestUser = users[users.length - 1];
+        if (latestUser.updatedAt) {
+          await this.updateLastSyncTime(
+            latestUser.updatedAt instanceof Timestamp
+              ? latestUser.updatedAt.toDate().toISOString()
+              : String(latestUser.updatedAt)
+          );
+        }
+      }
+
+      return { users, error: null };
+    } catch (error: any) {
+      console.error("❌ Error syncing users from Firebase:", error);
+      return { users: [], error: error.message };
+    }
+  }
+
+  // Insert or update user in SQLite
+  private static async insertOrUpdateUserInSQLite(user: User): Promise<void> {
+    if (!this.sqliteDb) {
+      console.warn("⚠️ SQLite context not available");
+      return;
+    }
+
+    try {
+      // Check if user exists
+      const existingUser = await this.sqliteDb.getFirstAsync(
+        "SELECT id FROM users WHERE id = ?",
+        [user.id]
+      );
+
+      if (existingUser) {
+        // Update existing user
+        await this.sqliteDb.runAsync(
+          `UPDATE users SET 
+           firstName = ?, lastName = ?, email = ?, bio = ?, role = ?, 
+           studentId = ?, yearGroup = ?, major = ?, country = ?, gender = ?, 
+           department = ?, phoneNumber = ?, profileImage = ?, isActive = ?, 
+           updatedAt = ?, createdBy = ?, lastLoginAt = ?, assignedStudents = ?, 
+           assignedCoach = ?, permissions = ?, isOnline = ?
+           WHERE id = ?`,
+          [
+            user.firstName,
+            user.lastName,
+            user.email,
+            user.bio || null,
+            user.role,
+            user.studentId || null,
+            user.yearGroup || null,
+            user.major || null,
+            user.country,
+            user.gender,
+            user.department || null,
+            user.phoneNumber || null,
+            user.profileImage || null,
+            user.isActive ? 1 : 0,
+            user.updatedAt,
+            user.createdBy || null,
+            user.lastLoginAt || null,
+            user.assignedStudents
+              ? JSON.stringify(user.assignedStudents)
+              : null,
+            user.assignedCoach || null,
+            user.permissions ? JSON.stringify(user.permissions) : null,
+            user.isOnline ? 1 : 0,
+            user.id,
+          ]
+        );
+        console.log(`🔄 Updated user ${user.email} in SQLite`);
+      } else {
+        // Insert new user
+        await this.sqliteDb.runAsync(
+          `INSERT INTO users (
+            id, firstName, lastName, email, bio, role, studentId, yearGroup, major, 
+            country, gender, department, phoneNumber, profileImage, isActive, 
+            createdAt, updatedAt, createdBy, lastLoginAt, assignedStudents, 
+            assignedCoach, permissions, isOnline
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            user.id,
+            user.firstName,
+            user.lastName,
+            user.email,
+            user.bio || null,
+            user.role,
+            user.studentId || null,
+            user.yearGroup || null,
+            user.major || null,
+            user.country,
+            user.gender,
+            user.department || null,
+            user.phoneNumber || null,
+            user.profileImage || null,
+            user.isActive ? 1 : 0,
+            user.createdAt,
+            user.updatedAt,
+            user.createdBy || null,
+            user.lastLoginAt || null,
+            user.assignedStudents
+              ? JSON.stringify(user.assignedStudents)
+              : null,
+            user.assignedCoach || null,
+            user.permissions ? JSON.stringify(user.permissions) : null,
+            user.isOnline ? 1 : 0,
+          ]
+        );
+        console.log(`➕ Inserted new user ${user.email} into SQLite`);
+      }
+    } catch (error) {
+      console.error(
+        `❌ Error inserting/updating user ${user.email} in SQLite:`,
+        error
+      );
+    }
+  }
+
+  // Get users from SQLite
+  private static async getUsersFromSQLite(): Promise<{
+    users: User[];
+    error: string | null;
+  }> {
+    try {
+      if (!this.sqliteDb) {
+        console.warn(
+          "⚠️ SQLite context not available, falling back to Firebase"
+        );
+        return await this.getAllUsersFromFirebase();
+      }
+
+      console.log("💾 Fetching users from SQLite...");
+      const result = await this.sqliteDb.getAllAsync(`
+        SELECT * FROM users WHERE isActive = 1 ORDER BY createdAt DESC
+      `);
+
+      const users: User[] = result.map((row: any) => ({
+        id: row.id,
+        firstName: row.firstName,
+        lastName: row.lastName,
+        email: row.email,
+        bio: row.bio,
+        role: row.role,
+        studentId: row.studentId,
+        yearGroup: row.yearGroup,
+        major: row.major,
+        country: row.country,
+        gender: row.gender,
+        department: row.department,
+        phoneNumber: row.phoneNumber,
+        profileImage: row.profileImage,
+        isActive: row.isActive === 1,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+        createdBy: row.createdBy,
+        lastLoginAt: row.lastLoginAt,
+        assignedStudents: row.assignedStudents
+          ? JSON.parse(row.assignedStudents)
+          : [],
+        assignedCoach: row.assignedCoach,
+        permissions: row.permissions ? JSON.parse(row.permissions) : {},
+        isOnline: row.isOnline === 1,
+      }));
+
+      console.log(`💾 SQLite returned ${users.length} users`);
+      return { users, error: null };
+    } catch (error: any) {
+      console.error("❌ Error fetching users from SQLite:", error);
+      return { users: [], error: error.message };
+    }
+  }
+
+  // Get all users from Firebase (fallback)
+  private static async getAllUsersFromFirebase(): Promise<{
+    users: User[];
+    error: string | null;
+  }> {
+    try {
+      console.log("🔥 Fetching all users from Firebase (fallback)...");
+      const querySnapshot = await getDocs(collection(db, "users"));
+      const users: User[] = [];
+
+      querySnapshot.forEach((doc) => {
+        users.push({ id: doc.id, ...doc.data() } as User);
+      });
+
+      console.log(`🔥 Firebase returned ${users.length} users (fallback)`);
+      return { users, error: null };
+    } catch (error: any) {
+      console.error("❌ Error fetching users from Firebase:", error);
+      return { users: [], error: error.message };
+    }
+  }
+
   // Submit user request
   static async submitUserRequest(
     requestData: Omit<UserRequest, "id" | "status" | "createdAt" | "updatedAt">
@@ -103,6 +370,9 @@ export class UserService {
         throw new Error(error || "Failed to create user account");
       }
 
+      // Insert new user into SQLite
+      await this.insertOrUpdateUserInSQLite(user);
+
       // Log admin action
       await logAdminAction(
         "REQUEST_APPROVED",
@@ -162,17 +432,14 @@ export class UserService {
     }
   }
 
-  // Get all users (Admin only)
+  // Get all users (with sync and local fallback)
   static async getAllUsers(): Promise<{ users: User[]; error: string | null }> {
     try {
-      const querySnapshot = await getDocs(collection(db, "users"));
-      const users: User[] = [];
+      // First sync from Firebase (only new/updated users)
+      await this.syncUsersFromFirebase();
 
-      querySnapshot.forEach((doc) => {
-        users.push({ id: doc.id, ...doc.data() } as User);
-      });
-
-      return { users, error: null };
+      // Then return users from SQLite
+      return await this.getUsersFromSQLite();
     } catch (error: any) {
       console.error("Get all users error:", error);
       return { users: [], error: error.message };
@@ -192,6 +459,15 @@ export class UserService {
       };
 
       await updateDoc(doc(db, "users", userId), updateData);
+
+      // Update in SQLite as well
+      if (this.sqliteDb) {
+        const user = await this.getUserById(userId);
+        if (user.user) {
+          const updatedUser = { ...user.user, ...updates };
+          await this.insertOrUpdateUserInSQLite(updatedUser);
+        }
+      }
 
       // Get user data for logging
       const userDoc = await getDoc(doc(db, "users", userId));
@@ -221,6 +497,15 @@ export class UserService {
         updatedAt: Timestamp.now(),
       });
 
+      // Update in SQLite as well
+      if (this.sqliteDb) {
+        await this.sqliteDb.runAsync(
+          "UPDATE users SET isActive = 0, updatedAt = ? WHERE id = ?",
+          [new Date().toISOString(), userId]
+        );
+        console.log(`🔄 Deactivated user ${userId} in SQLite`);
+      }
+
       // Get user data for logging
       const userDoc = await getDoc(doc(db, "users", userId));
       const userData = userDoc.data() as User;
@@ -244,11 +529,56 @@ export class UserService {
     }
   }
 
-  // Get user by ID
+  // Get user by ID (tries SQLite first, then Firebase)
   static async getUserById(
     userId: string
   ): Promise<{ user: User | null; error: string | null }> {
     try {
+      // Try SQLite first
+      if (this.sqliteDb) {
+        console.log(`💾 Fetching user ${userId} from SQLite...`);
+        const result = await this.sqliteDb.getFirstAsync(
+          "SELECT * FROM users WHERE id = ?",
+          [userId]
+        );
+
+        if (result) {
+          const user: User = {
+            id: result.id,
+            firstName: result.firstName,
+            lastName: result.lastName,
+            email: result.email,
+            bio: result.bio,
+            role: result.role,
+            studentId: result.studentId,
+            yearGroup: result.yearGroup,
+            major: result.major,
+            country: result.country,
+            gender: result.gender,
+            department: result.department,
+            phoneNumber: result.phoneNumber,
+            profileImage: result.profileImage,
+            isActive: result.isActive === 1,
+            createdAt: result.createdAt,
+            updatedAt: result.updatedAt,
+            createdBy: result.createdBy,
+            lastLoginAt: result.lastLoginAt,
+            assignedStudents: result.assignedStudents
+              ? JSON.parse(result.assignedStudents)
+              : [],
+            assignedCoach: result.assignedCoach,
+            permissions: result.permissions
+              ? JSON.parse(result.permissions)
+              : {},
+            isOnline: result.isOnline === 1,
+          };
+          console.log(`💾 Found user ${userId} in SQLite`);
+          return { user, error: null };
+        }
+      }
+
+      // Fallback to Firebase
+      console.log(`🔥 Fetching user ${userId} from Firebase (fallback)...`);
       const userDoc = await getDoc(doc(db, "users", userId));
 
       if (!userDoc.exists()) {
@@ -256,6 +586,13 @@ export class UserService {
       }
 
       const user = { id: userDoc.id, ...userDoc.data() } as User;
+
+      // Cache in SQLite for next time
+      if (this.sqliteDb) {
+        await this.insertOrUpdateUserInSQLite(user);
+      }
+
+      console.log(`🔥 Found user ${userId} in Firebase (cached to SQLite)`);
       return { user, error: null };
     } catch (error: any) {
       console.error("Get user by ID error:", error);
@@ -268,6 +605,51 @@ export class UserService {
     email: string
   ): Promise<{ users: User[]; error: string | null }> {
     try {
+      // Try SQLite first
+      if (this.sqliteDb) {
+        console.log(`💾 Searching users by email '${email}' in SQLite...`);
+        const result = await this.sqliteDb.getAllAsync(
+          "SELECT * FROM users WHERE email LIKE ? AND isActive = 1",
+          [`%${email}%`]
+        );
+
+        if (result.length > 0) {
+          const users: User[] = result.map((row: any) => ({
+            id: row.id,
+            firstName: row.firstName,
+            lastName: row.lastName,
+            email: row.email,
+            bio: row.bio,
+            role: row.role,
+            studentId: row.studentId,
+            yearGroup: row.yearGroup,
+            major: row.major,
+            country: row.country,
+            gender: row.gender,
+            department: row.department,
+            phoneNumber: row.phoneNumber,
+            profileImage: row.profileImage,
+            isActive: row.isActive === 1,
+            createdAt: row.createdAt,
+            updatedAt: row.updatedAt,
+            createdBy: row.createdBy,
+            lastLoginAt: row.lastLoginAt,
+            assignedStudents: row.assignedStudents
+              ? JSON.parse(row.assignedStudents)
+              : [],
+            assignedCoach: row.assignedCoach,
+            permissions: row.permissions ? JSON.parse(row.permissions) : {},
+            isOnline: row.isOnline === 1,
+          }));
+          console.log(`💾 Found ${users.length} users in SQLite`);
+          return { users, error: null };
+        }
+      }
+
+      // Fallback to Firebase
+      console.log(
+        `🔥 Searching users by email '${email}' in Firebase (fallback)...`
+      );
       const q = query(
         collection(db, "users"),
         where("email", ">=", email),
@@ -281,6 +663,7 @@ export class UserService {
         users.push({ id: doc.id, ...doc.data() } as User);
       });
 
+      console.log(`🔥 Found ${users.length} users in Firebase`);
       return { users, error: null };
     } catch (error: any) {
       console.error("Search users by email error:", error);
