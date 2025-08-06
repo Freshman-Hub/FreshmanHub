@@ -107,7 +107,8 @@ export class UserService {
     }
   }
 
-  // Insert or update user in SQLite
+  // Fix the insertOrUpdateUserInSQLite method:
+
   private static async insertOrUpdateUserInSQLite(user: User): Promise<void> {
     if (!this.sqliteDb) {
       console.warn("⚠️ SQLite context not available");
@@ -115,6 +116,16 @@ export class UserService {
     }
 
     try {
+      // Convert Firestore Timestamps to ISO strings before storing
+      const convertedUser = {
+        ...user,
+        createdAt: this.convertTimestampToISO(user.createdAt),
+        updatedAt: this.convertTimestampToISO(user.updatedAt),
+        lastLoginAt: user.lastLoginAt
+          ? this.convertTimestampToISO(user.lastLoginAt)
+          : null,
+      };
+
       // Check if user exists
       const existingUser = await this.sqliteDb.getFirstAsync(
         "SELECT id FROM users WHERE id = ?",
@@ -125,84 +136,119 @@ export class UserService {
         // Update existing user
         await this.sqliteDb.runAsync(
           `UPDATE users SET 
-           firstName = ?, lastName = ?, email = ?, bio = ?, role = ?, 
-           studentId = ?, yearGroup = ?, major = ?, country = ?, gender = ?, 
-           department = ?, phoneNumber = ?, profileImage = ?, isActive = ?, 
-           updatedAt = ?, createdBy = ?, lastLoginAt = ?, assignedStudents = ?, 
-           assignedCoach = ?, permissions = ?, isOnline = ?
-           WHERE id = ?`,
+         firstName = ?, lastName = ?, email = ?, bio = ?, role = ?, 
+         studentId = ?, yearGroup = ?, major = ?, country = ?, gender = ?, 
+         department = ?, phoneNumber = ?, profileImage = ?, isActive = ?, 
+         updatedAt = ?, createdBy = ?, lastLoginAt = ?, assignedStudents = ?, 
+         assignedCoach = ?, permissions = ?, isOnline = ?
+         WHERE id = ?`,
           [
-            user.firstName,
-            user.lastName,
-            user.email,
-            user.bio || null,
-            user.role,
-            user.studentId || null,
-            user.yearGroup || null,
-            user.major || null,
-            user.country,
-            user.gender,
-            user.department || null,
-            user.phoneNumber || null,
-            user.profileImage || null,
-            user.isActive ? 1 : 0,
-            user.updatedAt,
-            user.createdBy || null,
-            user.lastLoginAt || null,
-            user.assignedStudents
-              ? JSON.stringify(user.assignedStudents)
+            convertedUser.firstName,
+            convertedUser.lastName,
+            convertedUser.email,
+            convertedUser.bio || null,
+            convertedUser.role,
+            convertedUser.studentId || null,
+            convertedUser.yearGroup || null,
+            convertedUser.major || null,
+            convertedUser.country,
+            convertedUser.gender,
+            convertedUser.department || null,
+            convertedUser.phoneNumber || null,
+            convertedUser.profileImage || null,
+            convertedUser.isActive ? 1 : 0,
+            convertedUser.updatedAt,
+            convertedUser.createdBy || null,
+            convertedUser.lastLoginAt || null,
+            convertedUser.assignedStudents
+              ? JSON.stringify(convertedUser.assignedStudents)
               : null,
-            user.assignedCoach || null,
-            user.permissions ? JSON.stringify(user.permissions) : null,
-            user.isOnline ? 1 : 0,
-            user.id,
+            convertedUser.assignedCoach || null,
+            convertedUser.permissions
+              ? JSON.stringify(convertedUser.permissions)
+              : null,
+            convertedUser.isOnline ? 1 : 0,
+            convertedUser.id,
           ]
         );
-        console.log(`🔄 Updated user ${user.email} in SQLite`);
+        console.log(`🔄 Updated user ${convertedUser.email} in SQLite`);
       } else {
         // Insert new user
         await this.sqliteDb.runAsync(
           `INSERT INTO users (
-            id, firstName, lastName, email, bio, role, studentId, yearGroup, major, 
-            country, gender, department, phoneNumber, profileImage, isActive, 
-            createdAt, updatedAt, createdBy, lastLoginAt, assignedStudents, 
-            assignedCoach, permissions, isOnline
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          id, firstName, lastName, email, bio, role, studentId, yearGroup, major, 
+          country, gender, department, phoneNumber, profileImage, isActive, 
+          createdAt, updatedAt, createdBy, lastLoginAt, assignedStudents, 
+          assignedCoach, permissions, isOnline
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
-            user.id,
-            user.firstName,
-            user.lastName,
-            user.email,
-            user.bio || null,
-            user.role,
-            user.studentId || null,
-            user.yearGroup || null,
-            user.major || null,
-            user.country,
-            user.gender,
-            user.department || null,
-            user.phoneNumber || null,
-            user.profileImage || null,
-            user.isActive ? 1 : 0,
-            user.createdAt,
-            user.updatedAt,
-            user.createdBy || null,
-            user.lastLoginAt || null,
-            user.assignedStudents
-              ? JSON.stringify(user.assignedStudents)
+            convertedUser.id,
+            convertedUser.firstName,
+            convertedUser.lastName,
+            convertedUser.email,
+            convertedUser.bio || null,
+            convertedUser.role,
+            convertedUser.studentId || null,
+            convertedUser.yearGroup || null,
+            convertedUser.major || null,
+            convertedUser.country,
+            convertedUser.gender,
+            convertedUser.department || null,
+            convertedUser.phoneNumber || null,
+            convertedUser.profileImage || null,
+            convertedUser.isActive ? 1 : 0,
+            convertedUser.createdAt,
+            convertedUser.updatedAt,
+            convertedUser.createdBy || null,
+            convertedUser.lastLoginAt || null,
+            convertedUser.assignedStudents
+              ? JSON.stringify(convertedUser.assignedStudents)
               : null,
-            user.assignedCoach || null,
-            user.permissions ? JSON.stringify(user.permissions) : null,
-            user.isOnline ? 1 : 0,
+            convertedUser.assignedCoach || null,
+            convertedUser.permissions
+              ? JSON.stringify(convertedUser.permissions)
+              : null,
+            convertedUser.isOnline ? 1 : 0,
           ]
         );
-        console.log(`➕ Inserted new user ${user.email} into SQLite`);
+        console.log(`➕ Inserted new user ${convertedUser.email} into SQLite`);
       }
     } catch (error) {
       console.error(
         `❌ Error inserting/updating user ${user.email} in SQLite:`,
         error
       );
+    }
+  }
+
+  // Add this helper method to convert Firestore Timestamps to ISO strings
+  private static convertTimestampToISO(timestamp: any): string {
+    if (!timestamp) return new Date().toISOString();
+
+    try {
+      // If it's a Firestore Timestamp with seconds and nanoseconds
+      if (typeof timestamp === "object" && timestamp.seconds !== undefined) {
+        const milliseconds =
+          timestamp.seconds * 1000 + (timestamp.nanoseconds || 0) / 1000000;
+        return new Date(milliseconds).toISOString();
+      }
+      // If it's already an ISO string
+      else if (typeof timestamp === "string") {
+        return timestamp;
+      }
+      // If it's a JavaScript Date
+      else if (timestamp instanceof Date) {
+        return timestamp.toISOString();
+      }
+      // If it has a toDate method (Firestore Timestamp)
+      else if (timestamp.toDate) {
+        return timestamp.toDate().toISOString();
+      }
+
+      return new Date().toISOString(); // fallback
+    } catch (error) {
+      console.warn("Error converting timestamp:", error);
+      return new Date().toISOString();
     }
   }
 
