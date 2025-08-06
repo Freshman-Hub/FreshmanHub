@@ -33,6 +33,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { PerformanceModal } from "@/components/ui/PerformanceModal";
 import { EventsService } from "@/services/events.service";
 import { UserService } from "@/services/user.service";
+import { useSQLiteContext } from "expo-sqlite";
+
 
 // Import reusable components
 import { Avatar } from "@/components/ui/Avatar";
@@ -179,6 +181,18 @@ export default function HeadCoachHomeScreen() {
   const timeFilters = ["Today", "This Week", "This Month", "All Time"];
 
   // Load dashboard data
+
+  // Add this line to get SQLite context
+  const db = useSQLiteContext();
+
+  // Add this useEffect to set the SQLite context in UserService
+  useEffect(() => {
+    if (db) {
+      UserService.setSQLiteContext(db);
+      EventsService.setSQLiteContext(db);
+      console.log("✅ SQLite context set in Coach home Screen");
+    }
+  }, [db]);
 
   const loadDashboardData = useCallback(async () => {
     if (!user?.id) return;
