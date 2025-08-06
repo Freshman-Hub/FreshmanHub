@@ -128,7 +128,7 @@ const diningVendors: DiningVendor[] = [
     name: "Akorno Dining Services",
     type: "24-Hour Restaurant",
     description:
-      "Versatile dining option offering 24-hour service with traditional Ghanaian tastes and continental options.",
+      "Akorno is one of Ashesi University's most versatile and accessible dining options, offering a 24-hour service that caters to both traditional Ghanaian tastes and more continental cravings. Known for its consistency, Akorno balances hearty local meals with light breakfast items and global snacks like chapati and sandwiches, making it a go-to spot for students seeking both familiarity and variety.",
     image:
       "https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=500",
     hours: "24 hours",
@@ -142,6 +142,7 @@ const diningVendors: DiningVendor[] = [
       "Breakfast Available",
     ],
     dishes: [
+      // Local Dishes
       {
         id: 1,
         name: "Banku & Fish Gravy",
@@ -151,14 +152,14 @@ const diningVendors: DiningVendor[] = [
       },
       {
         id: 2,
-        name: "Banku & Tilapia",
+        name: "Banku & Tilapia with Green Sauce",
         category: "Local Dishes",
         image:
           "https://images.pexels.com/photos/7218641/pexels-photo-7218641.jpeg?auto=compress&cs=tinysrgb&w=300",
       },
       {
         id: 3,
-        name: "Beans Stew with Plantain",
+        name: "Beans Stew with Fried Plantain",
         category: "Local Dishes",
         image:
           "https://images.pexels.com/photos/4449068/pexels-photo-4449068.jpeg?auto=compress&cs=tinysrgb&w=300",
@@ -172,59 +173,119 @@ const diningVendors: DiningVendor[] = [
       },
       {
         id: 5,
-        name: "Kenkey with Pepper",
+        name: "Kenkey with Pepper and Fish",
         category: "Local Dishes",
         image:
           "https://images.pexels.com/photos/7218619/pexels-photo-7218619.jpeg?auto=compress&cs=tinysrgb&w=300",
       },
+      // Rice-Based Meals
       {
         id: 6,
         name: "Jollof Rice",
-        category: "Rice-Based",
+        category: "Rice-Based Meals",
         image:
           "https://images.pexels.com/photos/5638671/pexels-photo-5638671.jpeg?auto=compress&cs=tinysrgb&w=300",
       },
       {
         id: 7,
         name: "Fried Rice",
-        category: "Rice-Based",
+        category: "Rice-Based Meals",
         image:
           "https://images.pexels.com/photos/1279330/pexels-photo-1279330.jpeg?auto=compress&cs=tinysrgb&w=300",
       },
       {
         id: 8,
-        name: "Waakye",
-        category: "Rice-Based",
+        name: "Plain Rice with Tomato Stew",
+        category: "Rice-Based Meals",
         image:
-          "https://images.pexels.com/photos/7218641/pexels-photo-7218641.jpeg?auto=compress&cs=tinysrgb&w=300",
+          "https://images.pexels.com/photos/4518843/pexels-photo-4518843.jpeg?auto=compress&cs=tinysrgb&w=300",
       },
       {
         id: 9,
-        name: "Pancakes",
-        category: "Breakfast",
+        name: "Waakye with Gari, Egg, and Wele",
+        category: "Rice-Based Meals",
         image:
-          "https://images.pexels.com/photos/376464/pexels-photo-376464.jpeg?auto=compress&cs=tinysrgb&w=300",
+          "https://images.pexels.com/photos/7218641/pexels-photo-7218641.jpeg?auto=compress&cs=tinysrgb&w=300",
       },
+      // Breakfast Options
       {
         id: 10,
+        name: "Choco-milo or Tea with Bread",
+        category: "Breakfast Options",
+        image:
+          "https://images.pexels.com/photos/1702373/pexels-photo-1702373.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 11,
         name: "Oats Porridge",
-        category: "Breakfast",
+        category: "Breakfast Options",
         image:
           "https://images.pexels.com/photos/1132047/pexels-photo-1132047.jpeg?auto=compress&cs=tinysrgb&w=300",
       },
       {
-        id: 11,
+        id: 12,
+        name: "Pancakes",
+        category: "Breakfast Options",
+        image:
+          "https://images.pexels.com/photos/376464/pexels-photo-376464.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      // Snacks & International Additions
+      {
+        id: 13,
         name: "Chapati",
-        category: "Snacks",
+        category: "Snacks & International",
         image:
           "https://images.pexels.com/photos/2135677/pexels-photo-2135677.jpeg?auto=compress&cs=tinysrgb&w=300",
       },
       {
-        id: 12,
+        id: 14,
+        name: "Meat Pies",
+        category: "Snacks & International",
+        image:
+          "https://images.pexels.com/photos/4449068/pexels-photo-4449068.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 15,
+        name: "Spring Rolls",
+        category: "Snacks & International",
+        image:
+          "https://images.pexels.com/photos/4331491/pexels-photo-4331491.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 16,
+        name: "Sandwiches",
+        category: "Snacks & International",
+        image:
+          "https://images.pexels.com/photos/1603901/pexels-photo-1603901.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 17,
+        name: "Cinnamon Rolls",
+        category: "Snacks & International",
+        image:
+          "https://images.pexels.com/photos/1055272/pexels-photo-1055272.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      // Proteins & Sides
+      {
+        id: 18,
         name: "Fried Chicken",
-        category: "Proteins",
+        category: "Proteins & Sides",
         image:
           "https://images.pexels.com/photos/2741448/pexels-photo-2741448.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 19,
+        name: "Beef Sausage",
+        category: "Proteins & Sides",
+        image:
+          "https://images.pexels.com/photos/4518843/pexels-photo-4518843.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 20,
+        name: "Salads",
+        category: "Proteins & Sides",
+        image:
+          "https://images.pexels.com/photos/1059905/pexels-photo-1059905.jpeg?auto=compress&cs=tinysrgb&w=300",
       },
     ],
   },
@@ -233,7 +294,7 @@ const diningVendors: DiningVendor[] = [
     name: "Hallmark Dining Services",
     type: "Café & Restaurant",
     description:
-      "Balanced fusion of Ghanaian staples and international menu items with cozy dining atmosphere.",
+      "Hallmark Café at Ashesi offers a balanced fusion of comforting Ghanaian staples and internationally-inspired menu items, from hearty waakye and jollof rice to fresh pastries and garden salads. With operation hours until 11 pm and a cozy open-space dining area, it's a vibrant spot for breakfast, lunch, dinner, and everything in between. Expect daily specials, seasonal drinks, and themed meals to keep the menu fresh and exciting.",
     image:
       "https://images.pexels.com/photos/958545/pexels-photo-958545.jpeg?auto=compress&cs=tinysrgb&w=500",
     hours: "7:00 AM - 11:00 PM",
@@ -247,61 +308,193 @@ const diningVendors: DiningVendor[] = [
       "Daily Specials",
     ],
     dishes: [
+      // Rice-Based Meals
       {
-        id: 13,
+        id: 21,
+        name: "Jollof Rice",
+        category: "Rice-Based Meals",
+        image:
+          "https://images.pexels.com/photos/5638671/pexels-photo-5638671.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 22,
+        name: "Fried Rice",
+        category: "Rice-Based Meals",
+        image:
+          "https://images.pexels.com/photos/1279330/pexels-photo-1279330.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 23,
+        name: "Plain Rice or Vermicelli with Tomato Stew",
+        category: "Rice-Based Meals",
+        image:
+          "https://images.pexels.com/photos/4518843/pexels-photo-4518843.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      // Lunch Specials
+      {
+        id: 24,
         name: "Waakye Special",
         category: "Lunch Specials",
         image:
           "https://images.pexels.com/photos/7218641/pexels-photo-7218641.jpeg?auto=compress&cs=tinysrgb&w=300",
       },
       {
-        id: 14,
+        id: 25,
         name: "Kenkey Special",
         category: "Lunch Specials",
         image:
           "https://images.pexels.com/photos/7218619/pexels-photo-7218619.jpeg?auto=compress&cs=tinysrgb&w=300",
       },
       {
-        id: 15,
+        id: 26,
+        name: "Gari Foto with Plantain & Fried Fish",
+        category: "Lunch Specials",
+        image:
+          "https://images.pexels.com/photos/4449068/pexels-photo-4449068.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 27,
         name: "Chicken Yassa",
-        category: "International",
+        category: "Lunch Specials",
         image:
           "https://images.pexels.com/photos/2338407/pexels-photo-2338407.jpeg?auto=compress&cs=tinysrgb&w=300",
       },
       {
-        id: 16,
+        id: 28,
         name: "Spaghetti Bolognese",
-        category: "International",
+        category: "Lunch Specials",
         image:
           "https://images.pexels.com/photos/1279330/pexels-photo-1279330.jpeg?auto=compress&cs=tinysrgb&w=300",
       },
       {
-        id: 17,
+        id: 29,
+        name: "Palava Sauce with Yam",
+        category: "Lunch Specials",
+        image:
+          "https://images.pexels.com/photos/8629865/pexels-photo-8629865.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 30,
+        name: "Beans Stew with Plantain",
+        category: "Lunch Specials",
+        image:
+          "https://images.pexels.com/photos/4449068/pexels-photo-4449068.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      // Sandwiches & Pastries
+      {
+        id: 31,
         name: "Tuna Sandwich",
-        category: "Sandwiches",
+        category: "Sandwiches & Pastries",
         image:
           "https://images.pexels.com/photos/1603901/pexels-photo-1603901.jpeg?auto=compress&cs=tinysrgb&w=300",
       },
       {
-        id: 18,
+        id: 32,
+        name: "Chicken Sandwich",
+        category: "Sandwiches & Pastries",
+        image:
+          "https://images.pexels.com/photos/1603901/pexels-photo-1603901.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 33,
+        name: "Spring Rolls (Veg.)",
+        category: "Sandwiches & Pastries",
+        image:
+          "https://images.pexels.com/photos/4331491/pexels-photo-4331491.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 34,
         name: "Croissant",
-        category: "Pastries",
+        category: "Sandwiches & Pastries",
         image:
           "https://images.pexels.com/photos/2135677/pexels-photo-2135677.jpeg?auto=compress&cs=tinysrgb&w=300",
       },
       {
-        id: 19,
-        name: "Coffee & Latte",
-        category: "Beverages",
+        id: 35,
+        name: "Sausage Rolls",
+        category: "Sandwiches & Pastries",
+        image:
+          "https://images.pexels.com/photos/4449068/pexels-photo-4449068.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      // Breakfast Items
+      {
+        id: 36,
+        name: "Eggs (boiled, fried, scrambled)",
+        category: "Breakfast Items",
+        image:
+          "https://images.pexels.com/photos/1580466/pexels-photo-1580466.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 37,
+        name: "Toast and Cinnamon Roll",
+        category: "Breakfast Items",
+        image:
+          "https://images.pexels.com/photos/1055272/pexels-photo-1055272.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 38,
+        name: "Coffee, Latte, Espresso",
+        category: "Breakfast Items",
         image:
           "https://images.pexels.com/photos/302899/pexels-photo-302899.jpeg?auto=compress&cs=tinysrgb&w=300",
       },
       {
-        id: 20,
+        id: 39,
+        name: "Oats with Milk and Sugar",
+        category: "Breakfast Items",
+        image:
+          "https://images.pexels.com/photos/1132047/pexels-photo-1132047.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 40,
+        name: "Rice Pudding (Wednesdays only)",
+        category: "Breakfast Items",
+        image:
+          "https://images.pexels.com/photos/4518843/pexels-photo-4518843.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      // Snacks, Sides & Fries
+      {
+        id: 41,
         name: "French Fries",
-        category: "Sides",
+        category: "Snacks, Sides & Fries",
         image:
           "https://images.pexels.com/photos/1583884/pexels-photo-1583884.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 42,
+        name: "Yam Chips / Potato Chips",
+        category: "Snacks, Sides & Fries",
+        image:
+          "https://images.pexels.com/photos/1583884/pexels-photo-1583884.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 43,
+        name: "Smoothies",
+        category: "Snacks, Sides & Fries",
+        image:
+          "https://images.pexels.com/photos/775032/pexels-photo-775032.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      // Proteins & Add Ons
+      {
+        id: 44,
+        name: "Spicy Chicken Wings",
+        category: "Proteins & Add Ons",
+        image:
+          "https://images.pexels.com/photos/2741448/pexels-photo-2741448.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 45,
+        name: "Grilled Chicken Thighs",
+        category: "Proteins & Add Ons",
+        image:
+          "https://images.pexels.com/photos/2338407/pexels-photo-2338407.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 46,
+        name: "Garden Salad Options",
+        category: "Proteins & Add Ons",
+        image:
+          "https://images.pexels.com/photos/1059905/pexels-photo-1059905.jpeg?auto=compress&cs=tinysrgb&w=300",
       },
     ],
   },
@@ -310,7 +503,7 @@ const diningVendors: DiningVendor[] = [
     name: "Munchies",
     type: "Student Restaurant",
     description:
-      "Hearty blend of local favorites and student meals, known for generous portions and late-night dining.",
+      "Munchies at Ashesi serves a hearty blend of local favorites and popular student meals, from Jollof and waakye to fufu and egusi. Known for generous portions and a rich variety of proteins, Munchies provides a convenient stop for lunch and dinner with options that balance tradition and comfort.",
     image:
       "https://images.pexels.com/photos/1199957/pexels-photo-1199957.jpeg?auto=compress&cs=tinysrgb&w=500",
     hours: "11:00 AM - 3:00 AM",
@@ -323,31 +516,124 @@ const diningVendors: DiningVendor[] = [
       "Local Cuisine",
     ],
     dishes: [
+      // Rice & Local Meals
       {
-        id: 21,
-        name: "Eba with Egusi",
-        category: "Local Meals",
+        id: 47,
+        name: "Jollof Rice",
+        category: "Rice & Local Meals",
+        image:
+          "https://images.pexels.com/photos/5638671/pexels-photo-5638671.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 48,
+        name: "Fried Rice",
+        category: "Rice & Local Meals",
+        image:
+          "https://images.pexels.com/photos/1279330/pexels-photo-1279330.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 49,
+        name: "Plain Rice with Tomato Stew",
+        category: "Rice & Local Meals",
+        image:
+          "https://images.pexels.com/photos/4518843/pexels-photo-4518843.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 50,
+        name: "Waakye",
+        category: "Rice & Local Meals",
+        image:
+          "https://images.pexels.com/photos/7218641/pexels-photo-7218641.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 51,
+        name: "Eba with Egusi Soup",
+        category: "Rice & Local Meals",
         image:
           "https://images.pexels.com/photos/7218619/pexels-photo-7218619.jpeg?auto=compress&cs=tinysrgb&w=300",
       },
       {
-        id: 22,
+        id: 52,
         name: "Ugali",
-        category: "Local Meals",
+        category: "Rice & Local Meals",
         image:
           "https://images.pexels.com/photos/5966630/pexels-photo-5966630.jpeg?auto=compress&cs=tinysrgb&w=300",
       },
       {
-        id: 23,
-        name: "Sweet & Sour Chicken",
-        category: "Proteins",
+        id: 53,
+        name: "Banku with Okra Soup",
+        category: "Rice & Local Meals",
+        image:
+          "https://images.pexels.com/photos/5966630/pexels-photo-5966630.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 54,
+        name: "Beans Stew with Fried Plantain",
+        category: "Rice & Local Meals",
+        image:
+          "https://images.pexels.com/photos/4449068/pexels-photo-4449068.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 55,
+        name: "Fufu with Light Soup",
+        category: "Rice & Local Meals",
+        image:
+          "https://images.pexels.com/photos/8629865/pexels-photo-8629865.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 56,
+        name: "Kenkey with Pepper and Fish",
+        category: "Rice & Local Meals",
+        image:
+          "https://images.pexels.com/photos/7218619/pexels-photo-7218619.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 57,
+        name: "Stir-fry Potato with Gizzard",
+        category: "Rice & Local Meals",
+        image:
+          "https://images.pexels.com/photos/4518843/pexels-photo-4518843.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 58,
+        name: "French Fries",
+        category: "Rice & Local Meals",
+        image:
+          "https://images.pexels.com/photos/1583884/pexels-photo-1583884.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      // Proteins & Sides
+      {
+        id: 59,
+        name: "Sweet and Sour Chicken",
+        category: "Proteins & Sides",
         image:
           "https://images.pexels.com/photos/2338407/pexels-photo-2338407.jpeg?auto=compress&cs=tinysrgb&w=300",
       },
       {
-        id: 24,
+        id: 60,
+        name: "Grilled Chicken",
+        category: "Proteins & Sides",
+        image:
+          "https://images.pexels.com/photos/2338407/pexels-photo-2338407.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 61,
+        name: "Beef Sausage",
+        category: "Proteins & Sides",
+        image:
+          "https://images.pexels.com/photos/4518843/pexels-photo-4518843.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 62,
+        name: "Gizzard",
+        category: "Proteins & Sides",
+        image:
+          "https://images.pexels.com/photos/2741448/pexels-photo-2741448.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 63,
         name: "Chicken Wings",
-        category: "Proteins",
+        category: "Proteins & Sides",
         image:
           "https://images.pexels.com/photos/2741448/pexels-photo-2741448.jpeg?auto=compress&cs=tinysrgb&w=300",
       },
@@ -358,7 +644,7 @@ const diningVendors: DiningVendor[] = [
     name: "Essentials Convenience Store",
     type: "Convenience Store",
     description:
-      "One-stop campus store for everyday necessities, groceries, toiletries, and quick snacks.",
+      "Essentials is the one-stop campus convenience store offering a broad range of everyday necessities. Whether you're looking for food staples, toiletries, stationery, or snacks, Essentials provides a reliable option for quick and easy shopping. Though we can't list every item, the store is well-stocked to meet most student and staff needs without having to leave campus.",
     image:
       "https://images.pexels.com/photos/2292919/pexels-photo-2292919.jpeg?auto=compress&cs=tinysrgb&w=500",
     hours: "Weekdays: 8:00 AM - 7:00 PM, Weekends: 3:00 PM - 6:00 PM",
@@ -366,19 +652,78 @@ const diningVendors: DiningVendor[] = [
     paymentMethods: ["Cash", "Mobile Money"],
     specialties: ["Groceries", "Toiletries", "Stationery", "Quick Shopping"],
     dishes: [
+      // Provisions & Groceries
       {
-        id: 25,
-        name: "Fresh Fruits",
-        category: "Fruits",
+        id: 64,
+        name: "Cereals (cornflakes, oats, Cerelac)",
+        category: "Provisions & Groceries",
         image:
           "https://images.pexels.com/photos/1132047/pexels-photo-1132047.jpeg?auto=compress&cs=tinysrgb&w=300",
       },
       {
-        id: 26,
-        name: "Snacks & Biscuits",
-        category: "Snacks",
+        id: 65,
+        name: "Canned Foods (tuna, sardines, baked beans)",
+        category: "Provisions & Groceries",
         image:
           "https://images.pexels.com/photos/230325/pexels-photo-230325.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 66,
+        name: "Sugar, Milo, Tea, Coffee, Milk",
+        category: "Provisions & Groceries",
+        image:
+          "https://images.pexels.com/photos/302899/pexels-photo-302899.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 67,
+        name: "Cooking Oil, Spaghetti, Noodles",
+        category: "Provisions & Groceries",
+        image:
+          "https://images.pexels.com/photos/1279330/pexels-photo-1279330.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      // Snacks & Refreshments
+      {
+        id: 68,
+        name: "Biscuits & Cookies",
+        category: "Snacks & Refreshments",
+        image:
+          "https://images.pexels.com/photos/230325/pexels-photo-230325.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 69,
+        name: "Plantain Chips, Pringles",
+        category: "Snacks & Refreshments",
+        image:
+          "https://images.pexels.com/photos/230325/pexels-photo-230325.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 70,
+        name: "Chocolates & Sweets",
+        category: "Snacks & Refreshments",
+        image:
+          "https://images.pexels.com/photos/230325/pexels-photo-230325.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 71,
+        name: "Soft Drinks, Juice Boxes",
+        category: "Snacks & Refreshments",
+        image:
+          "https://images.pexels.com/photos/775032/pexels-photo-775032.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      // Fruits (Seasonal)
+      {
+        id: 72,
+        name: "Fresh Fruits (Apples, Bananas, Oranges)",
+        category: "Fruits (Seasonal)",
+        image:
+          "https://images.pexels.com/photos/1132047/pexels-photo-1132047.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 73,
+        name: "Mangoes, Grapes",
+        category: "Fruits (Seasonal)",
+        image:
+          "https://images.pexels.com/photos/1132047/pexels-photo-1132047.jpeg?auto=compress&cs=tinysrgb&w=300",
       },
     ],
   },
@@ -387,7 +732,7 @@ const diningVendors: DiningVendor[] = [
     name: "Bliss Lounge",
     type: "24-Hour Snack Bar",
     description:
-      "24-hour access to quick snacks, beverages, and fresh fruits for late-night cravings.",
+      "Bliss Lounge offers 24-hour access to quick snacks, beverages, and fruits, making it a popular stop for both late-night cravings and early morning essentials. Conveniently located near the hostels, it's a favorite for students looking for something fast, light, and refreshing throughout the day or night.",
     image:
       "https://images.pexels.com/photos/302899/pexels-photo-302899.jpeg?auto=compress&cs=tinysrgb&w=500",
     hours: "24 hours",
@@ -400,19 +745,99 @@ const diningVendors: DiningVendor[] = [
       "Beverages",
     ],
     dishes: [
+      // Snacks & Light Bites
       {
-        id: 27,
-        name: "Meat Pies",
-        category: "Snacks",
+        id: 74,
+        name: "Biscuits & Cookies",
+        category: "Snacks & Light Bites",
+        image:
+          "https://images.pexels.com/photos/230325/pexels-photo-230325.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 75,
+        name: "Chocolates",
+        category: "Snacks & Light Bites",
+        image:
+          "https://images.pexels.com/photos/230325/pexels-photo-230325.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 76,
+        name: "Plantain Chips",
+        category: "Snacks & Light Bites",
+        image:
+          "https://images.pexels.com/photos/230325/pexels-photo-230325.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 77,
+        name: "Meat Pies & Sausage Rolls",
+        category: "Snacks & Light Bites",
         image:
           "https://images.pexels.com/photos/4449068/pexels-photo-4449068.jpeg?auto=compress&cs=tinysrgb&w=300",
       },
       {
-        id: 28,
+        id: 78,
         name: "Croissant",
-        category: "Pastries",
+        category: "Snacks & Light Bites",
         image:
           "https://images.pexels.com/photos/2135677/pexels-photo-2135677.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 79,
+        name: "Bread",
+        category: "Snacks & Light Bites",
+        image:
+          "https://images.pexels.com/photos/1702373/pexels-photo-1702373.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      // Fruits (Seasonal)
+      {
+        id: 80,
+        name: "Fresh Bananas",
+        category: "Fruits (Seasonal)",
+        image:
+          "https://images.pexels.com/photos/1132047/pexels-photo-1132047.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 81,
+        name: "Apples",
+        category: "Fruits (Seasonal)",
+        image:
+          "https://images.pexels.com/photos/1132047/pexels-photo-1132047.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 82,
+        name: "Oranges / Tangerines",
+        category: "Fruits (Seasonal)",
+        image:
+          "https://images.pexels.com/photos/1132047/pexels-photo-1132047.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 83,
+        name: "Grapes",
+        category: "Fruits (Seasonal)",
+        image:
+          "https://images.pexels.com/photos/1132047/pexels-photo-1132047.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      // Beverages & Drink Mixes
+      {
+        id: 84,
+        name: "Bottled Water",
+        category: "Beverages & Drink Mixes",
+        image:
+          "https://images.pexels.com/photos/775032/pexels-photo-775032.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 85,
+        name: "Soft Drinks",
+        category: "Beverages & Drink Mixes",
+        image:
+          "https://images.pexels.com/photos/775032/pexels-photo-775032.jpeg?auto=compress&cs=tinysrgb&w=300",
+      },
+      {
+        id: 86,
+        name: "Juice Boxes",
+        category: "Beverages & Drink Mixes",
+        image:
+          "https://images.pexels.com/photos/775032/pexels-photo-775032.jpeg?auto=compress&cs=tinysrgb&w=300",
       },
     ],
   },
