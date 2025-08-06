@@ -28,6 +28,8 @@ import { Event } from "@/types/event.types";
 import { ContentItem } from "@/services/content.service"; // Add this import
 import { UserService } from "@/services/user.service";
 import { User } from "@/types/user.types";
+import { useSQLiteContext } from "expo-sqlite";
+
 
 interface EventDetailModalProps {
   visible: boolean;
@@ -60,6 +62,17 @@ export function EventDetailModal({
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [attendeeProfiles, setAttendeeProfiles] = useState<User[]>([]);
   const [, setLoadingAttendees] = useState(false);
+
+  // Add this line to get SQLite context
+  const db = useSQLiteContext();
+
+  // Add this useEffect to set the SQLite context in UserService
+  useEffect(() => {
+    if (db) {
+      UserService.setSQLiteContext(db);
+      console.log("✅ SQLite context set in EventDetailModal");
+    }
+  }, [db]);
 
   // Fetch attendee profiles when modal opens or event changes
   useEffect(() => {
@@ -106,7 +119,7 @@ export function EventDetailModal({
     };
 
     fetchAttendeeProfiles();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, event?.id, event?.rsvpYes, event?.rsvpNo, event?.rsvpMaybe]); // Add all RSVP arrays as dependencies
   // Reset attendee profiles when modal closes
   useEffect(() => {
@@ -586,7 +599,6 @@ export function EventDetailModal({
                 <Text style={styles.title} numberOfLines={1}>
                   {event.title}
                 </Text>
-               
               </View>
               <View style={styles.headerRight}>
                 {isOwner && (
