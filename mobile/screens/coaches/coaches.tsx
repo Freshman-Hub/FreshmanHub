@@ -27,6 +27,8 @@ import { useUser } from "@/contexts/UserContext";
 // Import services
 import { UserService } from "@/services/user.service";
 import { EventsService } from "@/services/events.service";
+import { useSQLiteContext } from "expo-sqlite";
+
 
 import { CoachProfileModal } from "@/components/ui/CoachProfileModal";
 
@@ -65,9 +67,22 @@ export default function ViewCoachesScreen() {
     studentsHelped: 0,
   });
 
+  // Add this line to get SQLite context
+  const db = useSQLiteContext();
+
+  // Add this useEffect to set the SQLite context in UserService
+  useEffect(() => {
+    if (db) {
+      UserService.setSQLiteContext(db);
+      EventsService.setSQLiteContext(db);
+      console.log("✅ SQLite context set in EventsService");
+    }
+  }, [db]);
+
   const loadCoachesData = useCallback(async () => {
     try {
       setLoading(true);
+      console.log("\n\n🔄 Loading coaches data...");
 
       // Fetch all users
       const { users, error: usersError } = await UserService.getAllUsers();
@@ -162,7 +177,7 @@ export default function ViewCoachesScreen() {
           major: coach.major || "N/A",
           country: coach.country || "United States",
           studentsCount: assignedStudents.length,
-          studentId: coach.studentId || "N/A", // Add studentId 
+          studentId: coach.studentId || "N/A", // Add studentId
           lastActive: getLastActiveText(coach, allSessions || []),
           isActive: coach.isActive,
           phone: coach.phoneNumber,
@@ -467,7 +482,7 @@ export default function ViewCoachesScreen() {
   const handleCoachAction = (action: string, coach: any) => {
     switch (action) {
       case "assign":
-        router.push("(routes)/assign-freshman");
+        router.push("/(routes)/assign-freshman");
         break;
       case "call":
         console.log("Calling", coach.name, "at", coach.phone);
