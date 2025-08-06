@@ -11,6 +11,8 @@ import { StreamChatService } from "@/services/stream-chat.service";
 import { UserService } from "@/services/user.service";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useSQLiteContext } from "expo-sqlite";
+
 import {
   ArrowLeft,
   ArrowRight,
@@ -62,6 +64,8 @@ export default function SelectContactScreen() {
   const params = useLocalSearchParams();
   const { client, isConnected } = useStreamChat();
   const { user } = useUser();
+  const db = useSQLiteContext();
+
 
   // Determine mode from params
   const mode = (params.mode as SelectMode) || "chat";
@@ -77,6 +81,13 @@ export default function SelectContactScreen() {
   // Add-members specific state
   const [existingMembers, setExistingMembers] = useState<string[]>([]);
   const [groupId, setGroupId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (db) {
+      UserService.setSQLiteContext(db);
+      console.log("✅ SQLite context set in UserService");
+    }
+  }, [db]);
 
   // Function to refresh contacts from Firebase
   const refreshContacts = async () => {
