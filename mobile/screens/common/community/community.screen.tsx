@@ -18,6 +18,8 @@ import { PostCard } from "@/components/common/PostCard";
 import { PostsService } from "../../../services/posts.service";
 import { Post } from "../../../types/post.types";
 import { useUser } from "../../../contexts/UserContext";
+import { useSQLiteContext } from "expo-sqlite";
+
 
 // Import our reusable components
 import { Header } from "@/components/ui/Header";
@@ -29,6 +31,7 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 export default function CommunityScreen() {
   const { theme } = useTheme();
   const { user } = useUser(); // Get current user
+   const db = useSQLiteContext();
   const router = useRouter();
   const params = useLocalSearchParams();
 
@@ -48,6 +51,13 @@ export default function CommunityScreen() {
     "Achievements",
     "Study Groups",
   ];
+
+   useEffect(() => {
+      if (db) {
+        PostsService.setSQLiteContext(db);
+        console.log("✅ SQLite context set in UserService");
+      }
+    }, [db]);
 
   const loadPosts = useCallback(async () => {
     try {
