@@ -6,78 +6,80 @@ import {
   Building,
   Calendar,
   Clock,
-  DollarSign,
   Download,
   ExternalLink,
-  Eye,
   FileText,
   Globe,
-  Heart,
+
   Mail,
   MapPin,
   MessageCircle,
   Phone,
-  Search,
-  Star,
   Target,
-  TrendingUp,
   Users,
+  ChevronRight,
 } from "lucide-react-native";
-import React, { useState } from "react";
+import React, { JSX, useState } from "react";
 import {
   Image,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TextStyle,
   TouchableOpacity,
   View,
+  Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-// Mock career services data
+/**
+ * Career Services Center information
+ */
 const careerCenter = {
-  name: "Ashesi Career Services Center",
+  name: "Career Services",
   description:
-    "Empowering students with career development resources, job opportunities, and professional guidance for successful career transitions.",
-  image:
-    "https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=400",
-  location: "Career Center, 2nd Floor",
-  phone: "+233 30 610 450",
-  email: "careers@ashesi.edu.gh",
+    "Career Services prepares students for life after Ashesi by equipping them with tools for career exploration, readiness, and advancement.",
+  image: require("../../../assets/menu/support-center.png"),
+  location: "OSCA - Career Services",
+  phone: "+233 50 155 6888",
+  email: "snukpe@ashesi.edu.gh",
   hours: "8:00 AM - 5:00 PM (Mon-Fri)",
+  website: "https://ashesi.edu.gh/career-services/",
   director: {
-    name: "Dr. Patricia Osei",
-    title: "Director of Career Services",
+    name: "Selasi Nukpe",
+    title: "Assistant Director, Career Services",
     avatar:
       "https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=400",
-    experience: "12 years",
+    email: "snukpe@ashesi.edu.gh",
+    phone: "+233 50 155 6888",
   },
 };
 
+/**
+ * Quick statistics for career services
+ * Updated to remove specific numbers as requested
+ */
 const careerStats = [
-  { label: "Job Placements", value: "94%", icon: TrendingUp, color: "#22c55e" },
-  {
-    label: "Active Employers",
-    value: "150+",
-    icon: Building,
-    color: "#3b82f6",
-  },
-  { label: "Career Events", value: "25", icon: Calendar, color: "#f59e0b" },
-  { label: "Alumni Network", value: "2.5K", icon: Users, color: "#7c3aed" },
+  { label: "Career Services", value: "4", icon: Target, color: "#22c55e" },
+  { label: "Job Platforms", value: "2", icon: Building, color: "#3b82f6" },
+  { label: "Resources", value: "Available", icon: Download, color: "#f59e0b" },
+  { label: "Career Fair", value: "2025", icon: Calendar, color: "#7c3aed" },
 ];
 
+/**
+ * Available career services with links and descriptions
+ */
 const careerServices = [
   {
     id: 1,
-    name: "Career Counseling",
-    description: "One-on-one career guidance and planning sessions",
+    name: "Career Counseling & Coaching",
+    description:
+      "One-on-one support to explore career paths, set goals, and make informed decisions",
     icon: Target,
     color: "#3b82f6",
     available: true,
-    duration: "45 min",
+    hasLink: false,
   },
   {
     id: 2,
@@ -86,7 +88,7 @@ const careerServices = [
     icon: FileText,
     color: "#059669",
     available: true,
-    duration: "30 min",
+    hasLink: false,
   },
   {
     id: 3,
@@ -95,7 +97,7 @@ const careerServices = [
     icon: MessageCircle,
     color: "#7c3aed",
     available: true,
-    duration: "60 min",
+    hasLink: false,
   },
   {
     id: 4,
@@ -104,213 +106,115 @@ const careerServices = [
     icon: Globe,
     color: "#0891b2",
     available: true,
-    duration: "30 min",
+    hasLink: false,
   },
   {
     id: 5,
-    name: "Networking Events",
-    description: "Connect with industry professionals and alumni",
-    icon: Users,
+    name: "Internships & Job Placement",
+    description: "Connects students to local and international opportunities",
+    icon: Briefcase,
     color: "#f59e0b",
     available: true,
-    duration: "2-3 hours",
+    hasLink: false,
   },
   {
     id: 6,
-    name: "Job Search Strategy",
-    description: "Develop effective job search and application strategies",
-    icon: Search,
+    name: "Career Fairs & Networking",
+    description: "Annual career fairs and employer sessions",
+    icon: Users,
     color: "#ef4444",
     available: true,
-    duration: "45 min",
+    hasLink: true,
+    link: "https://ashesi.edu.gh/career-fair-2025/",
   },
 ];
 
-const jobOpportunities = [
+/**
+ * Job opportunity platforms
+ */
+const jobPlatforms = [
   {
     id: 1,
-    title: "Software Engineer Intern",
-    company: "MTN Ghana",
-    location: "Accra, Ghana",
-    type: "Internship",
-    salary: "GH₵ 2,000/month",
-    posted: "2 days ago",
-    deadline: "2 weeks",
+    name: "College Central Network",
+    description: "Ashesi's dedicated job portal with exclusive opportunities",
+    url: "https://www.collegecentral.com/ashesi/",
     logo: "https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=400",
-    requirements: ["Computer Science", "Programming", "JavaScript", "React"],
-    description:
-      "Join our dynamic tech team as a software engineering intern and gain hands-on experience in web development.",
-    isBookmarked: false,
-    applicants: 45,
+    type: "Primary Platform",
   },
   {
     id: 2,
-    title: "Business Analyst",
-    company: "Ecobank Ghana",
-    location: "Accra, Ghana",
-    type: "Full-time",
-    salary: "GH₵ 8,000 - 12,000",
-    posted: "1 week ago",
-    deadline: "1 week",
+    name: "Baobab Platform",
+    description: "African job platform connecting students with opportunities",
+    url: "https://www.baobabplatform.org/landing",
     logo: "https://images.pexels.com/photos/590020/pexels-photo-590020.jpeg?auto=compress&cs=tinysrgb&w=400",
-    requirements: ["Business Administration", "Analytics", "Excel", "SQL"],
-    description:
-      "Analyze business processes and provide data-driven insights to support strategic decision making.",
-    isBookmarked: true,
-    applicants: 78,
-  },
-  {
-    id: 3,
-    title: "Marketing Coordinator",
-    company: "Vodafone Ghana",
-    location: "Accra, Ghana",
-    type: "Full-time",
-    salary: "GH₵ 6,000 - 9,000",
-    posted: "3 days ago",
-    deadline: "10 days",
-    logo: "https://images.pexels.com/photos/3184465/pexels-photo-3184465.jpeg?auto=compress&cs=tinysrgb&w=400",
-    requirements: [
-      "Marketing",
-      "Communications",
-      "Digital Marketing",
-      "Social Media",
-    ],
-    description:
-      "Coordinate marketing campaigns and support brand development initiatives across multiple channels.",
-    isBookmarked: false,
-    applicants: 32,
+    type: "Secondary Platform",
   },
 ];
 
-const upcomingEvents = [
-  {
-    id: 1,
-    title: "Tech Career Fair 2024",
-    date: "March 15, 2024",
-    time: "10:00 AM - 4:00 PM",
-    location: "Main Auditorium",
-    type: "Career Fair",
-    attendees: 200,
-    companies: 25,
-    description:
-      "Meet with top tech companies and explore career opportunities in technology.",
-  },
-  {
-    id: 2,
-    title: "Resume Writing Workshop",
-    date: "March 20, 2024",
-    time: "2:00 PM - 4:00 PM",
-    location: "Career Center",
-    type: "Workshop",
-    attendees: 30,
-    companies: 0,
-    description:
-      "Learn how to craft compelling resumes that get noticed by employers.",
-  },
-  {
-    id: 3,
-    title: "Alumni Networking Night",
-    date: "March 25, 2024",
-    time: "6:00 PM - 9:00 PM",
-    location: "Student Center",
-    type: "Networking",
-    attendees: 150,
-    companies: 15,
-    description:
-      "Connect with successful Ashesi alumni across various industries.",
-  },
-];
-
-const careerResources = [
-  {
-    id: 1,
-    title: "Career Planning Guide",
-    type: "PDF Guide",
-    downloads: 1234,
-    rating: 4.8,
-    description:
-      "Comprehensive guide to planning your career journey from student to professional.",
-  },
-  {
-    id: 2,
-    title: "Interview Questions Database",
-    type: "Online Resource",
-    downloads: 987,
-    rating: 4.9,
-    description:
-      "Common interview questions and sample answers for various industries.",
-  },
-  {
-    id: 3,
-    title: "Salary Negotiation Tips",
-    type: "Video Series",
-    downloads: 756,
-    rating: 4.7,
-    description:
-      "Learn effective strategies for negotiating your salary and benefits package.",
-  },
-];
-
-export default function CareerServicesScreen() {
+/**
+ * Career Services Screen Component
+ *
+ * Displays comprehensive career services information including:
+ * - Overview of career services
+ * - Available services and resources
+ * - Job opportunity platforms
+ * - Career resources and links
+ * - Contact information
+ *
+ * @returns {JSX.Element} The career services screen component
+ */
+export default function CareerServicesScreen(): JSX.Element {
   const { theme } = useTheme();
   const router = useRouter();
-  const [refreshing, setRefreshing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedJobType, setSelectedJobType] = useState("All");
-  const [jobs, setJobs] = useState(jobOpportunities);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
 
-  const jobTypes = ["All", "Full-time", "Internship", "Part-time", "Contract"];
-
-  const onRefresh = () => {
+  /**
+   * Handles pull-to-refresh functionality
+   */
+  const onRefresh = (): void => {
     setRefreshing(true);
     setTimeout(() => setRefreshing(false), 2000);
   };
 
-  const handleServicePress = (serviceId: number) => {
-    console.log("Booking career service:", serviceId);
+  /**
+   * Handles service card press events
+   */
+  const handleServicePress = (service: any): void => {
+    if (service.hasLink && service.link) {
+      Linking.openURL(service.link);
+    } else {
+      console.log("Booking career service:", service.id);
+      // TODO: Navigate to booking or contact screen
+    }
   };
 
-  const handleJobPress = (jobId: number) => {
-    console.log("Viewing job details:", jobId);
+  /**
+   * Handles job platform press events
+   */
+  const handlePlatformPress = (platform: any): void => {
+    Linking.openURL(platform.url);
   };
 
-  const handleBookmarkJob = (jobId: number) => {
-    setJobs((prev) =>
-      prev.map((job) =>
-        job.id === jobId ? { ...job, isBookmarked: !job.isBookmarked } : job
-      )
-    );
+  /**
+   * Opens career resources website
+   */
+  const handleResourcesPress = (): void => {
+    Linking.openURL(careerCenter.website);
   };
 
-  const handleEventPress = (eventId: number) => {
-    console.log("Viewing event details:", eventId);
+  /**
+   * Initiates call to career center
+   */
+  const handleCallCenter = (): void => {
+    Linking.openURL(`tel:${careerCenter.phone}`);
   };
 
-  const handleResourcePress = (resourceId: number) => {
-    console.log("Downloading resource:", resourceId);
+  /**
+   * Opens email client to contact career center
+   */
+  const handleEmailCenter = (): void => {
+    Linking.openURL(`mailto:${careerCenter.email}`);
   };
-
-  const handleCallCenter = () => {
-    console.log("Calling career center:", careerCenter.phone);
-  };
-
-  const handleEmailCenter = () => {
-    console.log("Emailing career center:", careerCenter.email);
-  };
-
-  const filteredJobs = jobs.filter((job) => {
-    const matchesType =
-      selectedJobType === "All" || job.type === selectedJobType;
-    const matchesSearch =
-      searchQuery === "" ||
-      job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      job.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      job.requirements.some((req) =>
-        req.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-
-    return matchesType && matchesSearch;
-  });
 
   const styles = StyleSheet.create({
     container: {
@@ -875,14 +779,133 @@ export default function CareerServicesScreen() {
       color: theme.colors.textSecondary,
       textAlign: "center",
     } as TextStyle,
+    platformCard: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: theme.borderRadius.xl,
+      padding: theme.spacing.lg,
+      marginBottom: theme.spacing.md,
+      shadowColor: "#000",
+      shadowOffset: {
+        width: 0,
+        height: 6,
+      },
+      shadowOpacity: 0.15,
+      shadowRadius: 10,
+      elevation: 5,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    platformHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: theme.spacing.md,
+    },
+    platformLogo: {
+      width: 50,
+      height: 50,
+      borderRadius: theme.borderRadius.lg,
+      marginRight: theme.spacing.md,
+    },
+    platformInfo: {
+      flex: 1,
+    },
+    platformName: {
+      ...theme.typography.h6,
+      color: theme.colors.text,
+      fontWeight: "700",
+      marginBottom: 4,
+    },
+    platformType: {
+      ...theme.typography.captionSmall,
+      color: theme.colors.primary,
+      fontWeight: "600",
+    },
+    platformDescription: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      marginBottom: theme.spacing.md,
+      lineHeight: 22,
+      fontWeight: "500",
+    },
+    visitButton: {
+      backgroundColor: theme.colors.primary,
+      paddingVertical: theme.spacing.sm,
+      borderRadius: theme.borderRadius.xxxl,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: theme.spacing.sm,
+    },
+    visitButtonText: {
+      ...theme.typography.button,
+      color: "white",
+      fontWeight: "600",
+    },
+    resourcesCard: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: theme.borderRadius.xl,
+      padding: theme.spacing.lg,
+      shadowColor: "#000",
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+      shadowOpacity: 0.1,
+      shadowRadius: 10,
+      elevation: 5,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    resourcesTitle: {
+      ...theme.typography.h6,
+      color: theme.colors.text,
+      fontWeight: "700",
+      marginBottom: theme.spacing.sm,
+    },
+    resourcesDescription: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      lineHeight: 22,
+      marginBottom: theme.spacing.md,
+      fontWeight: "500",
+    },
+    resourcesButton: {
+      backgroundColor: theme.colors.accent,
+      paddingVertical: theme.spacing.sm,
+      borderRadius: theme.borderRadius.xxxl,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: theme.spacing.sm,
+    },
+    resourcesButtonText: {
+      ...theme.typography.button,
+      color: "white",
+      fontWeight: "600",
+    },
+    clickableIndicator: {
+      position: "absolute",
+      top: theme.spacing.sm,
+      right: theme.spacing.sm,
+      backgroundColor: theme.colors.primary + "20",
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.xs,
+    },
+    serviceCardWithLink: {
+      borderColor: theme.colors.primary + "40",
+      borderWidth: 2,
+    },
   });
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
+          accessibilityLabel="Go back"
+          accessibilityRole="button"
         >
           <ArrowLeft color={theme.colors.text} size={24} />
         </TouchableOpacity>
@@ -896,9 +919,10 @@ export default function CareerServicesScreen() {
         }
         contentContainerStyle={styles.scrollContent}
       >
+        {/* Hero Section */}
         <View style={styles.heroSection}>
           <Image
-            source={{ uri: careerCenter.image }}
+            source={require("../../../assets/menu/support-center.png")}
             style={styles.heroImage}
             resizeMode="cover"
           />
@@ -910,6 +934,7 @@ export default function CareerServicesScreen() {
           </View>
         </View>
 
+        {/* Quick Stats */}
         <View style={styles.statsContainer}>
           <View style={styles.statsRow}>
             {careerStats.map((stat, index) => {
@@ -929,6 +954,7 @@ export default function CareerServicesScreen() {
           </View>
         </View>
 
+        {/* Career Services */}
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>Career Services</Text>
           <View style={styles.servicesGrid}>
@@ -937,8 +963,13 @@ export default function CareerServicesScreen() {
               return (
                 <TouchableOpacity
                   key={service.id}
-                  style={styles.serviceCard}
-                  onPress={() => handleServicePress(service.id)}
+                  style={[
+                    styles.serviceCard,
+                    service.hasLink && styles.serviceCardWithLink,
+                  ]}
+                  onPress={() => handleServicePress(service)}
+                  accessibilityLabel={`${service.name}: ${service.description}`}
+                  accessibilityRole="button"
                 >
                   <IconComponent
                     color={service.color}
@@ -949,235 +980,92 @@ export default function CareerServicesScreen() {
                   <Text style={styles.serviceDescription}>
                     {service.description}
                   </Text>
-                  <View style={styles.serviceDuration}>
-                    <Text style={styles.serviceDurationText}>
-                      {service.duration}
-                    </Text>
-                  </View>
+
+                  {/* Clickable indicator */}
+                  {service.hasLink && (
+                    <View style={styles.clickableIndicator}>
+                      <ExternalLink color={theme.colors.primary} size={16} />
+                    </View>
+                  )}
+                  {!service.hasLink && (
+                    <View style={styles.clickableIndicator}>
+                      <ChevronRight color={theme.colors.primary} size={16} />
+                    </View>
+                  )}
                 </TouchableOpacity>
               );
             })}
           </View>
         </View>
 
+        {/* Job Opportunity Platforms */}
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Job Opportunities</Text>
-
-          <View style={styles.searchContainer}>
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search jobs, companies, or skills..."
-              placeholderTextColor={theme.colors.textSecondary}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.filtersContainer}
-            >
-              {jobTypes.map((type) => (
-                <TouchableOpacity
-                  key={type}
-                  style={[
-                    styles.filterChip,
-                    selectedJobType === type && styles.filterChipActive,
-                  ]}
-                  onPress={() => setSelectedJobType(type)}
-                >
-                  <Text
-                    style={[
-                      styles.filterChipText,
-                      selectedJobType === type && styles.filterChipTextActive,
-                    ]}
-                  >
-                    {type}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-
-          {filteredJobs.length > 0 ? (
-            filteredJobs.map((job) => (
-              <TouchableOpacity
-                key={job.id}
-                style={styles.jobCard}
-                onPress={() => handleJobPress(job.id)}
-              >
-                <View style={styles.jobHeader}>
-                  <Image source={{ uri: job.logo }} style={styles.jobLogo} />
-                  <View style={styles.jobInfo}>
-                    <Text style={styles.jobTitle}>{job.title}</Text>
-                    <Text style={styles.jobCompany}>{job.company}</Text>
-                    <Text style={styles.jobLocation}>{job.location}</Text>
-                  </View>
-                  <TouchableOpacity
-                    style={styles.bookmarkButton}
-                    onPress={() => handleBookmarkJob(job.id)}
-                  >
-                    <Heart
-                      color={
-                        job.isBookmarked
-                          ? "#ef4444"
-                          : theme.colors.textSecondary
-                      }
-                      size={24}
-                      fill={job.isBookmarked ? "#ef4444" : "none"}
-                    />
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.jobMeta}>
-                  <View style={styles.metaItem}>
-                    <Briefcase color={theme.colors.textSecondary} size={16} />
-                    <Text style={styles.metaText}>{job.type}</Text>
-                  </View>
-                  <View style={styles.metaItem}>
-                    <DollarSign color={theme.colors.textSecondary} size={16} />
-                    <Text style={styles.metaText}>{job.salary}</Text>
-                  </View>
-                  <View style={styles.metaItem}>
-                    <Clock color={theme.colors.textSecondary} size={16} />
-                    <Text style={styles.metaText}>Posted {job.posted}</Text>
-                  </View>
-                  <View style={styles.metaItem}>
-                    <Users color={theme.colors.textSecondary} size={16} />
-                    <Text style={styles.metaText}>
-                      {job.applicants} applicants
-                    </Text>
-                  </View>
-                </View>
-
-                <Text style={styles.jobDescription}>{job.description}</Text>
-
-                <View style={styles.requirementsContainer}>
-                  <View style={styles.requirementsList}>
-                    {job.requirements.map((requirement, index) => (
-                      <View key={index} style={styles.requirementTag}>
-                        <Text style={styles.requirementText}>
-                          {requirement}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-
-                <View style={styles.jobActions}>
-                  <TouchableOpacity style={styles.actionButton}>
-                    <ExternalLink color="white" size={18} />
-                    <Text style={styles.actionButtonText}>Apply Now</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.actionButton, styles.actionButtonSecondary]}
-                  >
-                    <Eye color={theme.colors.text} size={18} />
-                    <Text
-                      style={[
-                        styles.actionButtonText,
-                        styles.actionButtonTextSecondary,
-                      ]}
-                    >
-                      View Details
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </TouchableOpacity>
-            ))
-          ) : (
-            <View style={styles.noResultsContainer}>
-              <Text style={styles.noResultsText}>
-                No jobs found matching your criteria
-              </Text>
-            </View>
-          )}
-        </View>
-
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Upcoming Events</Text>
-          {upcomingEvents.map((event) => (
+          <Text style={styles.sectionTitle}>Job Opportunity Platforms</Text>
+          {jobPlatforms.map((platform) => (
             <TouchableOpacity
-              key={event.id}
-              style={styles.eventCard}
-              onPress={() => handleEventPress(event.id)}
+              key={platform.id}
+              style={styles.platformCard}
+              onPress={() => handlePlatformPress(platform)}
+              activeOpacity={0.95}
+              accessibilityLabel={`Visit ${platform.name}`}
+              accessibilityRole="button"
             >
-              <View style={styles.eventHeader}>
-                <Text style={styles.eventTitle}>{event.title}</Text>
-                <View style={styles.eventType}>
-                  <Text style={styles.eventTypeText}>{event.type}</Text>
+              <View style={styles.platformHeader}>
+                <Image
+                  source={{ uri: platform.logo }}
+                  style={styles.platformLogo}
+                />
+                <View style={styles.platformInfo}>
+                  <Text style={styles.platformName}>{platform.name}</Text>
+                  <Text style={styles.platformType}>{platform.type}</Text>
                 </View>
+                <ExternalLink color={theme.colors.primary} size={24} />
               </View>
 
-              <View style={styles.eventDetails}>
-                <View style={styles.eventDetailRow}>
-                  <Calendar color={theme.colors.textSecondary} size={16} />
-                  <Text style={styles.eventDetailText}>
-                    {event.date} • {event.time}
-                  </Text>
-                </View>
-                <View style={styles.eventDetailRow}>
-                  <MapPin color={theme.colors.textSecondary} size={16} />
-                  <Text style={styles.eventDetailText}>{event.location}</Text>
-                </View>
-                <View style={styles.eventDetailRow}>
-                  <Users color={theme.colors.textSecondary} size={16} />
-                  <Text style={styles.eventDetailText}>
-                    {event.attendees} attendees
-                    {event.companies > 0 && ` • ${event.companies} companies`}
-                  </Text>
-                </View>
-              </View>
+              <Text style={styles.platformDescription}>
+                {platform.description}
+              </Text>
 
-              <Text style={styles.eventDescription}>{event.description}</Text>
+              <TouchableOpacity
+                style={styles.visitButton}
+                onPress={() => handlePlatformPress(platform)}
+                accessibilityLabel={`Visit ${platform.name} website`}
+                accessibilityRole="button"
+              >
+                <ExternalLink color="white" size={18} />
+                <Text style={styles.visitButtonText}>Visit Platform</Text>
+              </TouchableOpacity>
             </TouchableOpacity>
           ))}
         </View>
 
+        {/* Career Resources */}
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>Career Resources</Text>
-          {careerResources.map((resource) => (
-            <View key={resource.id} style={styles.resourceCard}>
-              <View style={styles.resourceHeader}>
-                <Text style={styles.resourceTitle}>{resource.title}</Text>
-                <View style={styles.resourceType}>
-                  <Text style={styles.resourceTypeText}>{resource.type}</Text>
-                </View>
-              </View>
-
-              <Text style={styles.resourceDescription}>
-                {resource.description}
-              </Text>
-
-              <View style={styles.resourceMeta}>
-                <View style={styles.resourceStats}>
-                  <View style={styles.resourceStat}>
-                    <Download color={theme.colors.textSecondary} size={16} />
-                    <Text style={styles.resourceStatText}>
-                      {resource.downloads}
-                    </Text>
-                  </View>
-                  <View style={styles.resourceStat}>
-                    <Star color="#f59e0b" size={16} fill="#f59e0b" />
-                    <Text style={styles.resourceStatText}>
-                      {resource.rating}
-                    </Text>
-                  </View>
-                </View>
-                <TouchableOpacity
-                  style={styles.downloadButton}
-                  onPress={() => handleResourcePress(resource.id)}
-                >
-                  <Download color="white" size={16} />
-                  <Text style={styles.downloadButtonText}>Download</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))}
+          <View style={styles.resourcesCard}>
+            <Text style={styles.resourcesTitle}>
+              Comprehensive Career Resources
+            </Text>
+            <Text style={styles.resourcesDescription}>
+              Access our extensive collection of career development resources,
+              including guides, templates, and professional development materials
+              to support your career journey.
+            </Text>
+            <TouchableOpacity
+              style={styles.resourcesButton}
+              onPress={handleResourcesPress}
+              accessibilityLabel="Visit career resources website"
+              accessibilityRole="button"
+            >
+              <ExternalLink color="white" size={18} />
+              <Text style={styles.resourcesButtonText}>View Resources</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
+        {/* Meet the Director */}
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Meet the Director</Text>
+          <Text style={styles.sectionTitle}>Meet the Assistant Director</Text>
           <View style={styles.directorCard}>
             <View style={styles.directorHeader}>
               <Image
@@ -1192,7 +1080,7 @@ export default function CareerServicesScreen() {
                   {careerCenter.director.title}
                 </Text>
                 <Text style={styles.directorExperience}>
-                  {careerCenter.director.experience} experience
+                  {careerCenter.director.email}
                 </Text>
               </View>
             </View>
@@ -1236,6 +1124,8 @@ export default function CareerServicesScreen() {
               <TouchableOpacity
                 style={styles.contactButton}
                 onPress={handleCallCenter}
+                accessibilityLabel="Call career services"
+                accessibilityRole="button"
               >
                 <Phone color="white" size={20} />
                 <Text style={styles.contactButtonText}>Call</Text>
@@ -1243,6 +1133,8 @@ export default function CareerServicesScreen() {
               <TouchableOpacity
                 style={[styles.contactButton, styles.contactButtonSecondary]}
                 onPress={handleEmailCenter}
+                accessibilityLabel="Email career services"
+                accessibilityRole="button"
               >
                 <Mail color={theme.colors.text} size={20} />
                 <Text
