@@ -23,10 +23,11 @@ import {
 } from "lucide-react-native";
 import { useTheme } from "@/contexts/ThemeContext";
 import { router } from "expo-router";
-// import { useUser } from "@/contexts/UserContext";
+import { useUser } from "@/contexts/UserContext";
 
 // Import services
 import { UserService } from "@/services/user.service";
+import { useSQLiteContext } from "expo-sqlite";
 
 // Import reusable components
 import { Header } from "@/components/ui/Header";
@@ -45,7 +46,7 @@ const COACH_MAX_CAPACITY = 15;
 
 export default function AssignFreshmanScreen() {
   const { theme } = useTheme();
-  // const { user } = useUser();
+  const { user } = useUser();
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchMode, setIsSearchMode] = useState(false);
@@ -65,7 +66,17 @@ export default function AssignFreshmanScreen() {
   const [currentFreshman, setCurrentFreshman] = useState<any>(null);
   const [assignmentLoading, setAssignmentLoading] = useState(false);
 
+  // Add this line to get SQLite context
+  const db = useSQLiteContext();
 
+  // Add this useEffect to set the SQLite context in UserService
+  useEffect(() => {
+    if (db) {
+      UserService.setSQLiteContext(db);
+      console.log("✅ SQLite context set in AssignStudentsScreen");
+    }
+  }, [db]);
+  
   // Load data from backend
   const loadAssignmentData = useCallback(async () => {
     try {
@@ -88,6 +99,49 @@ export default function AssignFreshmanScreen() {
             (coach) => coach.id === freshman.assignedCoach
           );
 
+          let joinDate = "2025-07-01"; // default fallback
+          if (freshman.createdAt) {
+            try {
+              // Since SQLite now stores ISO strings, just parse directly
+              let parsedDate: Date;
+              // Check if createdAt is a Firestore Timestamp (has toDate method)
+              if (
+                freshman.createdAt &&
+                typeof freshman.createdAt === "object" &&
+                typeof freshman.createdAt.toDate === "function"
+              ) {
+                parsedDate = freshman.createdAt.toDate();
+              } else {
+                parsedDate =
+                  typeof freshman.createdAt === "object" &&
+                  typeof (freshman.createdAt as any).toDate === "function"
+                    ? (freshman.createdAt as any).toDate()
+                    : new Date(String(freshman.createdAt));
+              }
+              if (
+                !isNaN(parsedDate.getTime()) &&
+                parsedDate.getFullYear() > 1900
+              ) {
+                joinDate = parsedDate.toISOString().split("T")[0];
+              } else {
+                console.warn(
+                  `Invalid date for user ${freshman.email}:`,
+                  freshman.createdAt
+                );
+              }
+            } catch (error) {
+              console.warn(
+                `Error parsing createdAt for user ${freshman.email}:`,
+                error
+              );
+              joinDate = "2025-07-01";
+            }
+          } else {
+            console.log(
+              `No createdAt field for user ${freshman.email}, using default date`
+            );
+          }
+
           return {
             id: freshman.id,
             name:
@@ -102,9 +156,7 @@ export default function AssignFreshmanScreen() {
               ? `${assignedCoach.firstName} ${assignedCoach.lastName}`.trim()
               : null,
             assignedCoachId: freshman.assignedCoach || null,
-            joinDate:
-              freshman.createdAt?.toDate()?.toISOString().split("T")[0] ||
-              "2025-07-01",
+            joinDate,
             yearGroup: freshman.yearGroup || "Freshman",
             gender: freshman.gender || "Unknown",
             phoneNumber: freshman.phoneNumber,
@@ -160,7 +212,7 @@ export default function AssignFreshmanScreen() {
     if (!dataLoaded) {
       loadAssignmentData();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const onRefresh = useCallback(async () => {
@@ -245,12 +297,94 @@ const handleCoachSelect = async (coach: any) => {
     setAssignmentLoading(true); // Start loading
 
     if (assignmentType === "bulk") {
-      // ... existing bulk assignment logic
-    } else {
-      // ... existing single assignment logic
-    }
+      // Check if coach has capacity for all selected students
+      const availableSlots = coach.capacity - coach.currentStudents;
+      if (selectedFreshmen.length > availableSlots) {
+        Alert.alert(
+          "Insufficient Capacity",
+          `${coach.name} only has ${availableSlots} available slots, but you selected ${selectedFreshmen.length} students.`
+        );
+        return;
+      }
+      // Bulk assignment
+      let successCount = 0;
+      let errorCount = 0;
 
-    // ... existing success/error handling
+      for (const freshmanId of selectedFreshmen) {
+        const { error } = await UserService.updateUser(
+          freshmanId,
+          { assignedCoach: coach.id },
+          user?.id || ""
+        );
+
+        if (error) {
+          errorCount++;
+          console.error(`Error assigning student ${freshmanId}:`, error);
+        } else {
+          successCount++;
+        }
+      }
+      // Update local state
+      const updatedFreshmen = freshmen.map((freshman: any) => {
+        if (selectedFreshmen.includes(freshman.id)) {
+          return {
+            ...freshman,
+            assignedCoach: coach.name,
+            assignedCoachId: coach.id,
+          };
+        }
+        return freshman;
+      });
+      setFreshmen(updatedFreshmen);
+      setSelectedFreshmen([]);
+
+      if (errorCount === 0) {
+        Alert.alert(
+          "Assignment Successful! 🎉",
+          `${successCount} student${successCount > 1 ? "s" : ""} assigned to ${coach.name}`
+        );
+      } else {
+        Alert.alert(
+          "Partial Success",
+          `${successCount} students assigned successfully. ${errorCount} assignments failed.`
+        );
+      }
+    } else {
+      // Single assignment - check capacity
+      if (coach.currentStudents >= coach.capacity) {
+        Alert.alert(
+          "Coach at Capacity",
+          `${coach.name} already has ${coach.capacity} students assigned.`
+        );
+        return;
+      }
+
+      // Single assignment
+      const { error } = await UserService.updateUser(
+        currentFreshman.id,
+        { assignedCoach: coach.id },
+        user?.id || ""
+      );
+
+      if (error) {
+        Alert.alert("Error", "Failed to assign student. Please try again.");
+        console.error("Assignment error:", error);
+        return;
+      }
+
+      // Update local state
+      const updatedFreshmen = freshmen.map((f) =>
+        f.id === currentFreshman.id
+          ? { ...f, assignedCoach: coach.name, assignedCoachId: coach.id }
+          : f
+      );
+      setFreshmen(updatedFreshmen);
+
+      Alert.alert(
+        "Assignment Successful! 🎉",
+        `${currentFreshman.name} has been assigned to ${coach.name}`
+      );
+    }
 
     // Refresh data to get updated counts
     await loadAssignmentData();
