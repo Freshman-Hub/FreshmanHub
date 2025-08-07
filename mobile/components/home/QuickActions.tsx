@@ -45,11 +45,11 @@ const quickActions = [
   },
   {
     id: 5,
-    title: "Resources",
+    title: "Sessions",
     icon: BookOpen,
     color: "#ea580c",
     bgColor: "#fff7ed",
-    route: "/(tabs)/resources",
+    route: "/(routes)/sessions",
   },
   {
     id: 6,
