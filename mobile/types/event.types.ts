@@ -1,3 +1,5 @@
+import { Timestamp } from "firebase/firestore";
+
 export interface Event {
   id: string;
   title: string;
@@ -8,6 +10,7 @@ export interface Event {
   allDay: boolean;
   location?: string;
   category: string;
+  sourceCollection: string; // "events" or "sessions"
   color: string;
   repeat: string;
   status?: "upcoming" | "ongoing" | "completed" | "cancelled";
@@ -28,9 +31,12 @@ export interface Event {
   rsvpMaybe: string[];
 
   // Metadata
-  createdAt: string;
-  updatedAt: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
   isPublic: boolean;
+
+  isDeleted?: boolean;
+  deletedAt?: Timestamp | string | null; // Allow null for soft delete
 }
 
 export interface EventAttendee {
