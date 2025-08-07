@@ -13,6 +13,11 @@ import { SQLiteProvider, type SQLiteDatabase } from "expo-sqlite";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { OverlayProvider } from "stream-chat-expo";
 
+import { useSQLiteContext } from "expo-sqlite";
+import { EventsService } from "@/services/events.service";
+import { UserService } from "@/services/user.service";
+
+
 async function migrateDbIfNeeded(db: SQLiteDatabase) {
   const DATABASE_VERSION = 1;
   const result = await db.getFirstAsync<{ user_version: number }>(
@@ -253,6 +258,17 @@ function LayoutContent() {
 
   console.log("Role-=================", user?.role);
   console.log("Email-=================", user?.email);
+
+  const db = useSQLiteContext();
+
+  // Set SQLite context once for all services
+  useEffect(() => {
+    if (db) {
+      EventsService.setSQLiteContext(db);
+      UserService.setSQLiteContext(db);
+      console.log("✅ SQLite context set globally for all services");
+    }
+  }, [db]);
 
   useEffect(() => {
     checkOnboardingStatus();
