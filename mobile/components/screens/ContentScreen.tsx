@@ -11,7 +11,14 @@ import {
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ArrowLeft, Calendar, List, CalendarDays } from "lucide-react-native";
+import {
+  ArrowLeft,
+  Calendar,
+  List,
+  CalendarDays,
+  Trash2,
+  RotateCcw,
+} from "lucide-react-native";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useUser } from "@/contexts/UserContext";
 
@@ -34,9 +41,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { EventsService } from "@/services/events.service";
 import { CreateEventData, Event } from "@/types/event.types";
 import { router } from "expo-router";
-import { useSQLiteContext } from "expo-sqlite";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-
+// import AsyncStorage from "@react-native-async-storage/async-storage";
 
 interface ContentScreenProps {
   contentType: "event" | "session";
@@ -49,6 +54,276 @@ interface ContentScreenProps {
   canUserCreate: (userRole?: string) => boolean;
   getFloatingActions: (userRole?: string) => { type: string; label: string }[];
 }
+
+// Update the DeletedEventCard component
+const DeletedEventCard = ({
+  event,
+  onRestore,
+  onPermanentDelete,
+  onRemove,
+  currentUserId,
+}: {
+  event: Event;
+  onRestore: (eventId: string) => void;
+  onPermanentDelete: (eventId: string) => void;
+  onRemove: (eventId: string) => void;
+  currentUserId?: string;
+}) => {
+  const { theme } = useTheme();
+
+  // Check if current user is the owner
+  const isOwner = currentUserId === event.userId;
+
+  const deletedCardStyles = StyleSheet.create({
+    card: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      marginBottom: theme.spacing.md,
+      borderWidth: 1,
+      borderColor: "#ff6b6b",
+      opacity: 0.7,
+    },
+    header: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      marginBottom: theme.spacing.sm,
+    },
+    title: {
+      ...theme.typography.h6,
+      color: theme.colors.text,
+      flex: 1,
+      textDecorationLine: "line-through",
+      fontWeight: "600",
+    },
+    deletedLabel: {
+      backgroundColor: "#ff6b6b",
+      paddingHorizontal: theme.spacing.sm,
+      paddingVertical: theme.spacing.xs,
+      borderRadius: theme.borderRadius.sm,
+      marginLeft: theme.spacing.sm,
+    },
+    deletedText: {
+      color: "white",
+      fontSize: 12,
+      fontWeight: "600",
+    },
+    details: {
+      marginBottom: theme.spacing.md,
+    },
+    detailText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.xs,
+      fontWeight: "500",
+    },
+    deletedInfo: {
+      backgroundColor: theme.colors.background,
+      padding: theme.spacing.sm,
+      borderRadius: theme.borderRadius.md,
+      marginBottom: theme.spacing.md,
+    },
+    deletedInfoText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      textAlign: "center",
+      fontWeight: "500",
+    },
+    actionsContainer: {
+      gap: theme.spacing.sm,
+    },
+    actionButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: theme.spacing.sm,
+      paddingHorizontal: theme.spacing.md,
+      borderRadius: theme.borderRadius.md,
+      gap: theme.spacing.sm,
+    },
+    restoreButton: {
+      backgroundColor: theme.colors.primary,
+    },
+    permanentDeleteButton: {
+      backgroundColor: "#dc3545",
+    },
+    removeButton: {
+      backgroundColor: "#6c757d",
+    },
+    actionText: {
+      color: "white",
+      fontWeight: "600",
+    },
+    ownerActions: {
+      flexDirection: "row",
+      gap: theme.spacing.sm,
+    },
+    ownerActionButton: {
+      flex: 1,
+    },
+    noPermissionText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      textAlign: "center",
+      fontStyle: "italic",
+      padding: theme.spacing.sm,
+    },
+    ownerInfo: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.xs,
+      fontWeight: "500",
+    },
+  });
+
+  const formatDeletedTime = (deletedAt: string | { toDate: () => Date }) => {
+    let deletedDate: Date;
+    if (typeof deletedAt === "string") {
+      deletedDate = new Date(deletedAt);
+    } else if (deletedAt && typeof deletedAt.toDate === "function") {
+      deletedDate = deletedAt.toDate();
+    } else {
+      return "Deleted date unknown";
+    }
+    const now = new Date();
+    const diffInMinutes = Math.floor(
+      (now.getTime() - deletedDate.getTime()) / (1000 * 60)
+    );
+
+    if (diffInMinutes < 60) {
+      return `Deleted ${diffInMinutes} minutes ago`;
+    } else if (diffInMinutes < 1440) {
+      const hours = Math.floor(diffInMinutes / 60);
+      return `Deleted ${hours} hour${hours > 1 ? "s" : ""} ago`;
+    } else {
+      const days = Math.floor(diffInMinutes / 1440);
+      return `Deleted ${days} day${days > 1 ? "s" : ""} ago`;
+    }
+  };
+
+  const handlePermanentDelete = () => {
+    Alert.alert(
+      "Permanently Delete",
+      `Are you sure you want to permanently delete "${event.title}"? This action cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete Forever",
+          style: "destructive",
+          onPress: () => onPermanentDelete(event.id),
+        },
+      ]
+    );
+  };
+
+  const handleRemove = () => {
+    Alert.alert(
+      "Remove Event",
+      `Remove "${event.title}" from your device? You will no longer see this event, and you'll be removed as an attendee. The event will remain active for other participants.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove & Leave",
+          style: "destructive",
+          onPress: () => onRemove(event.id),
+        },
+      ]
+    );
+  };
+
+  return (
+    <View style={deletedCardStyles.card}>
+      <View style={deletedCardStyles.header}>
+        <Text style={deletedCardStyles.title}>{event.title}</Text>
+        <View style={deletedCardStyles.deletedLabel}>
+          <Text style={deletedCardStyles.deletedText}>DELETED</Text>
+        </View>
+      </View>
+
+      <View style={deletedCardStyles.details}>
+        <Text style={deletedCardStyles.detailText}>
+          Date:{" "}
+          {new Date(event.date).toLocaleDateString("en-US", {
+            weekday: "short",
+            month: "short",
+            day: "numeric",
+          })}
+        </Text>
+        <Text style={deletedCardStyles.detailText}>
+          Time:{" "}
+          {event.allDay ? "All day" : `${event.startTime} - ${event.endTime}`}
+        </Text>
+        {event.location && (
+          <Text style={deletedCardStyles.detailText}>
+            Location: {event.location}
+          </Text>
+        )}
+        <Text style={deletedCardStyles.detailText}>
+          Category: {event.category}
+        </Text>
+        {!isOwner && (
+          <Text style={deletedCardStyles.ownerInfo}>
+            Created by: {event.userDisplayName}
+          </Text>
+        )}
+      </View>
+
+      {event.deletedAt && (
+        <View style={deletedCardStyles.deletedInfo}>
+          <Text style={deletedCardStyles.deletedInfoText}>
+            {formatDeletedTime(event.deletedAt)}
+          </Text>
+        </View>
+      )}
+
+      <View style={deletedCardStyles.actionsContainer}>
+        {isOwner ? (
+          // Owner actions: Restore and Permanent Delete
+          <View style={deletedCardStyles.ownerActions}>
+            <TouchableOpacity
+              style={[
+                deletedCardStyles.actionButton,
+                deletedCardStyles.restoreButton,
+                deletedCardStyles.ownerActionButton,
+              ]}
+              onPress={() => onRestore(event.id)}
+            >
+              <RotateCcw color="white" size={16} />
+              <Text style={deletedCardStyles.actionText}>Restore</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                deletedCardStyles.actionButton,
+                deletedCardStyles.permanentDeleteButton,
+                deletedCardStyles.ownerActionButton,
+              ]}
+              onPress={handlePermanentDelete}
+            >
+              <Trash2 color="white" size={16} />
+              <Text style={deletedCardStyles.actionText}>Delete Forever</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          // Non-owner action: Remove from my view
+          <TouchableOpacity
+            style={[
+              deletedCardStyles.actionButton,
+              deletedCardStyles.removeButton,
+            ]}
+            onPress={handleRemove}
+          >
+            <Trash2 color="white" size={16} />
+            <Text style={deletedCardStyles.actionText}>
+              Remove from My View
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
+  );
+};
 
 export function ContentScreen({
   contentType,
@@ -65,6 +340,7 @@ export function ContentScreen({
   const [viewMode, setViewMode] = useState<"calendar" | "list">("list");
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [events, setEvents] = useState<Event[]>([]);
+  const [deletedEvents, setDeletedEvents] = useState<Event[]>([]);
   const [selectedFilter, setSelectedFilter] = useState("All");
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -73,8 +349,10 @@ export function ContentScreen({
   const [createModalDate, setCreateModalDate] = useState<Date>();
   const [createModalTime, setCreateModalTime] = useState<string>();
 
-  // New states for the requested features
-  const [timeFilter, setTimeFilter] = useState<"upcoming" | "past">("upcoming");
+  // New states for the requested features - Updated timeFilter type
+  const [timeFilter, setTimeFilter] = useState<"upcoming" | "past" | "deleted">(
+    "upcoming"
+  );
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [filterDate, setFilterDate] = useState<Date | null>(null);
 
@@ -83,6 +361,8 @@ export function ContentScreen({
   const [showEditModal, setShowEditModal] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [restoreLoading, setRestoreLoading] = useState(false);
+  const [permanentDeleteLoading, setPermanentDeleteLoading] = useState(false);
 
   const filters = getFilters(user?.role);
   const categoryOptions = getCategoryOptions(user?.role);
@@ -98,17 +378,6 @@ export function ContentScreen({
   //   AsyncStorage.removeItem("lastSync_sessions");
   // }, []);
 
-  // Add this line to get SQLite context
-  const db = useSQLiteContext();
-
-  // Add this useEffect to set the SQLite context in UserService
-  useEffect(() => {
-    if (db) {
-      UserService.setSQLiteContext(db);
-      EventsService.setSQLiteContext(db);
-      console.log("✅ SQLite context set in EventsService");
-    }
-  }, [db]);
 
   // Add function to load attendee profiles
   const loadAttendeeProfiles = useCallback(
@@ -169,6 +438,26 @@ export function ContentScreen({
     });
   };
 
+  // Load deleted events
+  const loadDeletedEvents = useCallback(async () => {
+    try {
+      const { events: fetchedDeletedEvents, error } =
+        await EventsService.getDeletedEvents(50, collectionName);
+
+      if (error) {
+        console.error("Error loading deleted content:", error);
+      } else if (fetchedDeletedEvents) {
+        // Filter deleted events based on invitee status
+        const filteredDeletedEvents =
+          filterEventsByInvitee(fetchedDeletedEvents);
+        setDeletedEvents(filteredDeletedEvents);
+      }
+    } catch (error) {
+      console.error("Error loading deleted content:", error);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [collectionName, user?.id]);
+
   // Use your existing EventsService
   const loadEvents = useCallback(async () => {
     try {
@@ -196,6 +485,9 @@ export function ContentScreen({
           }
         });
       }
+
+      // Also load deleted events
+      await loadDeletedEvents();
     } catch (error) {
       console.error("Error loading content:", error);
       Alert.alert("Error", `Failed to load ${contentType}s`);
@@ -209,6 +501,7 @@ export function ContentScreen({
     collectionName,
     user?.id,
     loadAttendeeProfiles,
+    loadDeletedEvents,
   ]);
 
   // Load events only if data not already loaded
@@ -276,11 +569,17 @@ export function ContentScreen({
   };
 
   const handleDeleteEvent = async (eventId: string) => {
+    if (!user?.id) {
+      Alert.alert("Error", "User not authenticated");
+      return;
+    }
+
     try {
       setDeleteLoading(true);
 
       const { error } = await EventsService.deleteEvent(
         eventId,
+        user.id,
         collectionName
       );
 
@@ -296,12 +595,140 @@ export function ContentScreen({
         setShowEventDetail(false);
         setSelectedEvent(null);
         Alert.alert("Success", `${contentType} deleted successfully`);
+
+        // Reload deleted events to show the newly deleted event
+        await loadDeletedEvents();
       }
     } catch (error) {
       console.error("Error deleting content:", error);
       Alert.alert("Error", `Failed to delete ${contentType}`);
     } finally {
       setDeleteLoading(false);
+    }
+  };
+
+  // New restore function
+  const handleRestoreEvent = async (eventId: string) => {
+    if (!user?.id) {
+      Alert.alert("Error", "User not authenticated");
+      return;
+    }
+
+    // Find the event and check ownership
+    const eventToRestore = deletedEvents.find((event) => event.id === eventId);
+    if (!eventToRestore) {
+      Alert.alert("Error", "Event not found");
+      return;
+    }
+
+    if (eventToRestore.userId !== user.id) {
+      Alert.alert("Error", "You can only restore events that you created");
+      return;
+    }
+
+    try {
+      setRestoreLoading(true);
+
+      const { error } = await EventsService.restoreEvent(
+        eventId,
+        collectionName
+      );
+
+      if (error) {
+        Alert.alert(
+          "Error",
+          `Failed to restore ${contentType}. Please try again.`
+        );
+      } else {
+        // Remove from deleted events
+        setDeletedEvents((prevEvents) =>
+          prevEvents.filter((event) => event.id !== eventId)
+        );
+
+        Alert.alert("Success", `${contentType} restored successfully`);
+
+        // Reload events to show the restored event
+        setDataLoaded(false); // Force reload
+        await loadEvents();
+      }
+    } catch (error) {
+      console.error("Error restoring content:", error);
+      Alert.alert("Error", `Failed to restore ${contentType}`);
+    } finally {
+      setRestoreLoading(false);
+    }
+  };
+
+  // Update handleRemoveEvent with better error handling
+  const handleRemoveEvent = async (eventId: string) => {
+    if (!user?.id) {
+      Alert.alert("Error", "User not authenticated");
+      return;
+    }
+
+    try {
+      setRestoreLoading(true);
+
+      const { error } = await EventsService.removeEventFromUser(
+        eventId,
+        user.id,
+        collectionName
+      );
+
+      if (error) {
+        Alert.alert("Error", `Failed to remove ${contentType}. ${error}`);
+      } else {
+        // Remove from both deleted events and regular events view
+        setDeletedEvents((prevEvents) =>
+          prevEvents.filter((event) => event.id !== eventId)
+        );
+
+        // Also remove from regular events if it's there
+        setEvents((prevEvents) =>
+          prevEvents.filter((event) => event.id !== eventId)
+        );
+
+        Alert.alert("Success", `${contentType} removed from your view`);
+      }
+    } catch (error) {
+      console.error("Error removing content:", error);
+      Alert.alert("Error", `Failed to remove ${contentType}`);
+    } finally {
+      setRestoreLoading(false);
+    }
+  };
+
+  // Update handlePermanentDeleteEvent with better error handling
+  const handlePermanentDeleteEvent = async (eventId: string) => {
+    if (!user?.id) {
+      Alert.alert("Error", "User not authenticated");
+      return;
+    }
+
+    try {
+      setPermanentDeleteLoading(true);
+
+      const { error } = await EventsService.permanentlyDeleteEvent(
+        eventId,
+        user.id,
+        collectionName
+      );
+
+      if (error) {
+        Alert.alert("Error", error); // Show the exact error message
+      } else {
+        // Remove from deleted events
+        setDeletedEvents((prevEvents) =>
+          prevEvents.filter((event) => event.id !== eventId)
+        );
+
+        Alert.alert("Success", `${contentType} permanently deleted`);
+      }
+    } catch (error) {
+      console.error("Error permanently deleting content:", error);
+      Alert.alert("Error", `Failed to permanently delete ${contentType}`);
+    } finally {
+      setPermanentDeleteLoading(false);
     }
   };
 
@@ -450,7 +877,7 @@ export function ContentScreen({
 
           if (timeFilter === "upcoming") {
             return eventDateTime >= now;
-          } else {
+          } else if (timeFilter === "past") {
             return eventDateTime < now;
           }
         } else {
@@ -468,10 +895,12 @@ export function ContentScreen({
 
           if (timeFilter === "upcoming") {
             return eventDateOnly >= nowDateOnly;
-          } else {
+          } else if (timeFilter === "past") {
             return eventDateOnly < nowDateOnly;
           }
         }
+
+        return true; // Should not reach here
       });
     }
     // For calendar view, don't filter by time - show all events
@@ -491,11 +920,42 @@ export function ContentScreen({
     return filtered;
   };
 
+  // Get filtered deleted events
+  const getFilteredDeletedEvents = () => {
+    let filtered = deletedEvents;
+
+    // Filter by category
+    if (selectedFilter !== "All") {
+      filtered = filtered.filter((event) => event.category === selectedFilter);
+    }
+
+    // Filter by specific date if selected
+    if (filterDate) {
+      filtered = filtered.filter((event) => {
+        const eventDate = new Date(event.date);
+        return (
+          eventDate.getFullYear() === filterDate.getFullYear() &&
+          eventDate.getMonth() === filterDate.getMonth() &&
+          eventDate.getDate() === filterDate.getDate()
+        );
+      });
+    }
+
+    return filtered;
+  };
+
   // Update the filteredEvents assignment
-  const filteredEvents = getFilteredEvents();
+  const filteredEvents =
+    timeFilter === "deleted" ? getFilteredDeletedEvents() : getFilteredEvents();
 
   // Update calendarEvents to include ALL events when in calendar view
-  const calendarEvents = (viewMode === "calendar" ? events : filteredEvents)
+  const calendarEvents = (
+    viewMode === "calendar"
+      ? events
+      : timeFilter === "deleted"
+        ? []
+        : getFilteredEvents()
+  )
     .filter((event) => event.startTime !== undefined)
     .map((event) => ({
       ...event,
@@ -683,10 +1143,27 @@ export function ContentScreen({
     );
   }
 
+  // Get section title based on time filter
+  const getSectionTitle = () => {
+    switch (timeFilter) {
+      case "upcoming":
+        return `Upcoming ${contentType === "event" ? "Events" : "Sessions"}`;
+      case "past":
+        return `Past ${contentType === "event" ? "Events" : "Sessions"}`;
+      case "deleted":
+        return `Deleted ${contentType === "event" ? "Events" : "Sessions"}`;
+      default:
+        return `${contentType === "event" ? "Events" : "Sessions"}`;
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       {/* Show bottom toast loading indicator */}
-      {(deleteLoading || editLoading) && (
+      {(deleteLoading ||
+        editLoading ||
+        restoreLoading ||
+        permanentDeleteLoading) && (
         <View
           style={{
             position: "absolute",
@@ -723,7 +1200,11 @@ export function ContentScreen({
           >
             {deleteLoading
               ? `Deleting ${contentType}...`
-              : `Updating ${contentType}...`}
+              : permanentDeleteLoading
+                ? `Permanently deleting ${contentType}...`
+                : restoreLoading
+                  ? `Processing ${contentType}...`
+                  : `Updating ${contentType}...`}
           </Text>
         </View>
       )}
@@ -736,59 +1217,62 @@ export function ContentScreen({
         onLeftPress={() => router.back()}
       />
 
-      <View style={styles.viewToggle}>
-        <TouchableOpacity
-          style={[
-            styles.viewButton,
-            viewMode === "list" && styles.viewButtonActive,
-          ]}
-          onPress={() => setViewMode("list")}
-        >
-          <List
-            color={viewMode === "list" ? "white" : theme.colors.textSecondary}
-            size={18}
-          />
-          <Text
+      {/* Only show view toggle when not viewing deleted events */}
+      {timeFilter !== "deleted" && (
+        <View style={styles.viewToggle}>
+          <TouchableOpacity
             style={[
-              styles.viewButtonText,
-              viewMode === "list"
-                ? styles.viewButtonTextActive
-                : styles.viewButtonTextInactive,
+              styles.viewButton,
+              viewMode === "list" && styles.viewButtonActive,
             ]}
+            onPress={() => setViewMode("list")}
           >
-            List
-          </Text>
-        </TouchableOpacity>
+            <List
+              color={viewMode === "list" ? "white" : theme.colors.textSecondary}
+              size={18}
+            />
+            <Text
+              style={[
+                styles.viewButtonText,
+                viewMode === "list"
+                  ? styles.viewButtonTextActive
+                  : styles.viewButtonTextInactive,
+              ]}
+            >
+              List
+            </Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[
-            styles.viewButton,
-            viewMode === "calendar" && styles.viewButtonActive,
-          ]}
-          onPress={() => setViewMode("calendar")}
-        >
-          <Calendar
-            color={
-              viewMode === "calendar" ? "white" : theme.colors.textSecondary
-            }
-            size={18}
-          />
-          <Text
+          <TouchableOpacity
             style={[
-              styles.viewButtonText,
-              viewMode === "calendar"
-                ? styles.viewButtonTextActive
-                : styles.viewButtonTextInactive,
+              styles.viewButton,
+              viewMode === "calendar" && styles.viewButtonActive,
             ]}
+            onPress={() => setViewMode("calendar")}
           >
-            Calendar
-          </Text>
-        </TouchableOpacity>
-      </View>
+            <Calendar
+              color={
+                viewMode === "calendar" ? "white" : theme.colors.textSecondary
+              }
+              size={18}
+            />
+            <Text
+              style={[
+                styles.viewButtonText,
+                viewMode === "calendar"
+                  ? styles.viewButtonTextActive
+                  : styles.viewButtonTextInactive,
+              ]}
+            >
+              Calendar
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
-      {viewMode === "list" && (
+      {(viewMode === "list" || timeFilter === "deleted") && (
         <>
-          {/* Time Toggle - Only show in list view */}
+          {/* Time Toggle - Updated to include deleted option */}
           <View style={styles.timeToggleContainer}>
             <TouchableOpacity
               style={[
@@ -803,7 +1287,7 @@ export function ContentScreen({
                   timeFilter === "upcoming" && styles.timeToggleTextActive,
                 ]}
               >
-                Upcoming {contentType === "event" ? "Events" : "Sessions"}
+                Upcoming
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -819,7 +1303,23 @@ export function ContentScreen({
                   timeFilter === "past" && styles.timeToggleTextActive,
                 ]}
               >
-                Past {contentType === "event" ? "Events" : "Sessions"}
+                Past
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.timeToggleButton,
+                timeFilter === "deleted" && styles.timeToggleButtonActive,
+              ]}
+              onPress={() => setTimeFilter("deleted")}
+            >
+              <Text
+                style={[
+                  styles.timeToggleText,
+                  timeFilter === "deleted" && styles.timeToggleTextActive,
+                ]}
+              >
+                Deleted
               </Text>
             </TouchableOpacity>
           </View>
@@ -844,26 +1344,8 @@ export function ContentScreen({
         </>
       )}
 
-      {viewMode === "calendar" ? (
+      {viewMode === "calendar" && timeFilter !== "deleted" ? (
         <View style={{ flex: 1 }}>
-          {/* Category filters for calendar view */}
-          {/* <View style={styles.filtersContainer}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.filtersScroll}
-            >
-              {filters.map((filter) => (
-                <FilterChip
-                  key={filter}
-                  label={filter}
-                  selected={selectedFilter === filter}
-                  onPress={() => setSelectedFilter(filter)}
-                />
-              ))}
-            </ScrollView>
-          </View> */}
-
           <CalendarView
             events={calendarEvents}
             onEventPress={(event) => handleEventPress(event.id)}
@@ -876,11 +1358,7 @@ export function ContentScreen({
         <View style={styles.listContainer}>
           {/* Section Header with Date Filter */}
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>
-              {timeFilter === "upcoming"
-                ? `Upcoming ${contentType === "event" ? "Events" : "Sessions"}`
-                : `Past ${contentType === "event" ? "Events" : "Sessions"}`}
-            </Text>
+            <Text style={styles.sectionTitle}>{getSectionTitle()}</Text>
             <View style={{ flexDirection: "row", alignItems: "center" }}>
               <TouchableOpacity
                 style={[
@@ -926,29 +1404,44 @@ export function ContentScreen({
             }
           >
             {filteredEvents.length > 0 ? (
-              filteredEvents.map((event) => (
-                <CompactEventCard
-                  key={event.id}
-                  id={event.id}
-                  title={event.title}
-                  date={new Date(event.date).toLocaleDateString("en-US", {
-                    weekday: "short",
-                    month: "short",
-                    day: "numeric",
-                  })}
-                  time={
-                    event.allDay
-                      ? "All day"
-                      : `${event.startTime} - ${event.endTime}`
-                  }
-                  location={event.location || "No location"}
-                  attendees={event.attendeeCount || 0}
-                  category={event.category}
-                  rsvpStatus={getUserRSVPStatus(event)}
-                  onPress={() => handleEventPress(event.id)}
-                  onRSVP={handleRSVP}
-                />
-              ))
+              timeFilter === "deleted" ? (
+                // Render deleted events with restore functionality
+                filteredEvents.map((event) => (
+                  <DeletedEventCard
+                    key={event.id}
+                    event={event}
+                    onRestore={handleRestoreEvent}
+                    onPermanentDelete={handlePermanentDeleteEvent}
+                    onRemove={handleRemoveEvent}
+                    currentUserId={user?.id}
+                  />
+                ))
+              ) : (
+                // Render normal events
+                filteredEvents.map((event) => (
+                  <CompactEventCard
+                    key={event.id}
+                    id={event.id}
+                    title={event.title}
+                    date={new Date(event.date).toLocaleDateString("en-US", {
+                      weekday: "short",
+                      month: "short",
+                      day: "numeric",
+                    })}
+                    time={
+                      event.allDay
+                        ? "All day"
+                        : `${event.startTime} - ${event.endTime}`
+                    }
+                    location={event.location || "No location"}
+                    attendees={event.attendeeCount || 0}
+                    category={event.category}
+                    rsvpStatus={getUserRSVPStatus(event)}
+                    onPress={() => handleEventPress(event.id)}
+                    onRSVP={handleRSVP}
+                  />
+                ))
+              )
             ) : (
               <View style={styles.emptyState}>
                 <Text style={styles.emptyText}>
@@ -962,7 +1455,7 @@ export function ContentScreen({
         </View>
       )}
 
-      {userCanCreate && (
+      {userCanCreate && timeFilter !== "deleted" && (
         <FloatingActionButton
           actions={floatingActions}
           onActionPress={handleFloatingButtonPress}
