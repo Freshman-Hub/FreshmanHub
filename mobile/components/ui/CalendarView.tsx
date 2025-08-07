@@ -345,13 +345,14 @@ export function CalendarView({
                       event.endTime
                     );
 
-                    // Calculate how many lines can fit based on height with more accurate calculation
-                    const availableHeight = position.height - 12; // Subtract padding (6px top + 6px bottom)
+                    // Calculate how many lines can fit based on height with proper validation
+                    const availableHeight = Math.max(0, position.height - 12); // Ensure non-negative
                     const lineHeight = 14;
-                    const maxLines = Math.max(
-                      2,
-                      Math.floor(availableHeight / lineHeight)
-                    ); // Minimum 2 lines
+
+                    // Ensure maxLines is always a valid positive number
+                    const maxLines =
+                      Math.max(1, Math.floor(availableHeight / lineHeight)) ||
+                      1;
 
                     return (
                       <TouchableOpacity
@@ -370,7 +371,7 @@ export function CalendarView({
                           style={[
                             styles.eventTitle,
                             {
-                              height: availableHeight, // Explicitly set height to fill available space
+                              height: Math.max(lineHeight, availableHeight), // Ensure minimum height
                             },
                           ]}
                           numberOfLines={maxLines}
