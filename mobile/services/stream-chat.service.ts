@@ -87,16 +87,16 @@ export class StreamChatService {
       );
 
       console.log(`✅ Found ${channels.length} channels`);
-      channels.forEach((channel) => {
-        const members = Object.values(channel.state.members);
-        console.log(
-          `Channel ${channel.id}:`,
-          members.map((m) => ({
-            userId: m.user_id,
-            userName: m.user?.name,
-          }))
-        );
-      });
+      // channels.forEach((channel) => {
+      //   const members = Object.values(channel.state.members);
+      //   console.log(
+      //     `Channel ${channel.id}:`,
+      //     members.map((m) => ({
+      //       userId: m.user_id,
+      //       userName: m.user?.name,
+      //     }))
+      //   );
+      // });
       console.log("===========end===========");
       return channels;
     } catch (error: any) {
