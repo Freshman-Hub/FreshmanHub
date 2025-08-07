@@ -18,6 +18,7 @@ import { PostCard } from "@/components/common/PostCard";
 import { PostsService } from "../../../services/posts.service";
 import { Post } from "../../../types/post.types";
 import { useUser } from "../../../contexts/UserContext";
+import { useSQLiteContext } from "expo-sqlite";
 
 // Import our reusable components
 import { Header } from "@/components/ui/Header";
@@ -49,6 +50,15 @@ export default function CommunityScreen() {
     "Study Groups",
   ];
 
+  const db = useSQLiteContext();
+  
+    // Set SQLite context once for all services
+    useEffect(() => {
+      if (db) {
+        PostsService.setSQLiteContext(db);
+        console.log("✅ SQLite context set for PostsService");
+      }
+    }, [db]);
 
   const loadPosts = useCallback(async () => {
     try {
