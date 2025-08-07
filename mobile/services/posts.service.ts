@@ -14,6 +14,7 @@ import {
   increment,
   arrayUnion,
   arrayRemove,
+  Timestamp,
 } from "firebase/firestore";
 // TODO: Uncomment when implementing image uploads
 // import {
@@ -115,9 +116,12 @@ export class PostsService {
 
       if (lastSync) {
         console.log("📥 Fetching posts updated after:", lastSync);
+         // ✅ Convert ISO string to Firestore Timestamp
+                const lastSyncTimestamp = Timestamp.fromDate(new Date(lastSync));
+        
         firebaseQuery = query(
           collection(db, "posts"),
-          where("updatedAt", ">", lastSync),
+          where("updatedAt", ">", lastSyncTimestamp),
           orderBy("updatedAt", "asc")
         );
       } else {
