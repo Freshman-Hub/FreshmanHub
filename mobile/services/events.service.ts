@@ -13,12 +13,14 @@ import {
   arrayRemove,
   increment,
   orderBy,
+  Timestamp,
+  serverTimestamp,
 } from "firebase/firestore";
 import { db } from "@/firebase/config/firebaseConfig";
 import { Event, CreateEventData } from "@/types/event.types";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const LAST_EVENTS_SYNC_KEY = "lastEventsSync";
+const getSyncKey = (collectionName: string) => `lastSync_${collectionName}`;
 
 export class EventsService {
   private static sqliteDb: any = null;
@@ -28,25 +30,69 @@ export class EventsService {
     this.sqliteDb = db;
   }
 
-  // Get last sync timestamp from AsyncStorage
-  private static async getLastSyncTime(): Promise<string | null> {
+  // Add timestamp conversion helper
+  private static convertTimestampToISO(timestamp: any): string {
+    if (!timestamp) return new Date().toISOString();
+
     try {
-      const value = await AsyncStorage.getItem(LAST_EVENTS_SYNC_KEY);
-      console.log("📅 Last events sync time:", value || "First time sync");
+      // If it's a Firestore Timestamp with seconds and nanoseconds
+      if (typeof timestamp === "object" && timestamp.seconds !== undefined) {
+        const milliseconds =
+          timestamp.seconds * 1000 + (timestamp.nanoseconds || 0) / 1000000;
+        return new Date(milliseconds).toISOString();
+      }
+      // If it's already an ISO string
+      else if (typeof timestamp === "string") {
+        return timestamp;
+      }
+      // If it's a JavaScript Date
+      else if (timestamp instanceof Date) {
+        return timestamp.toISOString();
+      }
+      // If it has a toDate method (Firestore Timestamp)
+      else if (timestamp.toDate) {
+        return timestamp.toDate().toISOString();
+      }
+
+      return new Date().toISOString(); // fallback
+    } catch (error) {
+      console.warn("Error converting timestamp:", error);
+      return new Date().toISOString();
+    }
+  }
+
+  // Get last sync timestamp from AsyncStorage
+  private static async getLastSyncTime(
+    collectionName: string
+  ): Promise<string | null> {
+    try {
+      const key = getSyncKey(collectionName);
+      const value = await AsyncStorage.getItem(key);
+      console.log(
+        `📅 Last sync time for ${collectionName}:`,
+        value || "First time sync"
+      );
       return value;
     } catch (error) {
-      console.error("Error getting last events sync time:", error);
+      console.error("Error getting last sync time:", error);
       return null;
     }
   }
 
   // Update last sync timestamp
-  private static async updateLastSyncTime(timestamp: string): Promise<void> {
+  private static async updateLastSyncTime(
+    collectionName: string,
+    timestamp: string
+  ): Promise<void> {
     try {
-      await AsyncStorage.setItem(LAST_EVENTS_SYNC_KEY, timestamp);
-      console.log("✅ Updated last events sync time to:", timestamp);
+      const key = getSyncKey(collectionName);
+      await AsyncStorage.setItem(key, timestamp);
+      console.log(
+        `✅ Updated last sync time for ${collectionName} to:`,
+        timestamp
+      );
     } catch (error) {
-      console.error("Error updating last events sync time:", error);
+      console.error("Error updating last sync time:", error);
     }
   }
 
@@ -62,14 +108,15 @@ export class EventsService {
         `🔄 Starting events sync from Firebase (${collectionName})...`
       );
 
-      const lastSync = await this.getLastSyncTime();
+      const lastSync = await this.getLastSyncTime(collectionName);
       let firebaseQuery;
 
       if (lastSync) {
         console.log("📥 Fetching events updated after:", lastSync);
+        const lastSyncTimestamp = Timestamp.fromDate(new Date(lastSync));
         firebaseQuery = query(
           collection(db, collectionName),
-          where("updatedAt", ">", lastSync),
+          where("updatedAt", ">", lastSyncTimestamp),
           orderBy("updatedAt", "asc")
         );
       } else {
@@ -84,7 +131,11 @@ export class EventsService {
       const events: Event[] = [];
 
       querySnapshot.forEach((doc) => {
-        events.push({ id: doc.id, ...doc.data() } as Event);
+        events.push({
+          id: doc.id,
+          ...doc.data(),
+          sourceCollection: collectionName,
+        } as Event);
       });
 
       console.log(`🔥 Firebase returned ${events.length} events`);
@@ -92,13 +143,17 @@ export class EventsService {
       // Insert/update events in SQLite
       if (events.length > 0 && this.sqliteDb) {
         for (const event of events) {
-          await this.insertOrUpdateEventInSQLite(event);
+          await this.insertOrUpdateEventInSQLite(event, collectionName);
         }
 
         // Update last sync time with the latest event's updatedAt
         const latestEvent = events[events.length - 1];
         if (latestEvent.updatedAt) {
-          await this.updateLastSyncTime(latestEvent.updatedAt);
+          const syncTime =
+            latestEvent.updatedAt instanceof Timestamp
+              ? latestEvent.updatedAt.toDate().toISOString()
+              : String(latestEvent.updatedAt);
+          await this.updateLastSyncTime(collectionName, syncTime);
         }
       }
 
@@ -110,8 +165,10 @@ export class EventsService {
   }
 
   // Insert or update event in SQLite
+  // Insert or update event in SQLite
   private static async insertOrUpdateEventInSQLite(
-    event: Event
+    event: Event,
+    sourceCollection: string = "events"
   ): Promise<void> {
     if (!this.sqliteDb) {
       console.warn("⚠️ SQLite context not available");
@@ -119,6 +176,13 @@ export class EventsService {
     }
 
     try {
+      // Convert Firestore Timestamps to ISO strings before storing
+      const convertedEvent = {
+        ...event,
+        createdAt: this.convertTimestampToISO(event.createdAt),
+        updatedAt: this.convertTimestampToISO(event.updatedAt),
+      };
+
       // Check if event exists
       const existingEvent = await this.sqliteDb.getFirstAsync(
         "SELECT id FROM events WHERE id = ?",
@@ -129,77 +193,81 @@ export class EventsService {
         // Update existing event
         await this.sqliteDb.runAsync(
           `UPDATE events SET 
-           title = ?, description = ?, date = ?, startTime = ?, endTime = ?, 
-           allDay = ?, location = ?, category = ?, color = ?, repeat = ?, 
-           status = ?, userDisplayName = ?, userAvatar = ?, userVerified = ?, 
-           attendees = ?, attendeeCount = ?, invitedUsers = ?, rsvpYes = ?, 
-           rsvpNo = ?, rsvpMaybe = ?, updatedAt = ?, isPublic = ?
-           WHERE id = ?`,
+         title = ?, description = ?, date = ?, startTime = ?, endTime = ?, 
+         allDay = ?, location = ?, category = ?, sourceCollection = ?, color = ?, repeat = ?, 
+         status = ?, userDisplayName = ?, userAvatar = ?, userVerified = ?, 
+         attendees = ?, attendeeCount = ?, invitedUsers = ?, rsvpYes = ?, 
+         rsvpNo = ?, rsvpMaybe = ?, updatedAt = ?, isPublic = ?
+         WHERE id = ?`,
           [
-            event.title,
-            event.description || null,
-            event.date,
-            event.startTime || null,
-            event.endTime || null,
-            event.allDay ? 1 : 0,
-            event.location || null,
-            event.category,
-            event.color,
-            event.repeat,
-            event.status || "upcoming",
-            event.userDisplayName,
-            event.userAvatar || null,
-            event.userVerified ? 1 : 0,
-            JSON.stringify(event.attendees),
-            event.attendeeCount,
-            JSON.stringify(event.invitedUsers),
-            JSON.stringify(event.rsvpYes),
-            JSON.stringify(event.rsvpNo),
-            JSON.stringify(event.rsvpMaybe),
-            event.updatedAt,
-            event.isPublic ? 1 : 0,
-            event.id,
+            convertedEvent.title,
+            convertedEvent.description || null,
+            convertedEvent.date,
+            convertedEvent.startTime || null,
+            convertedEvent.endTime || null,
+            convertedEvent.allDay ? 1 : 0,
+            convertedEvent.location || null,
+            convertedEvent.category,
+            sourceCollection,
+            convertedEvent.color,
+            convertedEvent.repeat,
+            convertedEvent.status || "upcoming",
+            convertedEvent.userDisplayName,
+            convertedEvent.userAvatar || null,
+            convertedEvent.userVerified ? 1 : 0,
+            JSON.stringify(convertedEvent.attendees),
+            convertedEvent.attendeeCount,
+            JSON.stringify(convertedEvent.invitedUsers),
+            JSON.stringify(convertedEvent.rsvpYes),
+            JSON.stringify(convertedEvent.rsvpNo),
+            JSON.stringify(convertedEvent.rsvpMaybe),
+            convertedEvent.updatedAt,
+            convertedEvent.isPublic ? 1 : 0,
+            convertedEvent.id,
           ]
         );
-        console.log(`🔄 Updated event ${event.title} in SQLite`);
+        console.log(`🔄 Updated event ${convertedEvent.title} in SQLite`);
       } else {
-        // Insert new event
+        // Insert new event - Use INSERT OR REPLACE to handle duplicates
         await this.sqliteDb.runAsync(
-          `INSERT INTO events (
-            id, title, description, date, startTime, endTime, allDay, location, 
-            category, color, repeat, status, userId, userDisplayName, userAvatar, 
-            userVerified, attendees, attendeeCount, invitedUsers, rsvpYes, rsvpNo, 
-            rsvpMaybe, createdAt, updatedAt, isPublic
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT OR REPLACE INTO events (
+          id, title, description, date, startTime, endTime, allDay, location, 
+          category, sourceCollection, color, repeat, status, userId, userDisplayName, userAvatar, 
+          userVerified, attendees, attendeeCount, invitedUsers, rsvpYes, rsvpNo, 
+          rsvpMaybe, createdAt, updatedAt, isPublic
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
-            event.id,
-            event.title,
-            event.description || null,
-            event.date,
-            event.startTime || null,
-            event.endTime || null,
-            event.allDay ? 1 : 0,
-            event.location || null,
-            event.category,
-            event.color,
-            event.repeat,
-            event.status || "upcoming",
-            event.userId,
-            event.userDisplayName,
-            event.userAvatar || null,
-            event.userVerified ? 1 : 0,
-            JSON.stringify(event.attendees),
-            event.attendeeCount,
-            JSON.stringify(event.invitedUsers),
-            JSON.stringify(event.rsvpYes),
-            JSON.stringify(event.rsvpNo),
-            JSON.stringify(event.rsvpMaybe),
-            event.createdAt,
-            event.updatedAt,
-            event.isPublic ? 1 : 0,
+            convertedEvent.id,
+            convertedEvent.title,
+            convertedEvent.description || null,
+            convertedEvent.date,
+            convertedEvent.startTime || null,
+            convertedEvent.endTime || null,
+            convertedEvent.allDay ? 1 : 0,
+            convertedEvent.location || null,
+            convertedEvent.category,
+            sourceCollection,
+            convertedEvent.color,
+            convertedEvent.repeat,
+            convertedEvent.status || "upcoming",
+            convertedEvent.userId,
+            convertedEvent.userDisplayName,
+            convertedEvent.userAvatar || null,
+            convertedEvent.userVerified ? 1 : 0,
+            JSON.stringify(convertedEvent.attendees),
+            convertedEvent.attendeeCount,
+            JSON.stringify(convertedEvent.invitedUsers),
+            JSON.stringify(convertedEvent.rsvpYes),
+            JSON.stringify(convertedEvent.rsvpNo),
+            JSON.stringify(convertedEvent.rsvpMaybe),
+            convertedEvent.createdAt,
+            convertedEvent.updatedAt,
+            convertedEvent.isPublic ? 1 : 0,
           ]
         );
-        console.log(`➕ Inserted new event ${event.title} into SQLite`);
+        console.log(
+          `➕ Inserted new event ${convertedEvent.title} into SQLite`
+        );
       }
     } catch (error) {
       console.error(
@@ -212,7 +280,8 @@ export class EventsService {
   // Get events from SQLite
   private static async getEventsFromSQLite(
     limitCount: number = 50,
-    category?: string
+    category?: string,
+    collectionName: string = "events"
   ): Promise<{ events: Event[]; error: string | null }> {
     try {
       if (!this.sqliteDb) {
@@ -224,12 +293,21 @@ export class EventsService {
 
       console.log("💾 Fetching events from SQLite...");
 
-      let query = "SELECT * FROM events WHERE isPublic = 1";
+      let query = "SELECT * FROM events";
       let params: any[] = [];
+      let conditions: string[] = [];
+
+      // Filter by sourceCollection
+      conditions.push("sourceCollection = ?");
+      params.push(collectionName);
 
       if (category && category !== "All") {
-        query += " AND category = ?";
+        conditions.push("category = ?");
         params.push(category);
+      }
+
+      if (conditions.length > 0) {
+        query += " WHERE " + conditions.join(" AND ");
       }
 
       query += " ORDER BY date ASC LIMIT ?";
@@ -263,6 +341,7 @@ export class EventsService {
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
         isPublic: row.isPublic === 1,
+        sourceCollection: row.sourceCollection || "events",
       }));
 
       // Sort events (upcoming first, then by date)
@@ -280,7 +359,7 @@ export class EventsService {
         return dateA.getTime() - dateB.getTime();
       });
 
-      console.log(`💾 SQLite returned ${events.length} events`);
+      console.log(`💾 SQLite returned ${events.length} ## ${collectionName}`);
       return { events: sortedEvents, error: null };
     } catch (error: any) {
       console.error("❌ Error fetching events from SQLite:", error);
@@ -316,7 +395,11 @@ export class EventsService {
       const events: Event[] = [];
 
       querySnapshot.forEach((doc) => {
-        events.push({ id: doc.id, ...doc.data() } as Event);
+        events.push({
+          id: doc.id,
+          ...doc.data(),
+          sourceCollection: "events",
+        } as Event);
       });
 
       console.log(`🔥 Firebase returned ${events.length} events (fallback)`);
@@ -336,7 +419,6 @@ export class EventsService {
     contentType: "events" | "sessions" = "events"
   ): Promise<{ event?: Event; error?: string }> {
     try {
-      const now = new Date().toISOString();
       const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
       // For one-on-one sessions, ensure privacy
@@ -357,19 +439,30 @@ export class EventsService {
         rsvpMaybe: [],
         status: eventData.status || "upcoming",
         isPublic: !isPrivateSession,
-        createdAt: now,
-        updatedAt: now,
+        createdAt: serverTimestamp() as any,
+        updatedAt: serverTimestamp() as any,
+        sourceCollection: contentType,
       };
 
-      // 1. Save to SQLite first (with temp ID)
+      // 1. Save to SQLite first (with temp ID and converted timestamps)
       if (this.sqliteDb) {
-        await this.insertOrUpdateEventInSQLite(newEvent);
+        // For SQLite, we need ISO strings, so convert the serverTimestamp to current time
+        const localEvent = {
+          ...newEvent,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        await this.insertOrUpdateEventInSQLite(localEvent as any, contentType);
         console.log(`💾 Event ${newEvent.title} saved to SQLite with temp ID`);
       }
 
-      // 2. Then save to Firebase
+      // 2. Then save to Firebase (with serverTimestamp)
       try {
-        const firebaseEvent = { ...newEvent };
+        const firebaseEvent = {
+          ...newEvent,
+          updatedAt: serverTimestamp(),
+          createdAt: serverTimestamp(),
+        };
         delete (firebaseEvent as any).id; // Remove temp ID for Firebase
 
         const docRef = await addDoc(collection(db, contentType), firebaseEvent);
@@ -384,8 +477,16 @@ export class EventsService {
           await this.sqliteDb.runAsync("DELETE FROM events WHERE id = ?", [
             tempId,
           ]);
-          // Insert with real ID
-          await this.insertOrUpdateEventInSQLite(finalEvent);
+          // Insert with real ID (keep local ISO timestamps for SQLite)
+          const localFinalEvent = {
+            ...finalEvent,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          await this.insertOrUpdateEventInSQLite(
+            localFinalEvent as any,
+            contentType
+          );
           console.log(
             `🔥 Event ${finalEvent.title} synced to Firebase and updated in SQLite`
           );
@@ -423,7 +524,11 @@ export class EventsService {
       }
 
       // Then return events from SQLite (with Firebase fallback)
-      return await this.getEventsFromSQLite(limitCount, category);
+      return await this.getEventsFromSQLite(
+        limitCount,
+        category,
+        collectionName
+      );
     } catch (error: any) {
       console.error("Get all events error:", error);
       // Final fallback to Firebase
@@ -441,8 +546,8 @@ export class EventsService {
       if (this.sqliteDb) {
         console.log(`💾 Fetching event ${eventId} from SQLite...`);
         const result = await this.sqliteDb.getFirstAsync(
-          "SELECT * FROM events WHERE id = ?",
-          [eventId]
+          "SELECT * FROM events WHERE id = ? AND sourceCollection = ?",
+          [eventId, collectionName]
         );
 
         if (result) {
@@ -474,6 +579,7 @@ export class EventsService {
             createdAt: result.createdAt,
             updatedAt: result.updatedAt,
             isPublic: result.isPublic === 1,
+            sourceCollection: result.sourceCollection || "events",
           };
           console.log(`💾 Found event ${eventId} in SQLite`);
           return { event, error: null };
@@ -488,11 +594,15 @@ export class EventsService {
         return { event: null, error: "Event not found" };
       }
 
-      const event = { id: eventDoc.id, ...eventDoc.data() } as Event;
+      const event = {
+        id: eventDoc.id,
+        ...eventDoc.data(),
+        sourceCollection: collectionName,
+      } as Event;
 
       // Cache in SQLite for next time
       if (this.sqliteDb) {
-        await this.insertOrUpdateEventInSQLite(event);
+        await this.insertOrUpdateEventInSQLite(event, collectionName);
       }
 
       console.log(`🔥 Found event ${eventId} in Firebase (cached to SQLite)`);
@@ -512,7 +622,7 @@ export class EventsService {
     try {
       const cleanUpdateData: any = {
         ...updateData,
-        updatedAt: new Date().toISOString(),
+        updatedAt: serverTimestamp(),
       };
 
       Object.keys(cleanUpdateData).forEach((key) => {
@@ -524,26 +634,32 @@ export class EventsService {
       // 1. Update SQLite first
       if (this.sqliteDb) {
         const existingEvent = await this.sqliteDb.getFirstAsync(
-          "SELECT * FROM events WHERE id = ?",
-          [eventId]
+          "SELECT * FROM events WHERE id = ? AND sourceCollection = ?",
+          [eventId, collectionName]
         );
 
         if (existingEvent) {
+          // For SQLite, convert serverTimestamp to ISO string
+          const sqliteUpdateData = {
+            ...cleanUpdateData,
+            updatedAt: new Date().toISOString(),
+          };
+
           // Build update query dynamically
-          const updateFields = Object.keys(cleanUpdateData)
+          const updateFields = Object.keys(sqliteUpdateData)
             .map((key) => `${key} = ?`)
             .join(", ");
-          const updateValues = Object.values(cleanUpdateData);
+          const updateValues = Object.values(sqliteUpdateData);
 
           await this.sqliteDb.runAsync(
-            `UPDATE events SET ${updateFields} WHERE id = ?`,
-            [...updateValues, eventId]
+            `UPDATE events SET ${updateFields} WHERE id = ? AND sourceCollection = ?`,
+            [...updateValues, eventId, collectionName]
           );
           console.log(`💾 Updated event ${eventId} in SQLite`);
         }
       }
 
-      // 2. Then update Firebase
+      // 2. Then update Firebase (with serverTimestamp)
       try {
         await updateDoc(doc(db, collectionName, eventId), cleanUpdateData);
         console.log(`🔥 Updated event ${eventId} in Firebase`);
@@ -570,9 +686,10 @@ export class EventsService {
     try {
       // 1. Delete from SQLite first
       if (this.sqliteDb) {
-        await this.sqliteDb.runAsync("DELETE FROM events WHERE id = ?", [
-          eventId,
-        ]);
+        await this.sqliteDb.runAsync(
+          "DELETE FROM events WHERE id = ? AND sourceCollection = ?",
+          [eventId, collectionName]
+        );
         console.log(`💾 Deleted event ${eventId} from SQLite`);
       }
 
@@ -603,8 +720,8 @@ export class EventsService {
       // 1. Update SQLite first
       if (this.sqliteDb) {
         const existingEvent = await this.sqliteDb.getFirstAsync(
-          "SELECT * FROM events WHERE id = ?",
-          [eventId]
+          "SELECT * FROM events WHERE id = ? AND sourceCollection = ?",
+          [eventId, collectionName]
         );
 
         if (existingEvent) {
@@ -644,7 +761,7 @@ export class EventsService {
           await this.sqliteDb.runAsync(
             `UPDATE events SET 
              attendees = ?, attendeeCount = ?, rsvpYes = ?, rsvpNo = ?, rsvpMaybe = ?, updatedAt = ?
-             WHERE id = ?`,
+             WHERE id = ? AND sourceCollection = ?`,
             [
               JSON.stringify(newAttendees),
               newAttendeeCount,
@@ -653,6 +770,7 @@ export class EventsService {
               JSON.stringify(newRsvpMaybe),
               new Date().toISOString(),
               eventId,
+              collectionName,
             ]
           );
           console.log(`💾 Updated RSVP for event ${eventId} in SQLite`);
@@ -671,7 +789,7 @@ export class EventsService {
             rsvpYes: arrayRemove(userId),
             rsvpNo: arrayRemove(userId),
             rsvpMaybe: arrayRemove(userId),
-            updatedAt: new Date().toISOString(),
+            updatedAt: serverTimestamp(),
           };
 
           if (response === "yes") {
@@ -712,14 +830,15 @@ export class EventsService {
   // Get user's events (SQLite first)
   static async getUserEvents(
     userId: string,
-    limitCount: number = 50
+    limitCount: number = 50,
+    collectionName: string = "events"
   ): Promise<{ events: Event[]; error: string | null }> {
     try {
       if (this.sqliteDb) {
         console.log(`💾 Fetching user events for ${userId} from SQLite...`);
         const result = await this.sqliteDb.getAllAsync(
-          "SELECT * FROM events WHERE userId = ? ORDER BY date ASC LIMIT ?",
-          [userId, limitCount]
+          "SELECT * FROM events WHERE userId = ? AND sourceCollection = ? ORDER BY date ASC LIMIT ?",
+          [userId, collectionName, limitCount]
         );
 
         if (result.length > 0) {
@@ -749,6 +868,7 @@ export class EventsService {
             createdAt: row.createdAt,
             updatedAt: row.updatedAt,
             isPublic: row.isPublic === 1,
+            sourceCollection: row.sourceCollection || "events",
           }));
           console.log(`💾 Found ${events.length} user events in SQLite`);
           return { events, error: null };
@@ -769,12 +889,13 @@ export class EventsService {
       const events: Event[] = querySnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
+        sourceCollection: "events",
       })) as Event[];
 
       // Cache in SQLite
       if (this.sqliteDb && events.length > 0) {
         for (const event of events) {
-          await this.insertOrUpdateEventInSQLite(event);
+          await this.insertOrUpdateEventInSQLite(event, "events");
         }
       }
 
@@ -795,17 +916,17 @@ export class EventsService {
   // Get events user is attending (SQLite first)
   static async getAttendingEvents(
     userId: string,
-    limitCount: number = 50
+    limitCount: number = 50,
+    collectionName: string = "events"
   ): Promise<{ events: Event[]; error: string | null }> {
     try {
       if (this.sqliteDb) {
         console.log(
           `💾 Fetching attending events for ${userId} from SQLite...`
         );
-        // SQLite doesn't have array-contains, so we use LIKE with JSON search
         const result = await this.sqliteDb.getAllAsync(
-          `SELECT * FROM events WHERE attendees LIKE ? ORDER BY date ASC LIMIT ?`,
-          [`%"${userId}"%`, limitCount]
+          `SELECT * FROM events WHERE attendees LIKE ? AND sourceCollection = ? ORDER BY date ASC LIMIT ?`,
+          [`%"${userId}"%`, collectionName, limitCount]
         );
 
         if (result.length > 0) {
@@ -841,6 +962,7 @@ export class EventsService {
             createdAt: row.createdAt,
             updatedAt: row.updatedAt,
             isPublic: row.isPublic === 1,
+            sourceCollection: row.sourceCollection || "events",
           }));
           console.log(`💾 Found ${events.length} attending events in SQLite`);
           return { events, error: null };
@@ -861,12 +983,13 @@ export class EventsService {
       const events: Event[] = querySnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
+        sourceCollection: "events",
       })) as Event[];
 
       // Cache in SQLite
       if (this.sqliteDb && events.length > 0) {
         for (const event of events) {
-          await this.insertOrUpdateEventInSQLite(event);
+          await this.insertOrUpdateEventInSQLite(event, "events");
         }
       }
 
@@ -887,7 +1010,8 @@ export class EventsService {
   // Search events (SQLite first)
   static async searchEvents(
     searchQuery: string,
-    limitCount: number = 20
+    limitCount: number = 20,
+    collectionName: string = "events"
   ): Promise<{ events: Event[]; error: string | null }> {
     try {
       if (this.sqliteDb) {
@@ -895,13 +1019,14 @@ export class EventsService {
         const result = await this.sqliteDb.getAllAsync(
           `SELECT * FROM events 
            WHERE (title LIKE ? OR description LIKE ? OR location LIKE ? OR category LIKE ?) 
-           AND isPublic = 1 
+           AND sourceCollection = ?
            ORDER BY date ASC LIMIT ?`,
           [
             `%${searchQuery}%`,
             `%${searchQuery}%`,
             `%${searchQuery}%`,
             `%${searchQuery}%`,
+            collectionName,
             limitCount,
           ]
         );
@@ -933,6 +1058,7 @@ export class EventsService {
             createdAt: row.createdAt,
             updatedAt: row.updatedAt,
             isPublic: row.isPublic === 1,
+            sourceCollection: row.sourceCollection || "events",
           }));
           console.log(`💾 Found ${events.length} events in SQLite search`);
           return { events, error: null };
@@ -949,6 +1075,7 @@ export class EventsService {
       const allEvents: Event[] = querySnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
+        sourceCollection: "events",
       })) as Event[];
 
       const filteredEvents = allEvents
