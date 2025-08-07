@@ -28,8 +28,6 @@ import { Event } from "@/types/event.types";
 import { ContentItem } from "@/services/content.service"; // Add this import
 import { UserService } from "@/services/user.service";
 import { User } from "@/types/user.types";
-import { useSQLiteContext } from "expo-sqlite";
-
 
 interface EventDetailModalProps {
   visible: boolean;
@@ -61,18 +59,8 @@ export function EventDetailModal({
 }: EventDetailModalProps) {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [attendeeProfiles, setAttendeeProfiles] = useState<User[]>([]);
+  const [showAllAttendees, setShowAllAttendees] = useState(false);
   const [, setLoadingAttendees] = useState(false);
-
-  // Add this line to get SQLite context
-  const db = useSQLiteContext();
-
-  // Add this useEffect to set the SQLite context in UserService
-  useEffect(() => {
-    if (db) {
-      UserService.setSQLiteContext(db);
-      console.log("✅ SQLite context set in EventDetailModal");
-    }
-  }, [db]);
 
   // Fetch attendee profiles when modal opens or event changes
   useEffect(() => {
@@ -81,9 +69,10 @@ export function EventDetailModal({
 
       // Get all people who have responded (yes, no, maybe)
       const allRespondents = [
-        ...(event.rsvpYes || []),
-        ...(event.rsvpNo || []),
-        ...(event.rsvpMaybe || []),
+        // ...(event.rsvpYes || []),
+        // ...(event.rsvpNo || []),
+        // ...(event.rsvpMaybe || []),
+        ...event.invitedUsers || [],
       ];
 
       // Remove duplicates and filter out the organizer
@@ -101,7 +90,7 @@ export function EventDetailModal({
         const profiles: User[] = [];
 
         // Fetch each user individually using existing service
-        for (const userId of uniqueRespondents.slice(0, 10)) {
+        for (const userId of uniqueRespondents) {
           // Limit to first 10
           const { user, error } = await UserService.getUserById(userId);
           if (user && !error) {
@@ -224,9 +213,10 @@ export function EventDetailModal({
   const renderAttendeesSection = () => {
     // Get all people who have responded (yes, no, maybe)
     const allRespondents = [
-      ...(event.rsvpYes || []),
-      ...(event.rsvpNo || []),
-      ...(event.rsvpMaybe || []),
+      // ...(event.rsvpYes || []),
+      // ...(event.rsvpNo || []),
+      // ...(event.rsvpMaybe || []),
+      ...(event.invitedUsers || []),
     ];
 
     // Remove duplicates and filter out the organizer
@@ -238,7 +228,9 @@ export function EventDetailModal({
     const totalResponses = uniqueRespondents.length;
 
     // Show attendee profiles for all respondents (not just "yes" responses)
-    const visibleAttendees = attendeeProfiles.slice(0, 5);
+    const visibleAttendees = showAllAttendees
+      ? attendeeProfiles
+      : attendeeProfiles.slice(0, 5);
 
     const getAttendeeFlag = (userId: string) => {
       if (event.rsvpYes?.includes(userId)) {
@@ -321,19 +313,34 @@ export function EventDetailModal({
             );
           })}
 
-          {/* Show remaining count if there are more */}
-          {totalResponses > 5 && (
-            <View style={styles.attendeeItem}>
+          {/* Show "more" indicator if not expanded */}
+          {!showAllAttendees && attendeeProfiles.length > 5 && (
+            <TouchableOpacity
+              style={styles.attendeeItem}
+              onPress={() => setShowAllAttendees(true)}
+            >
               <View style={[styles.moreIndicator, { width: 32, height: 32 }]}>
                 <Text style={styles.moreIndicatorText}>
-                  +{totalResponses - 5}
+                  +{attendeeProfiles.length - 5}
                 </Text>
               </View>
               <Text style={styles.attendeeName}>
-                {totalResponses - 5} more{" "}
-                {totalResponses - 5 === 1 ? "person" : "people"}
+                {attendeeProfiles.length - 5} more{" "}
+                {attendeeProfiles.length - 5 === 1 ? "person" : "people"}
               </Text>
-            </View>
+            </TouchableOpacity>
+          )}
+
+          {/* Show "Show less" button if expanded */}
+          {showAllAttendees && attendeeProfiles.length > 5 && (
+            <TouchableOpacity
+              style={styles.attendeeItem}
+              onPress={() => setShowAllAttendees(false)}
+            >
+              <Text style={[styles.attendeeName, { color: "#1976d2" }]}>
+                Show less
+              </Text>
+            </TouchableOpacity>
           )}
         </View>
       </View>
