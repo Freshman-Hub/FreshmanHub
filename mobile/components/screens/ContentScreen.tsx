@@ -35,6 +35,7 @@ import { EventsService } from "@/services/events.service";
 import { CreateEventData, Event } from "@/types/event.types";
 import { router } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 
 interface ContentScreenProps {
@@ -91,18 +92,23 @@ export function ContentScreen({
   const [attendeeProfiles, setAttendeeProfiles] = useState<
     Record<string, User[]>
   >({});
+  console.log("🟢 ContentScreen loaded with collectionName:", collectionName);
 
-   // Add this line to get SQLite context
-    const db = useSQLiteContext();
-  
-    // Add this useEffect to set the SQLite context in UserService
-    useEffect(() => {
-      if (db) {
-        UserService.setSQLiteContext(db);
-        EventsService.setSQLiteContext(db);
-        console.log("✅ SQLite context set in EventsService");
-      }
-    }, [db]);
+  // useEffect(() => {
+  //   AsyncStorage.removeItem("lastSync_sessions");
+  // }, []);
+
+  // Add this line to get SQLite context
+  const db = useSQLiteContext();
+
+  // Add this useEffect to set the SQLite context in UserService
+  useEffect(() => {
+    if (db) {
+      UserService.setSQLiteContext(db);
+      EventsService.setSQLiteContext(db);
+      console.log("✅ SQLite context set in EventsService");
+    }
+  }, [db]);
 
   // Add function to load attendee profiles
   const loadAttendeeProfiles = useCallback(
