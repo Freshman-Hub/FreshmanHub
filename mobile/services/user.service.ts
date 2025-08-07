@@ -61,9 +61,12 @@ export class UserService {
 
       if (lastSync) {
         console.log("📥 Fetching users updated after:", lastSync);
+        // ✅ Convert ISO string to Firestore Timestamp
+        const lastSyncTimestamp = Timestamp.fromDate(new Date(lastSync));
+
         firebaseQuery = query(
           collection(db, "users"),
-          where("updatedAt", ">", lastSync),
+          where("updatedAt", ">", lastSyncTimestamp),
           orderBy("updatedAt", "asc")
         );
       } else {
