@@ -33,14 +33,18 @@ import { Avatar } from "@/components/ui/Avatar";
 import { CreateEventModal } from "@/components/ui/CreateEventModal";
 import { EventDetailModal } from "@/components/modals/EventDetailModal";
 import { EditEventModal } from "@/components/modals/EditEventModal";
-import { Loader } from "@/components/ui/Loader";
+// import { Loader } from "@/components/ui/Loader";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
 // Import services
 import { UserService } from "@/services/user.service";
 import { EventsService } from "@/services/events.service";
+import { useStreamChat } from "@/contexts/StreamChatContext";
+
 import { Event, CreateEventData } from "@/types/event.types";
 import { User } from "@/types/user.types";
 import { ContentItem, CreateContentData } from "@/services/content.service";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const coachingGoals = [
   {
@@ -70,6 +74,7 @@ export default function CoachingScreen() {
   const { theme } = useTheme();
   const router = useRouter();
   const { user } = useUser();
+  const { client } = useStreamChat();
 
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -96,75 +101,9 @@ export default function CoachingScreen() {
   const canSeeMyCoachees = user?.role === "peer_coach";
   const canSeeHeadCoach = true;
 
-  // Load coachees for peer coaches
-  const loadMyCoachees = useCallback(async () => {
-    if (user?.role !== "peer_coach" || !user?.id) {
-      setMyCoachees([]);
-      return;
-    }
-
-    try {
-      const { users, error } = await UserService.getAllUsers();
-      if (error) {
-        console.error("Error fetching users:", error);
-        return;
-      }
-
-      if (users) {
-        const coachees = users.filter(
-          (u) => u.assignedCoach === user.id && u.isActive
-        );
-        setMyCoachees(coachees);
-      }
-    } catch (error) {
-      console.error("Error loading coachees:", error);
-      setMyCoachees([]);
-    }
-  }, [user?.id, user?.role]);
-
-  // Load head coach
-  const loadHeadCoach = useCallback(async () => {
-    try {
-      const { users, error } = await UserService.getAllUsers();
-      if (error) {
-        console.error("Error fetching users:", error);
-        return;
-      }
-
-      if (users) {
-        const headCoachUser = users.find(
-          (u) => u.role === "head_of_coaches" && u.isActive
-        );
-        setHeadCoach(headCoachUser || null);
-      }
-    } catch (error) {
-      console.error("Error loading head coach:", error);
-      setHeadCoach(null);
-    }
-  }, []);
-
-  // Load assigned coach
-  const loadAssignedCoach = useCallback(async () => {
-    if (!user?.assignedCoach || !canSeeMyCoach) {
-      setAssignedCoach(null);
-      return;
-    }
-
-    try {
-      const { user: coach, error } = await UserService.getUserById(
-        user.assignedCoach
-      );
-      if (error) {
-        console.error("Error fetching assigned coach:", error);
-        return;
-      }
-
-      setAssignedCoach(coach || null);
-    } catch (error) {
-      console.error("Error loading assigned coach:", error);
-      setAssignedCoach(null);
-    }
-  }, [user?.assignedCoach, canSeeMyCoach]);
+  // useEffect(() => {
+  //   AsyncStorage.removeItem("lastSync_sessions");
+  // }, []);
 
   // Load sessions
   const loadSessions = useCallback(async () => {
@@ -244,36 +183,135 @@ export default function CoachingScreen() {
   }, [user?.id]);
 
   // Load all data
-  const loadData = useCallback(async () => {
+  const loadAllData = useCallback(async () => {
     setLoading(true);
     try {
-      await Promise.all([
-        loadAssignedCoach(),
-        loadHeadCoach(),
-        loadSessions(),
-        loadMyCoachees(),
+      // Fetch all users and all sessions in parallel
+      const [
+        { users, error: usersError },
+        { events: allSessions, error: sessionsError },
+      ] = await Promise.all([
+        UserService.getAllUsers(),
+        EventsService.getEvents(100, "All", "sessions"),
       ]);
+
+      if (usersError) {
+        console.error("Error fetching users:", usersError);
+        setAssignedCoach(null);
+        setMyCoachees([]);
+        setHeadCoach(null);
+        // Don't return yet, try to show sessions if possible
+      }
+
+      if (sessionsError) {
+        console.error("Error fetching sessions:", sessionsError);
+        setUpcomingSessions([]);
+        setPastSessions([]);
+        // Don't return yet, try to show users if possible
+      }
+
+      // --- Assigned Coach ---
+      if (canSeeMyCoach && user?.assignedCoach) {
+        const coach = users?.find((u) => u.id === user.assignedCoach) || null;
+        setAssignedCoach(coach);
+      } else {
+        setAssignedCoach(null);
+      }
+
+      // --- My Coachees ---
+      if (canSeeMyCoachees && user?.id) {
+        console.log("🔍 Current user ID:", user.id);
+        console.log("🔍 All users count:", users?.length);
+        const coachees =
+          users?.filter((u) => u.assignedCoach === user.id && u.isActive) || [];
+        // console.log("✅ Filtered coachees:\n", coachees.length, coachees);
+        setMyCoachees(coachees);
+      } else {
+        setMyCoachees([]);
+      }
+
+      // --- Head Coach ---
+      const headCoachUser =
+        users?.find((u) => u.role === "head_of_coaches" && u.isActive) || null;
+      setHeadCoach(headCoachUser);
+
+      // --- Sessions ---
+      if (allSessions && user?.id) {
+        // Filter sessions where user is involved
+        const userSessions = allSessions.filter(
+          (session) =>
+            session.userId === user.id ||
+            session.invitedUsers?.includes(user.id) ||
+            session.attendees?.includes(user.id)
+        );
+
+        // Additional privacy filter for one-on-one sessions
+        const filteredSessions = userSessions.filter((session) => {
+          if (session.category === "One-on-One") {
+            return (
+              session.userId === user.id ||
+              session.invitedUsers?.includes(user.id) ||
+              session.attendees?.includes(user.id)
+            );
+          }
+          return true;
+        });
+
+        // Separate upcoming and past sessions
+        const now = new Date();
+        const upcoming: Event[] = [];
+        const past: Event[] = [];
+
+        filteredSessions.forEach((session) => {
+          const sessionDate = new Date(session.date);
+          if (session.status === "completed" || sessionDate < now) {
+            past.push(session);
+          } else {
+            upcoming.push(session);
+          }
+        });
+
+        // Sort by date
+        upcoming.sort(
+          (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+        );
+        past.sort(
+          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+        );
+
+        setUpcomingSessions(upcoming);
+        setPastSessions(past);
+      } else {
+        setUpcomingSessions([]);
+        setPastSessions([]);
+      }
     } catch (error) {
       console.error("Error loading coaching data:", error);
+      setAssignedCoach(null);
+      setMyCoachees([]);
+      setHeadCoach(null);
+      setUpcomingSessions([]);
+      setPastSessions([]);
     } finally {
       setLoading(false);
     }
-  }, [loadAssignedCoach, loadHeadCoach, loadSessions, loadMyCoachees]);
+  }, [user?.id, user?.assignedCoach, canSeeMyCoach, canSeeMyCoachees]);
 
   // Initial data load
   useEffect(() => {
     if (user?.id) {
-      loadData();
+      loadAllData();
+      console.log("\n\n✅ Initial data load completed");
     } else {
       setLoading(false);
     }
-  }, [user?.id, loadData]);
+  }, [user?.id, loadAllData]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await loadData();
+    await loadAllData();
     setRefreshing(false);
-  }, [loadData]);
+  }, [loadAllData]);
 
   // Initialize selected coach based on user role
   useEffect(() => {
@@ -466,7 +504,7 @@ export default function CoachingScreen() {
     if (sessionsToUpdate.length > 0) {
       await loadSessions();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [upcomingSessions]);
 
   useEffect(() => {
@@ -474,7 +512,6 @@ export default function CoachingScreen() {
       checkAndUpdatePastSessions();
     }
   }, [upcomingSessions, checkAndUpdatePastSessions]);
-
 
   const handleRSVP = async (
     sessionId: string,
@@ -501,10 +538,77 @@ export default function CoachingScreen() {
     }
   };
 
-  const handleMessage = (coachId: string) => {
-    router.push(`/(routes)/chat?userId=${coachId}`);
-  };
+  const handleMessage = async (coach: any) => {
+    if (!user?.id) {
+      Alert.alert("Error", "User session invalid");
+      return;
+    }
 
+    // Build display name and avatar robustly
+    const displayName =
+      coach.name ||
+      `${coach.firstName || ""} ${coach.lastName || ""}`.trim() ||
+      coach.email?.split("@")[0] ||
+      "Unknown";
+    const avatar = coach.avatar || coach.profileImage || "";
+
+    try {
+      console.log("🔄 Checking for existing conversation with:", displayName);
+
+      let existingChannelId = null;
+
+      if (client && client.userID) {
+        try {
+          const channels = await client.queryChannels({
+            type: "messaging",
+            members: { $in: [client.userID] },
+          });
+
+          const existingChannel = channels.find((ch) => {
+            const members = Object.keys(ch.state.members || {});
+            return (
+              members.length === 2 &&
+              members.includes(client.userID || "") &&
+              members.includes(coach.id)
+            );
+          });
+
+          if (existingChannel) {
+            existingChannelId = existingChannel.id;
+            console.log("✅ Found existing channel:", existingChannelId);
+          }
+        } catch (error) {
+          console.warn("⚠️ Failed to check for existing channels:", error);
+        }
+      }
+
+      if (existingChannelId) {
+        router.push({
+          pathname: "/(routes)/chats/[id]",
+          params: {
+            id: existingChannelId,
+            userName: displayName,
+            userAvatar: avatar,
+            isGroup: "false",
+          },
+        });
+      } else {
+        router.push({
+          pathname: "/(routes)/chats/[id]",
+          params: {
+            id: `pending_${user.id}_${coach.id}`,
+            userName: displayName,
+            userAvatar: avatar,
+            contactId: coach.id,
+            isGroup: "false",
+          },
+        });
+      }
+    } catch (error) {
+      console.error("❌ Error navigating to chat:", error);
+      Alert.alert("Error", "Failed to open chat");
+    }
+  };
   const getUserRSVPStatus = (
     session: Event
   ): "yes" | "no" | "maybe" | "none" => {
@@ -682,7 +786,7 @@ export default function CoachingScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.actionButton, styles.actionButtonSecondary]}
-            onPress={() => handleMessage(coach.id)}
+            onPress={() => handleMessage(coach)}
           >
             <MessageCircle color={theme.colors.text} size={20} />
             <Text
@@ -762,7 +866,7 @@ export default function CoachingScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.actionButton, styles.actionButtonSecondary]}
-            onPress={() => handleMessage(coachee.id)}
+            onPress={() => handleMessage(coachee)}
           >
             <MessageCircle color={theme.colors.text} size={20} />
             <Text
@@ -1110,7 +1214,7 @@ export default function CoachingScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <Header title="Coaching" showBack={true} />
-        <Loader visible={true} message="Loading coaching data..." />
+        <LoadingSpinner />
       </SafeAreaView>
     );
   }
