@@ -64,6 +64,7 @@ CREATE TABLE events (
   allDay INTEGER NOT NULL DEFAULT 0,
   location TEXT,
   category TEXT NOT NULL,
+  sourceCollection TEXT NOT NULL DEFAULT 'events',
   color TEXT NOT NULL,
   repeat TEXT NOT NULL,
   status TEXT DEFAULT 'upcoming',
@@ -79,6 +80,8 @@ CREATE TABLE events (
   rsvpMaybe TEXT, -- JSON array as string
   createdAt TEXT NOT NULL,
   updatedAt TEXT NOT NULL,
+  isDeleted INTEGER DEFAULT 0,
+deletedAt TEXT,
   isPublic INTEGER NOT NULL DEFAULT 1,
   FOREIGN KEY (userId) REFERENCES users (id)
 );
