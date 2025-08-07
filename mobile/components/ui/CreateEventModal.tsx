@@ -35,7 +35,6 @@ import { PeoplePicker } from "@/components/ui/PeoplePicker";
 import { TimePickerModal } from "@/components/ui/TimePickerModal";
 import { Event } from "@/types/event.types";
 import { UserService } from "@/services/user.service";
-import { useSQLiteContext } from "expo-sqlite";
 
 interface CreateEventModalProps {
   visible: boolean;
@@ -94,17 +93,6 @@ export function CreateEventModal({
 
   const titleInputRef = useRef<TextInput>(null);
 
-  
-    // Add this line to get SQLite context
-    const db = useSQLiteContext();
-  
-    // Add this useEffect to set the SQLite context in UserService
-    useEffect(() => {
-      if (db) {
-        UserService.setSQLiteContext(db);
-        console.log("✅ SQLite context set in CreateEventModal");
-      }
-    }, [db]);
 
   // Update the loadAllUsers function to properly preselect "Everyone" group
   const loadAllUsers = useCallback(async () => {
