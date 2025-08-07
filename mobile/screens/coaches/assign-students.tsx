@@ -27,7 +27,6 @@ import { useUser } from "@/contexts/UserContext";
 
 // Import services
 import { UserService } from "@/services/user.service";
-import { useSQLiteContext } from "expo-sqlite";
 
 // Import reusable components
 import { Header } from "@/components/ui/Header";
@@ -66,16 +65,6 @@ export default function AssignFreshmanScreen() {
   const [currentFreshman, setCurrentFreshman] = useState<any>(null);
   const [assignmentLoading, setAssignmentLoading] = useState(false);
 
-  // Add this line to get SQLite context
-  const db = useSQLiteContext();
-
-  // Add this useEffect to set the SQLite context in UserService
-  useEffect(() => {
-    if (db) {
-      UserService.setSQLiteContext(db);
-      console.log("✅ SQLite context set in AssignStudentsScreen");
-    }
-  }, [db]);
   
   // Load data from backend
   const loadAssignmentData = useCallback(async () => {
