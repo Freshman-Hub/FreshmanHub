@@ -9,6 +9,8 @@ import {
   RefreshControl,
   TouchableOpacity,
   FlatList,
+  Alert,
+  Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
@@ -27,10 +29,12 @@ import { useUser } from "@/contexts/UserContext";
 // Import services
 import { UserService } from "@/services/user.service";
 import { EventsService } from "@/services/events.service";
-import { useSQLiteContext } from "expo-sqlite";
+import { useStreamChat } from "@/contexts/StreamChatContext";
 
 
 import { CoachProfileModal } from "@/components/ui/CoachProfileModal";
+import { CreateEventModal } from "@/components/ui/CreateEventModal";
+
 
 // Import reusable components
 import { Header } from "@/components/ui/Header";
@@ -47,6 +51,7 @@ export default function ViewCoachesScreen() {
   const { theme } = useTheme();
   const router = useRouter();
   const { user } = useUser();
+  const { client } = useStreamChat();
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchMode, setIsSearchMode] = useState(false);
@@ -57,6 +62,10 @@ export default function ViewCoachesScreen() {
   const [showCoachProfileModal, setShowCoachProfileModal] = useState(false);
   const [selectedCoach, setSelectedCoach] = useState<any>(null);
 
+  const [showCreateEventModal, setShowCreateEventModal] = useState(false);
+  const [selectedCoachForScheduling, setSelectedCoachForScheduling] =
+    useState<any>(null);
+  
   // State for real data
   const [coaches, setCoaches] = useState<any[]>([]);
   const [, setAllUsers] = useState<any[]>([]);
@@ -67,17 +76,6 @@ export default function ViewCoachesScreen() {
     studentsHelped: 0,
   });
 
-  // Add this line to get SQLite context
-  const db = useSQLiteContext();
-
-  // Add this useEffect to set the SQLite context in UserService
-  useEffect(() => {
-    if (db) {
-      UserService.setSQLiteContext(db);
-      EventsService.setSQLiteContext(db);
-      console.log("✅ SQLite context set in EventsService");
-    }
-  }, [db]);
 
   const loadCoachesData = useCallback(async () => {
     try {
@@ -114,6 +112,8 @@ export default function ViewCoachesScreen() {
           (student) =>
             student.role === "freshman" && student.assignedCoach === coach.id
         );
+
+        // console.log("\n🔍 Processing Assigned Students:", coach.id, "==================",assignedStudents)
 
         // Get coach's sessions
         const coachSessions = (allSessions || []).filter(
@@ -479,30 +479,149 @@ export default function ViewCoachesScreen() {
     },
   });
 
-  const handleCoachAction = (action: string, coach: any) => {
-    switch (action) {
-      case "assign":
-        router.push("/(routes)/assign-freshman");
-        break;
-      case "call":
-        console.log("Calling", coach.name, "at", coach.phone);
-        break;
-      case "message":
-        console.log("Messaging", coach.name);
-        break;
-      case "email":
-        console.log("Emailing", coach.email);
-        break;
-      case "schedule":
-        router.push(`/schedule-session?coachId=${coach.id}`);
-        break;
-      case "profile":
-        // Open modal instead of navigating
-        setSelectedCoach(coach);
-        setShowCoachProfileModal(true);
-        break;
-      default:
-        console.log("Action:", action, "for", coach.name);
+const handleCoachAction = async (action: string, coach: any) => {
+  switch (action) {
+    case "assign":
+      router.push("/(routes)/assign-freshman");
+      break;
+    case "call":
+     if (coach.phone && coach.phone.trim() !== "") {
+       Linking.openURL(`tel:${coach.phone}`);
+     } else {
+       Alert.alert(
+         "No Available Number",
+         "This coach does not have a phone number on file."
+       );
+     }
+      break;
+    case "message":
+      // Use the same logic as handleContactPress from select-contact
+      if (!user?.id) {
+        Alert.alert("Error", "User session invalid");
+        return;
+      }
+
+      try {
+        console.log("🔄 Checking for existing conversation with:", coach.name);
+
+        // Check if there's already an existing Stream channel with this coach
+        let existingChannelId = null;
+
+        if (client && client.userID) {
+          try {
+            // Query for existing channels with this coach
+            const channels = await client.queryChannels({
+              type: "messaging",
+              members: { $in: [client.userID] },
+            });
+
+            // Find channel with exactly these 2 users
+            const existingChannel = channels.find((ch) => {
+              const members = Object.keys(ch.state.members || {});
+              return (
+                members.length === 2 &&
+                members.includes(client.userID || "") &&
+                members.includes(coach.id)
+              );
+            });
+
+            if (existingChannel) {
+              existingChannelId = existingChannel.id;
+              console.log("✅ Found existing channel:", existingChannelId);
+            }
+          } catch (error) {
+            console.warn("⚠️ Failed to check for existing channels:", error);
+            // Continue with pending approach
+          }
+        }
+
+        if (existingChannelId) {
+          // Navigate to existing channel
+          router.push({
+            pathname: "/(routes)/chats/[id]",
+            params: {
+              id: existingChannelId,
+              userName: coach.name,
+              userAvatar: coach.avatar || "",
+              isGroup: "false",
+            },
+          });
+        } else {
+          // Create pending chat for new conversation
+          router.push({
+            pathname: "/(routes)/chats/[id]",
+            params: {
+              id: `pending_${user.id}_${coach.id}`,
+              userName: coach.name,
+              userAvatar: coach.avatar || "",
+              contactId: coach.id,
+              isGroup: "false",
+            },
+          });
+        }
+      } catch (error) {
+        console.error("❌ Error navigating to chat:", error);
+        Alert.alert("Error", "Failed to open chat");
+      }
+      break;
+    case "email":
+      Linking.openURL(`mailto:${coach.email}`);
+      break;
+    case "schedule":
+      // Open CreateEventModal instead of navigating
+      setSelectedCoachForScheduling(coach);
+      setShowCreateEventModal(true);
+      break;
+    case "profile":
+      // Open modal instead of navigating
+      setSelectedCoach(coach);
+      setShowCoachProfileModal(true);
+      break;
+    default:
+      console.log("Action:", action, "for", coach.name);
+  }
+};
+  
+  const handleCreateSession = async (eventData: any) => {
+    if (!user) {
+      Alert.alert("Error", "Please log in to create sessions");
+      return;
+    }
+
+    try {
+      const { event, error } = await EventsService.createEvent(
+        {
+          title: eventData.title,
+          description: eventData.description,
+          date: eventData.date,
+          startTime: eventData.startTime,
+          endTime: eventData.endTime,
+          allDay: eventData.allDay,
+          location: eventData.location,
+          category: eventData.category,
+          color: eventData.color,
+          repeat: eventData.repeat,
+          isPublic: false, // Sessions are private
+          invitedUsers: eventData.attendeeIds || [],
+        },
+        user.id,
+        `${user.firstName} ${user.lastName}`,
+        user.profileImage,
+        "sessions" // Use sessions collection
+      );
+
+      if (error) {
+        Alert.alert("Error", "Failed to create session");
+      } else if (event) {
+        setShowCreateEventModal(false);
+        setSelectedCoachForScheduling(null);
+        Alert.alert("Success", "Session scheduled successfully");
+        // Optionally refresh the coaches data to show updated session count
+        loadCoachesData();
+      }
+    } catch (error) {
+      console.error("Error creating session:", error);
+      Alert.alert("Error", "Failed to create session");
     }
   };
 
@@ -695,6 +814,64 @@ export default function ViewCoachesScreen() {
           </View>
         </>
       )}
+
+      {/* Add Coach Profile Modal */}
+      <CoachProfileModal
+        visible={showCoachProfileModal}
+        onClose={() => {
+          setShowCoachProfileModal(false);
+          setSelectedCoach(null);
+        }}
+        coach={selectedCoach}
+        userRole={
+          user?.role as
+            | "advisor"
+            | "student_leader"
+            | "peer_coach"
+            | "head_of_coaches"
+            | undefined
+        }
+        currentUserId={user?.id}
+      />
+
+      {/* Add CreateEventModal for scheduling sessions */}
+      <CreateEventModal
+        visible={showCreateEventModal}
+        onClose={() => {
+          setShowCreateEventModal(false);
+          setSelectedCoachForScheduling(null);
+        }}
+        onSave={handleCreateSession}
+        contentType="session"
+        initialEvent={{
+          category: "One-on-One",
+          selectedPeople: selectedCoachForScheduling
+            ? [
+                {
+                  id: selectedCoachForScheduling.id,
+                  name: selectedCoachForScheduling.name,
+                  email: selectedCoachForScheduling.email,
+                  avatar: selectedCoachForScheduling.avatar,
+                  type: "person" as const,
+                },
+              ]
+            : [],
+        }}
+        categoryOptions={[
+          {
+            label: "Coaching Session",
+            value: "Coaching Session",
+            color: "#f093fb",
+          },
+          { label: "One-on-One", value: "One-on-One", color: "#ff9800" },
+          { label: "Group Session", value: "Group Session", color: "#26de81" },
+          {
+            label: "Advising Session",
+            value: "Advising Session",
+            color: "#667eea",
+          },
+        ]}
+      />
 
       {/* Add Coach Profile Modal */}
       <CoachProfileModal
