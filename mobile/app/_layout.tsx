@@ -17,6 +17,10 @@ import { useSQLiteContext } from "expo-sqlite";
 import { EventsService } from "@/services/events.service";
 import { UserService } from "@/services/user.service";
 
+import { NotificationService } from "@/services/notifications.service";
+import { NotificationTestWidget } from "@/components/test/NotificationTestWidget";
+
+
 
 async function migrateDbIfNeeded(db: SQLiteDatabase) {
   const DATABASE_VERSION = 1;
@@ -270,6 +274,28 @@ function LayoutContent() {
     }
   }, [db]);
 
+  const initializePushNotifications = async () => {
+    try {
+      const token = await NotificationService.registerForPushNotifications();
+      if (token && user?.id) {
+        await NotificationService.saveTokenToUser(user.id, token);
+      }
+    } catch (error) {
+      console.error("Error initializing push notifications:", error);
+    }
+  };
+
+
+  useEffect(() => {
+    // Initialize notifications
+    NotificationService.setupNotificationListeners();
+
+    // Register for push notifications when user logs in
+    if (user?.id) {
+      initializePushNotifications();
+    }
+  }, [user]);
+
   useEffect(() => {
     checkOnboardingStatus();
   }, []);
@@ -352,6 +378,7 @@ function LayoutContent() {
         <Stack.Screen name="+not-found" />
       </Stack>
       <StatusBar style="auto" />
+      {user && __DEV__ && <NotificationTestWidget />}
     </>
   );
 }
