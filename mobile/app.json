@@ -13,22 +13,28 @@
       "./src/assets/fonts/Poppins-SemiBold.ttf",
       "./src/assets/fonts/Poppins-Bold.ttf",
       "./src/assets/fonts/Inter-Regular.ttf",
-      "./src/assets/fonts/Inter-Medium.ttf",
-      "./src/assets/fonts/Inter-SemiBold.ttf",
-      "./src/assets/fonts/Inter-Bold.ttf"
+      "./src/assets/fonts/Inter-SemiBold.ttf"
     ],
-    "newArchEnabled": true,
+    "newArchEnabled": false,
+    "updates": {
+      "url": "https://u.expo.dev/fe8119e9-464b-46e6-a30d-da1cac954fa5"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "ashesi.edu.gh.freshmanhub"
+      "bundleIdentifier": "ashesi.edu.gh.freshmanhub",
+      "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff",
-        "package": "ashesi.edu.gh.freshmanhub"
+        "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "package": "ashesi.edu.gh.freshmanhub",
+      "googleServicesFile": "./google-services.json",
+      "enableProguardInReleaseBuilds": true
     },
     "web": {
       "bundler": "metro",
@@ -46,10 +52,24 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
-      ]
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icons/freshman-hub-logo.png"
+        }
+      ],
+      "@react-native-firebase/app",
+      "@react-native-firebase/messaging"
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "fe8119e9-464b-46e6-a30d-da1cac954fa5"
+      }
     }
   }
 }
