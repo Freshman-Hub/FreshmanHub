@@ -520,6 +520,29 @@ export class EventsService {
           );
         }
 
+        // 🔔 NEW: Send notifications to invited users (excluding creator)
+        if (finalEvent.invitedUsers && finalEvent.invitedUsers.length > 0) {
+          const invitedUsersExcludingCreator = finalEvent.invitedUsers.filter(
+            (invitedUserId) => invitedUserId !== userId
+          );
+
+          if (invitedUsersExcludingCreator.length > 0) {
+            console.log(
+              `🔔 Sending notifications to ${invitedUsersExcludingCreator.length} invited users`
+            );
+
+            // Import NotificationService dynamically to avoid circular imports
+            const { NotificationService } = await import(
+              "./notifications.service"
+            );
+
+            await NotificationService.notifyEventCreated(
+              finalEvent,
+              invitedUsersExcludingCreator
+            );
+          }
+        }
+
         return { event: finalEvent };
       } catch (firebaseError) {
         console.error(
