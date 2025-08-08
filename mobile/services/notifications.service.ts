@@ -1,20 +1,20 @@
-import * as Notifications from "expo-notifications";
-import * as Device from "expo-device";
 import Constants from "expo-constants";
-import { Platform } from "react-native";
+import * as Device from "expo-device";
+import * as Notifications from "expo-notifications";
 import { router } from "expo-router";
+import { Platform } from "react-native";
 
-import {
-  doc,
-  updateDoc,
-  collection,
-  query,
-  where,
-  getDocs,
-  deleteDoc,
-  setDoc,
-} from "firebase/firestore";
 import { db } from "@/firebase/config/firebaseConfig";
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDocs,
+  query,
+  setDoc,
+  updateDoc,
+  where,
+} from "firebase/firestore";
 
 // Configure notification behavior
 Notifications.setNotificationHandler({
@@ -491,7 +491,7 @@ export class NotificationService {
 
       // If data is empty, try parsing dataString (Expo Go fallback)
       if (!data || Object.keys(data).length === 0) {
-        const dataString = notification.request.content.dataString;
+        const dataString = (notification.request.content as any)?.dataString;
         if (dataString) {
           try {
             data = JSON.parse(dataString);
@@ -522,7 +522,10 @@ export class NotificationService {
 
       // If data is empty or undefined, try parsing dataString
       if (!data || Object.keys(data).length === 0) {
-        const dataString = response.notification.request.content.dataString;
+        const dataString =
+          (response.notification.request.content as any)?.dataString ??
+          (response.notification.request.content as { [key: string]: any })
+            ?.dataString;
         console.log("🔍 DataString found:", dataString);
 
         if (dataString) {
