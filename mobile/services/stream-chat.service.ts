@@ -151,10 +151,26 @@ export class StreamChatService {
   }
 
   // Send message
+  // In stream-chat.service.ts - Add notification trigger
+
   static async sendMessage(channel: Channel, text: string) {
     try {
       const message = await channel.sendMessage({ text });
       console.log("✅ Message sent");
+
+      // 🔔 NEW: Send notifications to other channel members
+      const channelMembers = Object.keys(channel.state.members || {});
+      if (channelMembers.length > 1) {
+        // Import NotificationService dynamically to avoid circular imports
+        const { NotificationService } = await import("./notifications.service");
+
+        await NotificationService.notifyMessageReceived(
+          message.message,
+          channel,
+          channelMembers
+        );
+      }
+
       return message;
     } catch (error: any) {
       console.error("❌ Failed to send message:", error);
@@ -167,29 +183,29 @@ export class StreamChatService {
     name: string,
     members: string[],
     createdBy: string,
-      isAnonymous: boolean = false,
+    isAnonymous: boolean = false,
     description?: string
   ): Promise<Channel> {
-      try {
-        // Generate a custom channel ID for the group (required for member management)
-        const timestamp = Date.now();
-        const groupId = `members-${timestamp}_${createdBy.slice(0, 8)}`;
+    try {
+      // Generate a custom channel ID for the group (required for member management)
+      const timestamp = Date.now();
+      const groupId = `members-${timestamp}_${createdBy.slice(0, 8)}`;
 
-        const channel = this.client.channel("team", groupId, {
-          name: name,
-          members,
+      const channel = this.client.channel("team", groupId, {
+        name: name,
+        members,
 
-          created_by_id: createdBy,
-          // Only include custom fields that are allowed by your Stream configuration
-          // If 'name' and 'anonymous' are custom fields, ensure they are enabled in your dashboard
-          ...(name && { name }),
-          ...(description && { description: description }),
-          ...(isAnonymous && { anonymous: isAnonymous }),
-        });
+        created_by_id: createdBy,
+        // Only include custom fields that are allowed by your Stream configuration
+        // If 'name' and 'anonymous' are custom fields, ensure they are enabled in your dashboard
+        ...(name && { name }),
+        ...(description && { description: description }),
+        ...(isAnonymous && { anonymous: isAnonymous }),
+      });
 
-        await channel.create();
-        return channel;
-      } catch (error: any) {
+      await channel.create();
+      return channel;
+    } catch (error: any) {
       console.error("❌ Failed to create group chat:", error);
       throw error;
     }
