@@ -12,6 +12,7 @@ import {
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
+  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -40,7 +41,7 @@ export default function ChatsScreen() {
   const [channels, setChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
+  
   const filters = ["All", "Unread", "Groups", "Friends", "Anonymous"];
 
   // Load channels function
@@ -87,7 +88,7 @@ export default function ChatsScreen() {
       client.off("channel.updated", handleChannelUpdate);
       client.off("message.new", handleChannelUpdate);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConnected, client?.userID, loadChannels]);
 
   // Transform Stream channels to chat format with proper names
@@ -224,10 +225,75 @@ export default function ChatsScreen() {
     }
   };
 
+  // Replace the existing handleDeleteChats function
   const handleDeleteChats = () => {
-    // TODO: Implement delete functionality with Stream Chat
-    console.log("Deleting chats:", selectedChats);
-    setSelectedChats([]);
+    if (selectedChats.length === 0) return;
+
+    Alert.alert(
+      "Delete Conversations",
+      `Are you sure you want to delete ${selectedChats.length} conversation(s)?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => performDeleteChats(),
+        },
+      ]
+    );
+  };
+
+  // Add this new function after handleDeleteChats
+  const performDeleteChats = async () => {
+    try {
+      console.log("🔄 Deleting conversations:", selectedChats);
+
+      for (const chatId of selectedChats) {
+        try {
+          const channel = channels.find((c) => c.id === chatId);
+          if (!channel) {
+            console.warn(`Channel ${chatId} not found`);
+            continue;
+          }
+
+          const chat = transformedChats.find((c) => c.id === chatId);
+          const isGroupChat = chat?.type === "group" || channel.type === "team";
+
+          if (isGroupChat) {
+            // For group chats: Leave the group
+            console.log(`🔄 Leaving group: ${chatId}`);
+            if (client?.userID) {
+              await StreamChatService.leaveChannel(channel, client.userID);
+              console.log(`✅ Left group: ${chatId}`);
+            }
+          } else {
+            // For direct chats: Hide the conversation
+            console.log(`🔄 Hiding conversation: ${chatId}`);
+            await StreamChatService.hideChannel(channel);
+            console.log(`✅ Hidden conversation: ${chatId}`);
+          }
+        } catch (deleteError: any) {
+          console.error(`❌ Failed to delete chat ${chatId}:`, deleteError);
+
+          // Show specific error message
+          Alert.alert(
+            "Error",
+            `Failed to delete chat: ${deleteError.message || "Unknown error"}`
+          );
+        }
+      }
+
+      // Reload channels to reflect changes
+      await loadChannels();
+      setSelectedChats([]);
+      console.log("✅ Conversations deleted successfully");
+    } catch (error: any) {
+      console.error("❌ Error deleting conversations:", error);
+      Alert.alert(
+        "Error",
+        "Failed to delete some conversations. Please try again."
+      );
+    }
   };
 
   // Calculate unread counts for each tab
