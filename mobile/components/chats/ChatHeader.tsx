@@ -12,7 +12,6 @@ import {
   Search,
   MoreVertical,
   Users,
-  Settings,
   BookOpen,
 } from "lucide-react-native";
 import {
@@ -51,12 +50,6 @@ export function ChatHeader({
       title: "Read all",
       icon: BookOpen,
       onPress: () => console.log("Read all"),
-    },
-    {
-      id: "settings",
-      title: "Settings",
-      icon: Settings,
-      onPress: () => console.log("Settings"),
     },
   ];
 
