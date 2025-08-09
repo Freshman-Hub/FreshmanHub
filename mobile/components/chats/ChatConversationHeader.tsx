@@ -1,29 +1,28 @@
 "use client";
-import { useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { useTheme } from "@/contexts/ThemeContext";
-import {
-  ArrowLeft,
-  MoreVertical,
-  User,
-  Search,
-  Flag,
-  Shield,
-  Info,
-} from "lucide-react-native";
 import { Avatar } from "@/components/chats/Avatar";
 import {
   OptionsDropdown,
   type DropdownOption,
 } from "@/components/common/OptionsDropdown";
+import { useTheme } from "@/contexts/ThemeContext";
 import { useRouter } from "expo-router";
+import {
+  ArrowLeft,
+  Info,
+  MoreVertical,
+  Search,
+  Shield,
+  User,
+} from "lucide-react-native";
+import { useState } from "react";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 interface ChatInfo {
   id: string;
   name: string;
   subtitle?: string;
   avatar: string | null;
-  isOnline: boolean;
+  online: boolean;
   type: "direct" | "group" | "anonymous" | "announcement";
   isAnonymous: boolean;
   memberCount?: number;
@@ -34,6 +33,7 @@ interface ChatConversationHeaderProps {
   onBack: () => void;
   onOptions: () => void;
   onSearch?: () => void;
+  onViewContact?: () => void;
 }
 
 export function ChatConversationHeader({
@@ -41,6 +41,7 @@ export function ChatConversationHeader({
   onBack,
   onOptions,
   onSearch,
+  onViewContact,
 }: ChatConversationHeaderProps) {
   const { theme } = useTheme();
   const router = useRouter();
@@ -68,19 +69,16 @@ export function ChatConversationHeader({
             router.push(`/(routes)/chats/${chat.id}/group-info`);
           },
         },
-        {
-          id: "report",
-          title: "Report",
-          icon: Flag,
-          onPress: () => console.log("Report"),
-        },
       ]
     : [
         {
           id: "view-contact",
           title: "View contact",
           icon: User,
-          onPress: () => console.log("View contact"),
+          onPress: () => {
+            setShowOptionsMenu(false);
+            onViewContact?.(); // <-- Call the handler here
+          },
         },
         {
           id: "search",
@@ -92,17 +90,11 @@ export function ChatConversationHeader({
           },
         },
         {
-          id: "report",
-          title: "Report",
-          icon: Flag,
-          onPress: () => console.log("Report"),
-        },
-        {
           id: "block",
           title: "Block",
           icon: Shield,
           onPress: () => console.log("Block"),
-        }
+        },
       ];
 
   const styles = StyleSheet.create({
@@ -149,7 +141,7 @@ export function ChatConversationHeader({
     if (chat.isAnonymous) return "Anonymous chat";
     if (chat.type === "group")
       return chat.subtitle || `Group • ${chat.memberCount} members`;
-    return chat.isOnline ? "Online" : "Last seen recently";
+    return chat.online ? "Online" : "Last seen recently";
   };
 
   const handleOptionsPress = () => {
@@ -168,7 +160,7 @@ export function ChatConversationHeader({
           source={chat.avatar}
           name={chat.name}
           size={40}
-          isOnline={chat.isOnline}
+          online={chat.online}
           type={chat.type}
         />
       </View>
