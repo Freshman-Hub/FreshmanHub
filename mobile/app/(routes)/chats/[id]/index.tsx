@@ -709,6 +709,21 @@ const loadChatData = async () => {
       const sentMessage = await channel.sendMessage(messageData);
       console.log("✅ Message sent successfully:", sentMessage.message.id);
 
+      // 🔔 NEW: Send notifications to other channel members
+      const channelMembers = Object.keys(channel.state.members || {});
+      if (channelMembers.length > 1) {
+        // Import NotificationService dynamically to avoid circular imports
+        const { NotificationService } = await import(
+          "@/services/notifications.service"
+        );
+
+        await NotificationService.notifyMessageReceived(
+          sentMessage.message,
+          channel,
+          channelMembers
+        );
+      }
+
       // Update the temp message with real ID and correct sender info for anonymous groups
       setMessages((prev) =>
         prev.map((msg) =>
@@ -796,60 +811,66 @@ const loadChatData = async () => {
     }
   };
 
-  const handleDeleteForEveryone = async () => {
-    if (!streamChannel) {
-      console.error("No stream channel available");
-      return;
-    }
+const handleDeleteForEveryone = async () => {
+  if (!streamChannel) {
+    console.error("No stream channel available");
+    return;
+  }
 
-    try {
-      console.log("🔄 Deleting messages for everyone:", selectedMessages);
+  try {
+    console.log("🔄 Deleting messages for everyone:", selectedMessages);
 
-      for (const messageId of selectedMessages) {
-        try {
-          const message = messages.find((m) => m.id === messageId);
-          if (!message) {
-            console.warn(`Message ${messageId} not found locally`);
-            continue;
-          }
-
-          if (!message.isOwn) {
-            console.warn(
-              `Cannot delete message ${messageId} - not owned by current user`
-            );
-            continue;
-          }
-
-          await streamChannel.deleteMessage(messageId);
-          console.log(`✅ Message ${messageId} deleted from Stream`);
-
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === messageId
-                ? { ...msg, isDeleted: true, text: "This message was deleted" }
-                : msg
-            )
-          );
-        } catch (deleteError: any) {
-          console.error(
-            `❌ Failed to delete message ${messageId}:`,
-            deleteError
-          );
-
-          if (deleteError.code === 4) {
-            console.error("Permission denied - can only delete own messages");
-          } else if (deleteError.code === 16) {
-            console.error("Message not found or already deleted");
-          }
+    for (const messageId of selectedMessages) {
+      try {
+        const message = messages.find((m) => m.id === messageId);
+        if (!message) {
+          console.warn(`Message ${messageId} not found locally`);
+          continue;
         }
-      }
 
-      setShowDeleteModal(false);
-      setSelectedMessages([]);
-    } catch (error: any) {
-      console.error("❌ Error deleting messages for everyone:", error);
+        if (!message.isOwn) {
+          console.warn(
+            `Cannot delete message ${messageId} - not owned by current user`
+          );
+          continue;
+        }
+
+        // FIXED: Use StreamChatService.deleteMessage
+        console.log(
+          `🔄 Attempting to delete message via service: ${messageId}`
+        );
+
+        await StreamChatService.deleteMessage(messageId);
+
+        console.log(`✅ Message ${messageId} deleted from Stream`);
+
+        // Update local state immediately for this message
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === messageId
+              ? { ...msg, isDeleted: true, text: "This message was deleted" }
+              : msg
+          )
+        );
+      } catch (deleteError: any) {
+        console.error(`❌ Failed to delete message ${messageId}:`, deleteError);
+        console.error("Error details:", {
+          code: deleteError.code,
+          message: deleteError.message,
+          statusCode: deleteError.statusCode,
+          details: deleteError.details,
+        });
+      }
     }
-  };
+
+    setShowDeleteModal(false);
+    setSelectedMessages([]);
+  } catch (error: any) {
+    console.error("❌ Error deleting messages for everyone:", error);
+    setShowDeleteModal(false);
+    setSelectedMessages([]);
+  }
+};
 
   const handleDeleteForMe = async () => {
     try {
