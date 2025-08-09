@@ -4,12 +4,10 @@ import { useTheme } from "@/contexts/ThemeContext";
 import {
   ArrowLeft,
   Reply,
-  Star,
   Trash2,
   Copy,
   Share,
   MoreVertical,
-  Flag,
   Edit,
   Info,
 } from "lucide-react-native";
@@ -36,7 +34,6 @@ export function MessageSelectionHeader({
   selectedCount,
   onBack,
   onReply,
-  onStar,
   onDelete,
   onCopy,
   onForward,
@@ -48,12 +45,6 @@ export function MessageSelectionHeader({
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
 
   const menuOptions: DropdownOption[] = [
-    {
-      id: "report",
-      title: "Report",
-      icon: Flag,
-      onPress: () => console.log("Report message"),
-    },
     ...(canEdit
       ? [
           {
@@ -115,8 +106,8 @@ export function MessageSelectionHeader({
             <Reply size={24} color={theme.colors.text} />
           </TouchableOpacity>
         )}
-        <TouchableOpacity style={styles.actionButton} onPress={onStar}>
-          <Star size={24} color={theme.colors.text} />
+        <TouchableOpacity style={styles.actionButton} onPress={onInfo}>
+          <Info size={24} color={theme.colors.text} />
         </TouchableOpacity>
         <TouchableOpacity style={styles.actionButton} onPress={onDelete}>
           <Trash2 size={24} color={theme.colors.text} />
