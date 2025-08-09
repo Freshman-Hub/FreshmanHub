@@ -1,6 +1,5 @@
 "use client";
 import {
-  View,
   Text,
   Modal,
   TouchableOpacity,
@@ -9,7 +8,6 @@ import {
   Animated,
 } from "react-native";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Trash2, Eye, Users } from "lucide-react-native";
 import { useEffect, useRef } from "react";
 
 interface DeleteMessageModalProps {
@@ -18,7 +16,7 @@ interface DeleteMessageModalProps {
   onDelete: () => void;
   onDeleteForMe?: () => void;
   messageCount?: number;
-  canDeleteForEveryone?: boolean; // NEW: Determines if user can delete for everyone
+  canDeleteForEveryone?: boolean;
 }
 
 export function DeleteMessageModal({
@@ -30,40 +28,39 @@ export function DeleteMessageModal({
   canDeleteForEveryone = false,
 }: DeleteMessageModalProps) {
   const { theme } = useTheme();
-  const slideAnim = useRef(new Animated.Value(0)).current;
-  const opacityAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.8)).current;
 
   useEffect(() => {
     if (visible) {
       Animated.parallel([
-        Animated.spring(slideAnim, {
-          toValue: 1,
-          useNativeDriver: true,
-          tension: 100,
-          friction: 8,
-        }),
-        Animated.timing(opacityAnim, {
+        Animated.timing(fadeAnim, {
           toValue: 1,
           duration: 200,
           useNativeDriver: true,
         }),
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          useNativeDriver: true,
+          tension: 150,
+          friction: 8,
+        }),
       ]).start();
     } else {
       Animated.parallel([
-        Animated.timing(slideAnim, {
+        Animated.timing(fadeAnim, {
           toValue: 0,
           duration: 150,
           useNativeDriver: true,
         }),
-        Animated.timing(opacityAnim, {
-          toValue: 0,
+        Animated.timing(scaleAnim, {
+          toValue: 0.8,
           duration: 150,
           useNativeDriver: true,
         }),
       ]).start();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible]);
+  }, [visible, fadeAnim, scaleAnim]);
 
   const handleDeleteForEveryone = () => {
     onDelete();
@@ -78,132 +75,62 @@ export function DeleteMessageModal({
   const styles = StyleSheet.create({
     overlay: {
       flex: 1,
-      backgroundColor: "rgba(0, 0, 0, 0.6)",
+      backgroundColor: "rgba(0, 0, 0, 0.5)",
       justifyContent: "center",
       alignItems: "center",
+      paddingHorizontal: theme.spacing.lg,
     },
     modal: {
       backgroundColor: theme.colors.background,
-      borderRadius: theme.borderRadius.xl,
-      paddingVertical: theme.spacing.xl,
-      marginHorizontal: theme.spacing.xl,
-      minWidth: 300,
-      maxWidth: 340,
+      borderRadius: theme.borderRadius.lg,
+      paddingVertical: theme.spacing.lg,
+      minWidth: 280,
+      maxWidth: 320,
       elevation: 10,
-      shadowColor: theme.colors.text,
+      shadowColor: "#000",
       shadowOffset: {
         width: 0,
-        height: 10,
+        height: 4,
       },
       shadowOpacity: 0.25,
-      shadowRadius: 20,
-    },
-    iconContainer: {
-      alignItems: "center",
-      marginBottom: theme.spacing.lg,
-    },
-    iconWrapper: {
-      width: 64,
-      height: 64,
-      borderRadius: 32,
-      backgroundColor: theme.colors.error + "15",
-      alignItems: "center",
-      justifyContent: "center",
+      shadowRadius: 12,
     },
     title: {
-      ...theme.typography.h3,
+      fontSize: 18,
+      fontWeight: "500",
       color: theme.colors.text,
       textAlign: "center",
-      marginBottom: theme.spacing.sm,
       paddingHorizontal: theme.spacing.lg,
-      fontWeight: "700",
+      paddingBottom: theme.spacing.md,
     },
-    subtitle: {
-      ...theme.typography.body,
-      color: theme.colors.textSecondary,
+    option: {
+      paddingVertical: theme.spacing.md,
+      paddingHorizontal: theme.spacing.lg,
+      borderBottomWidth: 0.5,
+      borderBottomColor: theme.colors.border,
+    },
+    lastOption: {
+      borderBottomWidth: 0,
+    },
+    optionText: {
+      fontSize: 16,
+      fontWeight: "400",
       textAlign: "center",
-      marginBottom: theme.spacing.xl,
-      paddingHorizontal: theme.spacing.lg,
-      lineHeight: 20,
-      fontWeight: "500",
-    },
-    buttonContainer: {
-      paddingHorizontal: theme.spacing.lg,
-      gap: theme.spacing.sm,
-    },
-    deleteForEveryoneButton: {
-      backgroundColor: theme.colors.error,
-      paddingVertical: theme.spacing.md,
-      borderRadius: theme.borderRadius.lg,
-      alignItems: "center",
-      marginBottom: theme.spacing.sm,
-      flexDirection: "row",
-      justifyContent: "center",
-    },
-    deleteForMeButton: {
-      backgroundColor: theme.colors.warning || "#F59E0B",
-      paddingVertical: theme.spacing.md,
-      borderRadius: theme.borderRadius.lg,
-      alignItems: "center",
-      marginBottom: theme.spacing.sm,
-      flexDirection: "row",
-      justifyContent: "center",
-    },
-    buttonIcon: {
-      marginRight: theme.spacing.xs,
+      color: theme.colors.primary,
     },
     deleteForEveryoneText: {
-      ...theme.typography.body,
-      color: "#FFFFFF",
-      fontWeight: "600",
       fontSize: 16,
-    },
-    deleteForMeText: {
-      ...theme.typography.body,
-      color: "#FFFFFF",
-      fontWeight: "600",
-      fontSize: 16,
-    },
-    cancelButton: {
-      backgroundColor: theme.colors.surface,
-      paddingVertical: theme.spacing.md,
-      borderRadius: theme.borderRadius.lg,
-      alignItems: "center",
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-    },
-    cancelButtonText: {
-      ...theme.typography.body,
-      color: theme.colors.text,
-      fontWeight: "500",
-      fontSize: 16,
-    },
-    optionDescription: {
-      ...theme.typography.caption,
-      color: theme.colors.textSecondary,
-      textAlign: "center",
-      marginTop: theme.spacing.xs,
-      fontSize: 12,
       fontWeight: "400",
+      textAlign: "center",
+      color: theme.colors.error,
+    },
+    cancelText: {
+      fontSize: 16,
+      fontWeight: "600",
+      textAlign: "center",
+      color: theme.colors.primary,
     },
   });
-
-  const modalTransform = {
-    transform: [
-      {
-        scale: slideAnim.interpolate({
-          inputRange: [0, 1],
-          outputRange: [0.8, 1],
-        }),
-      },
-      {
-        translateY: slideAnim.interpolate({
-          inputRange: [0, 1],
-          outputRange: [50, 0],
-        }),
-      },
-    ],
-  };
 
   return (
     <Modal
@@ -213,84 +140,54 @@ export function DeleteMessageModal({
       onRequestClose={onClose}
     >
       <TouchableWithoutFeedback onPress={onClose}>
-        <Animated.View style={[styles.overlay, { opacity: opacityAnim }]}>
+        <Animated.View style={[styles.overlay, { opacity: fadeAnim }]}>
           <TouchableWithoutFeedback>
-            <Animated.View style={[styles.modal, modalTransform]}>
-              <View style={styles.iconContainer}>
-                <View style={styles.iconWrapper}>
-                  <Trash2
-                    size={28}
-                    color={theme.colors.error}
-                    strokeWidth={2}
-                  />
-                </View>
-              </View>
-
+            <Animated.View
+              style={[
+                styles.modal,
+                {
+                  transform: [{ scale: scaleAnim }],
+                },
+              ]}
+            >
               <Text style={styles.title}>
                 Delete{" "}
                 {messageCount > 1 ? `${messageCount} messages` : "message"}?
               </Text>
 
-              <Text style={styles.subtitle}>
-                Choose how you want to delete{" "}
-                {messageCount > 1 ? "these messages" : "this message"}.
-              </Text>
-
-              <View style={styles.buttonContainer}>
-                {/* Delete for Everyone - Only show if user owns all messages */}
-                {canDeleteForEveryone && (
-                  <>
-                    <TouchableOpacity
-                      style={styles.deleteForEveryoneButton}
-                      onPress={handleDeleteForEveryone}
-                      activeOpacity={0.8}
-                    >
-                      <Users
-                        size={20}
-                        color="#FFFFFF"
-                        style={styles.buttonIcon}
-                      />
-                      <View>
-                        <Text style={styles.deleteForEveryoneText}>
-                          Delete for Everyone
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                    <Text style={styles.optionDescription}>
-                      This will delete the{" "}
-                      {messageCount > 1 ? "messages" : "message"} for all
-                      participants in this chat
-                    </Text>
-                  </>
-                )}
-
-                {/* Delete for Me - Always available */}
+              {/* Delete for Everyone - Only show if user owns all messages */}
+              {canDeleteForEveryone && (
                 <TouchableOpacity
-                  style={[
-                    styles.deleteForMeButton,
-                    { marginTop: canDeleteForEveryone ? theme.spacing.md : 0 },
-                  ]}
-                  onPress={handleDeleteForMe}
-                  activeOpacity={0.8}
+                  style={styles.option}
+                  onPress={handleDeleteForEveryone}
+                  activeOpacity={0.7}
                 >
-                  <Eye size={20} color="#FFFFFF" style={styles.buttonIcon} />
-                  <View>
-                    <Text style={styles.deleteForMeText}>Delete for Me</Text>
-                  </View>
+                  <Text style={styles.deleteForEveryoneText}>
+                    Delete for everyone
+                  </Text>
                 </TouchableOpacity>
-                <Text style={styles.optionDescription}>
-                  This will only delete the{" "}
-                  {messageCount > 1 ? "messages" : "message"} from your view
-                </Text>
+              )}
 
-                <TouchableOpacity
-                  style={[styles.cancelButton, { marginTop: theme.spacing.md }]}
-                  onPress={onClose}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
-                </TouchableOpacity>
-              </View>
+              {/* Delete for Me - Always available */}
+              <TouchableOpacity
+                style={[
+                  styles.option,
+                  !canDeleteForEveryone && styles.lastOption,
+                ]}
+                onPress={handleDeleteForMe}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.optionText}>Delete for me</Text>
+              </TouchableOpacity>
+
+              {/* Cancel */}
+              <TouchableOpacity
+                style={[styles.option, styles.lastOption]}
+                onPress={onClose}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.cancelText}>Cancel</Text>
+              </TouchableOpacity>
             </Animated.View>
           </TouchableWithoutFeedback>
         </Animated.View>
