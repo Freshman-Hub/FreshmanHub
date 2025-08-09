@@ -70,6 +70,7 @@ export function MessageInfoModal({
       ...theme.typography.body,
       color: theme.colors.text,
       lineHeight: 20,
+      fontWeight: "400",
     },
     messageFooter: {
       flexDirection: "row",
@@ -82,6 +83,7 @@ export function MessageInfoModal({
       ...theme.typography.captionSmall,
       color: theme.colors.textSecondary,
       fontSize: 11,
+      fontWeight: "400",
     },
     statusSection: {
       marginBottom: theme.spacing.lg,
@@ -106,6 +108,7 @@ export function MessageInfoModal({
       ...theme.typography.bodySmall,
       color: theme.colors.textSecondary,
       marginTop: 2,
+      fontWeight: "400",
     },
     divider: {
       height: 1,
