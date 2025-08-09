@@ -34,22 +34,6 @@ import {
   getChannelDisplayName,
 } from "@/utils/stream-chat.helpers";
 
-// Anonymous name generator
-const generateAnonymousName = (userId: string): string => {
-  // Create a consistent 6-character name based on user ID
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  let hash = 0;
-  for (let i = 0; i < userId.length; i++) {
-    hash = ((hash << 5) - hash + userId.charCodeAt(i)) & 0xffffffff;
-  }
-
-  let result = "";
-  for (let i = 0; i < 6; i++) {
-    result += chars[Math.abs(hash + i) % chars.length];
-  }
-  return result;
-};
-
 const ChatConversationScreen: React.FC = () => {
   const { theme } = useTheme();
   const router = useRouter();
@@ -69,9 +53,7 @@ const ChatConversationScreen: React.FC = () => {
 
   // Anonymous group state
   const [isAnonymousGroup, setIsAnonymousGroup] = useState(false);
-  const [anonymousNamesMap, setAnonymousNamesMap] = useState<
-    Map<string, string>
-  >(new Map());
+  const [anonymousNamesMap] = useState<Map<string, string>>(new Map());
 
   // Search functionality state
   const [isSearchMode, setIsSearchMode] = useState(false);
@@ -88,9 +70,9 @@ const ChatConversationScreen: React.FC = () => {
   const [replyToMessage, setReplyToMessage] = useState<any>(null);
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [messageToDelete, setMessageToDelete] = useState<string | null>(null);
-  const [isDeletedMessageModal, setIsDeletedMessageModal] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [, setMessageToDelete] = useState<string | null>(null);
+  const [, setIsDeletedMessageModal] = useState(false);
+  const [, setError] = useState<string | null>(null);
 
   // Determine if this is a group chat
   const isGroupChat = chatInfo?.type === "group";
@@ -109,193 +91,244 @@ const ChatConversationScreen: React.FC = () => {
 
   // Load Stream Chat data
   useEffect(() => {
-    // Update the loadChatData function around line 105:
+    // Update your loadChatData function with proper TypeScript handling
+    const loadChatData = async () => {
+      if (!chatId || chatId === "self") return;
 
-const loadChatData = async () => {
-  if (!chatId || chatId === "self") return;
+      setLoading(true);
+      setError(null);
+      console.log("Loading chat:", chatId);
 
-  setLoading(false);
-  setError(null);
-  console.log("Loading chat:", chatId);
+      try {
+        // Get info from params for immediate display
+        const contactName = params.userName as string;
+        const contactAvatar = params.userAvatar as string;
+        const isGroup = params.isGroup === "true";
+        const isAnonymous = params.isAnonymous === "true";
+        const groupMembers = params.groupMembers
+          ? JSON.parse(params.groupMembers as string)
+          : [];
 
-  try {
-    // Get info from params for immediate display
-    const contactName = params.userName as string;
-    const contactAvatar = params.userAvatar as string;
-    const isGroup = params.isGroup === "true";
-    const isAnonymous = params.isAnonymous === "true";
-    const groupMembers = params.groupMembers
-      ? JSON.parse(params.groupMembers as string)
-      : [];
+        // Set anonymous group state FIRST, before any UI updates
+        setIsAnonymousGroup(isAnonymous);
 
-    // FIXED: Set anonymous group state FIRST, before any UI updates
-    setIsAnonymousGroup(isAnonymous);
+        // Use anonymous-aware display name immediately
+        const initialDisplayName =
+          isAnonymous && isGroup
+            ? contactName // Keep group name, but members will be anonymous
+            : contactName || "Unknown";
 
-    // FIXED: Use anonymous-aware display name immediately
-    const initialDisplayName = isAnonymous && isGroup 
-      ? contactName // Keep group name, but members will be anonymous
-      : contactName || "Unknown";
+        // Set chat info immediately with params data
+        setChatInfo({
+          id: chatId,
+          name: initialDisplayName,
+          avatar: contactAvatar || null,
+          isOnline: false,
+          type: isGroup ? "group" : "direct",
+          isAnonymous: isAnonymous,
+          memberCount: isGroup ? groupMembers.length : 2,
+        });
 
-    // Set chat info immediately with params data
-    setChatInfo({
-      id: chatId,
-      name: initialDisplayName,
-      avatar: contactAvatar || null,
-      isOnline: false,
-      type: isGroup ? "group" : "direct",
-      isAnonymous: isAnonymous,
-      memberCount: isGroup ? groupMembers.length : 2,
-    });
+        // Check if this is a pending direct chat (no real channel yet)
+        const isPendingDirectChat = chatId.startsWith("pending_") && !isGroup;
 
-    // Check if this is a pending direct chat (no real channel yet)
-    const isPendingDirectChat = chatId.startsWith("pending_") && !isGroup;
+        if (isPendingDirectChat) {
+          console.log("📝 Pending direct chat - no channel created yet");
+          setMessages([]);
+          setStreamChannel(null);
+          setLoading(false);
+          return;
+        }
 
-    if (isPendingDirectChat) {
-      console.log("📝 Pending direct chat - no channel created yet");
-      setMessages([]);
-      setStreamChannel(null);
-      return;
-    }
+        // For real channels (groups or existing direct chats), load normally
+        if (!client || !isConnected) {
+          console.log("⚠️ Stream Chat not connected yet");
+          setError("Not connected to chat service");
+          setLoading(false);
+          return;
+        }
 
-    // For real channels (groups or existing direct chats), load normally
-    if (!client || !isConnected) {
-      console.log("⚠️ Stream Chat not connected yet");
-      setError("Not connected to chat service");
-      return;
-    }
+        // Determine channel type
+        let channelType = "messaging";
+        if (chatId.startsWith("members-") || isGroup) {
+          channelType = "team";
+        }
 
-    // Determine channel type
-    let channelType = "messaging";
-    if (chatId.startsWith("members-") || isGroup) {
-      channelType = "team";
-    }
+        // Load existing channel
+        try {
+          const channel = await StreamChatService.getChannel(
+            channelType,
+            chatId
+          );
 
-    // Load existing channel
-    try {
-      const channel = await StreamChatService.getChannel(channelType, chatId);
+          if (!channel) {
+            throw new Error("Channel not found");
+          }
 
-      if (!channel) {
-        throw new Error("Channel not found");
+          setStreamChannel(channel);
+
+          // Check channel data but prioritize params for immediate consistency
+          const channelIsAnonymous =
+            (channel.data as { anonymous?: boolean })?.anonymous ||
+            (channel.data as { isAnonymous?: boolean })?.isAnonymous ||
+            isAnonymous; // Fallback to params value
+
+          // Only update if different from what we already have
+          if (channelIsAnonymous !== isAnonymous) {
+            setIsAnonymousGroup(channelIsAnonymous);
+          }
+
+          const displayName = getChannelDisplayName(
+            channel,
+            client?.userID || ""
+          );
+          const avatar = getChannelAvatar(channel, client?.userID || "");
+
+          setChatInfo((prev: any) => ({
+            ...prev,
+            id: channel.id,
+            name: displayName,
+            avatar: avatar,
+            type:
+              Object.keys(channel.state.members || {}).length > 2
+                ? "group"
+                : "direct",
+            memberCount: Object.keys(channel.state.members || {}).length,
+            isAnonymous: channelIsAnonymous,
+          }));
+
+          // Load messages with correct anonymous state from the start
+          const streamMessages = channel.state.messages || [];
+
+          // 🔧 FIXED: Get user deleted messages with proper TypeScript handling
+          let userDeletedMessages: string[] = [];
+          if (client?.userID) {
+            try {
+              const userResponse = await client.queryUsers({
+                id: client.userID,
+              });
+              const currentUser = userResponse.users[0];
+
+              // Use type assertion to access custom properties
+              const userData = currentUser as any;
+              userDeletedMessages = userData?.deleted_messages?.[chatId] || [];
+
+              console.log(
+                `🗑️ Found ${userDeletedMessages.length} deleted messages for current user`
+              );
+            } catch (userError) {
+              console.error("Error loading user deleted messages:", userError);
+              // Continue without user deleted messages
+            }
+          }
+
+          const transformedMessages = streamMessages
+            .filter((msg: any) => {
+              // Filter out messages deleted by current user
+              return !userDeletedMessages.includes(msg.id);
+            })
+            .map((msg: any) => {
+              const isCurrentUser = msg.user?.id === client?.userID;
+
+              // Use the final channelIsAnonymous value for message transformation
+              const senderName = channelIsAnonymous
+                ? getDisplayName(
+                    msg.user?.id || "",
+                    msg.user?.name || "Unknown",
+                    isCurrentUser
+                  )
+                : isCurrentUser
+                  ? "You"
+                  : msg.user?.name || "Unknown";
+
+              return {
+                id: msg.id,
+                text: msg.text || "",
+                timestamp: new Date(msg.created_at).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                }),
+                isOwn: isCurrentUser,
+                date: new Date(msg.created_at).toISOString().split("T")[0],
+                status: (() => {
+                  if (!msg.user || msg.user.id !== client?.userID)
+                    return "received";
+                  const readBy = msg.read_by || [];
+                  const otherUsersRead = readBy.filter(
+                    (read: any) => read.user.id !== client?.userID
+                  );
+                  if (otherUsersRead.length > 0) return "read";
+                  if (msg.created_at) return "delivered";
+                  return "sent";
+                })(),
+                isDeleted: msg.deleted_at ? true : false,
+                sender: senderName,
+                senderAvatar:
+                  channelIsAnonymous && !isCurrentUser
+                    ? null
+                    : msg.user?.image || null,
+                isSystem: msg.type === "system",
+                senderId: msg.user?.id,
+                isAnonymous: channelIsAnonymous && !isCurrentUser,
+                replyTo: msg.quoted_message
+                  ? {
+                      id: msg.quoted_message.id,
+                      text: msg.quoted_message.text || "",
+                      sender: channelIsAnonymous
+                        ? getDisplayName(
+                            msg.quoted_message.user?.id || "",
+                            msg.quoted_message.user?.name || "Unknown",
+                            msg.quoted_message.user?.id === client?.userID
+                          )
+                        : msg.quoted_message.user?.name || "Unknown",
+                    }
+                  : msg.parent_id
+                    ? {
+                        id: msg.parent_id,
+                        text:
+                          streamMessages.find(
+                            (m: any) => m.id === msg.parent_id
+                          )?.text || "Original message",
+                        sender: (() => {
+                          const parentMsg = streamMessages.find(
+                            (m: any) => m.id === msg.parent_id
+                          );
+                          return channelIsAnonymous
+                            ? getDisplayName(
+                                parentMsg?.user?.id || "",
+                                parentMsg?.user?.name || "Unknown",
+                                parentMsg?.user?.id === client?.userID
+                              )
+                            : parentMsg?.user?.name || "User";
+                        })(),
+                      }
+                    : undefined,
+                parentId: msg.parent_id || undefined,
+                messageType: msg.type || "regular",
+                readBy: msg.read_by || [],
+              };
+            });
+
+          setMessages(transformedMessages);
+          console.log(
+            `✅ Chat loaded successfully with name: ${displayName} (${transformedMessages.length} messages, ${userDeletedMessages.length} filtered out)`
+          );
+        } catch (channelError: any) {
+          console.error("Error loading channel:", channelError);
+          setError(`Failed to load conversation: ${channelError.message}`);
+        }
+      } catch (error: any) {
+        console.error("Error loading chat data:", error);
+        if (!chatId.startsWith("pending_")) {
+          setError(error.message);
+        }
+      } finally {
+        setLoading(false);
       }
-
-      setStreamChannel(channel);
-
-      // FIXED: Check channel data but prioritize params for immediate consistency
-      const channelIsAnonymous =
-        (channel.data as { anonymous?: boolean })?.anonymous ||
-        (channel.data as { isAnonymous?: boolean })?.isAnonymous ||
-        isAnonymous; // Fallback to params value
-
-      // FIXED: Only update if different from what we already have
-      if (channelIsAnonymous !== isAnonymous) {
-        setIsAnonymousGroup(channelIsAnonymous);
-      }
-
-      const displayName = getChannelDisplayName(channel, client?.userID || "");
-      const avatar = getChannelAvatar(channel, client?.userID || "");
-
-      setChatInfo((prev: any) => ({
-        ...prev,
-        id: channel.id,
-        name: displayName,
-        avatar: avatar,
-        type: Object.keys(channel.state.members || {}).length > 2 ? "group" : "direct",
-        memberCount: Object.keys(channel.state.members || {}).length,
-        isAnonymous: channelIsAnonymous,
-      }));
-
-      // FIXED: Load messages with correct anonymous state from the start
-      const streamMessages = channel.state.messages || [];
-      const transformedMessages = streamMessages.map((msg: any) => {
-        const isCurrentUser = msg.user?.id === client?.userID;
-        
-        // FIXED: Use the final channelIsAnonymous value for message transformation
-        const senderName = channelIsAnonymous
-          ? getDisplayName(
-              msg.user?.id || "",
-              msg.user?.name || "Unknown",
-              isCurrentUser
-            )
-          : isCurrentUser
-            ? "You"
-            : msg.user?.name || "Unknown";
-
-        return {
-          id: msg.id,
-          text: msg.text || "",
-          timestamp: new Date(msg.created_at).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-          isOwn: isCurrentUser,
-          date: new Date(msg.created_at).toISOString().split("T")[0],
-          status: (() => {
-            if (!msg.user || msg.user.id !== client?.userID) return "received";
-            const readBy = msg.read_by || [];
-            const otherUsersRead = readBy.filter(
-              (read: any) => read.user.id !== client?.userID
-            );
-            if (otherUsersRead.length > 0) return "read";
-            if (msg.created_at) return "delivered";
-            return "sent";
-          })(),
-          isDeleted: msg.deleted_at ? true : false,
-          sender: senderName,
-          senderAvatar: channelIsAnonymous && !isCurrentUser ? null : (msg.user?.image || null),
-          isSystem: msg.type === "system",
-          senderId: msg.user?.id,
-          isAnonymous: channelIsAnonymous && !isCurrentUser,
-          replyTo: msg.quoted_message
-            ? {
-                id: msg.quoted_message.id,
-                text: msg.quoted_message.text || "",
-                sender: channelIsAnonymous
-                  ? getDisplayName(
-                      msg.quoted_message.user?.id || "",
-                      msg.quoted_message.user?.name || "Unknown",
-                      msg.quoted_message.user?.id === client?.userID
-                    )
-                  : msg.quoted_message.user?.name || "Unknown",
-              }
-            : msg.parent_id
-              ? {
-                  id: msg.parent_id,
-                  text: streamMessages.find((m: any) => m.id === msg.parent_id)?.text || "Original message",
-                  sender: (() => {
-                    const parentMsg = streamMessages.find((m: any) => m.id === msg.parent_id);
-                    return channelIsAnonymous
-                      ? getDisplayName(
-                          parentMsg?.user?.id || "",
-                          parentMsg?.user?.name || "Unknown",
-                          parentMsg?.user?.id === client?.userID
-                        )
-                      : parentMsg?.user?.name || "User";
-                  })(),
-                }
-              : undefined,
-          parentId: msg.parent_id || undefined,
-          messageType: msg.type || "regular",
-          readBy: msg.read_by || [],
-        };
-      });
-
-      setMessages(transformedMessages);
-      console.log("✅ Chat loaded successfully with name:", displayName);
-    } catch (channelError: any) {
-      console.error("Error loading channel:", channelError);
-      setError(`Failed to load conversation: ${channelError.message}`);
-    }
-  } catch (error: any) {
-    console.error("Error loading chat data:", error);
-    if (!chatId.startsWith("pending_")) {
-      setError(error.message);
-    }
-  }
     };
-    
 
     loadChatData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatId, user?.id, client, isConnected]);
 
   // Stream Chat real-time updates
@@ -450,7 +483,7 @@ const loadChatData = async () => {
       streamChannel.off("message.updated", handleMessageUpdated);
       streamChannel.off("message.deleted", handleMessageDeleted);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     streamChannel,
     chatId,
@@ -486,7 +519,7 @@ const loadChatData = async () => {
       setSearchResults([]);
       setCurrentSearchIndex(-1);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery, messages, searchDateFilter]);
 
   // Mark messages as read when chat loads or new messages arrive
@@ -811,83 +844,128 @@ const loadChatData = async () => {
     }
   };
 
-const handleDeleteForEveryone = async () => {
-  if (!streamChannel) {
-    console.error("No stream channel available");
-    return;
-  }
+  const canDeleteSelectedMessages = () => {
+    if (selectedMessages.length === 0) return false;
 
-  try {
-    console.log("🔄 Deleting messages for everyone:", selectedMessages);
+    // Check if ALL selected messages belong to the current user
+    return selectedMessages.every((messageId) => {
+      const message = messages.find((m) => m.id === messageId);
+      return message && message.isOwn && !message.isDeleted;
+    });
+  };
 
-    for (const messageId of selectedMessages) {
-      try {
-        const message = messages.find((m) => m.id === messageId);
-        if (!message) {
-          console.warn(`Message ${messageId} not found locally`);
-          continue;
-        }
-
-        if (!message.isOwn) {
-          console.warn(
-            `Cannot delete message ${messageId} - not owned by current user`
-          );
-          continue;
-        }
-
-        // FIXED: Use StreamChatService.deleteMessage
-        console.log(
-          `🔄 Attempting to delete message via service: ${messageId}`
-        );
-
-        await StreamChatService.deleteMessage(messageId);
-
-        console.log(`✅ Message ${messageId} deleted from Stream`);
-
-        // Update local state immediately for this message
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === messageId
-              ? { ...msg, isDeleted: true, text: "This message was deleted" }
-              : msg
-          )
-        );
-      } catch (deleteError: any) {
-        console.error(`❌ Failed to delete message ${messageId}:`, deleteError);
-        console.error("Error details:", {
-          code: deleteError.code,
-          message: deleteError.message,
-          statusCode: deleteError.statusCode,
-          details: deleteError.details,
-        });
-      }
-    }
-
-    setShowDeleteModal(false);
-    setSelectedMessages([]);
-  } catch (error: any) {
-    console.error("❌ Error deleting messages for everyone:", error);
-    setShowDeleteModal(false);
-    setSelectedMessages([]);
-  }
-};
-
+  // Add this function to your chat conversation screen
   const handleDeleteForMe = async () => {
     try {
       console.log("🔄 Deleting messages for me only:", selectedMessages);
 
+      if (!client?.userID) {
+        console.error("No user ID available");
+        return;
+      }
+
+      // Get current user's metadata
+      const userResponse = await client.queryUsers({ id: client.userID });
+      const currentUser = userResponse.users[0];
+
+      // Use type assertion for custom properties
+      const userData = currentUser as any;
+      const currentDeletedMessages = userData?.deleted_messages || {};
+      const updatedDeletedMessages = {
+        ...currentDeletedMessages,
+        [chatId]: [
+          ...(currentDeletedMessages[chatId] || []),
+          ...selectedMessages,
+        ],
+      };
+
+      // 🔧 FIXED: Use proper TypeScript approach for custom user data
+      await client.partialUpdateUser({
+        id: client.userID,
+        set: {
+          // Use index signature to bypass TypeScript validation
+          ["deleted_messages" as keyof any]: updatedDeletedMessages,
+        } as any, // Type assertion to bypass strict typing
+      });
+
+      // Remove messages from local state immediately
       setMessages((prev) =>
         prev.filter((msg) => !selectedMessages.includes(msg.id))
       );
 
-      console.log("✅ Messages removed locally");
+      console.log(
+        "✅ Messages deleted for me only (stored in Stream user metadata)"
+      );
 
       setShowDeleteModal(false);
       setSelectedMessages([]);
-      setMessageToDelete(null);
-      setIsDeletedMessageModal(false);
     } catch (error: any) {
       console.error("❌ Error deleting messages for me:", error);
+      setShowDeleteModal(false);
+      setSelectedMessages([]);
+    }
+  };
+  const handleDeleteForEveryone = async () => {
+    if (!streamChannel) {
+      console.error("No stream channel available");
+      return;
+    }
+
+    try {
+      console.log("🔄 Deleting messages for everyone:", selectedMessages);
+
+      for (const messageId of selectedMessages) {
+        try {
+          const message = messages.find((m) => m.id === messageId);
+          if (!message) {
+            console.warn(`Message ${messageId} not found locally`);
+            continue;
+          }
+
+          if (!message.isOwn) {
+            console.warn(
+              `Cannot delete message ${messageId} - not owned by current user`
+            );
+            continue;
+          }
+
+          // FIXED: Use StreamChatService.deleteMessage
+          console.log(
+            `🔄 Attempting to delete message via service: ${messageId}`
+          );
+
+          await StreamChatService.deleteMessage(messageId);
+
+          console.log(`✅ Message ${messageId} deleted from Stream`);
+
+          // Update local state immediately for this message
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === messageId
+                ? { ...msg, isDeleted: true, text: "This message was deleted" }
+                : msg
+            )
+          );
+        } catch (deleteError: any) {
+          console.error(
+            `❌ Failed to delete message ${messageId}:`,
+            deleteError
+          );
+          console.error("Error details:", {
+            code: deleteError.code,
+            message: deleteError.message,
+            statusCode: deleteError.statusCode,
+            details: deleteError.details,
+          });
+        }
+      }
+
+      setShowDeleteModal(false);
+      setSelectedMessages([]);
+    } catch (error: any) {
+      console.error("❌ Error deleting messages for everyone:", error);
+      setShowDeleteModal(false);
+      setSelectedMessages([]);
     }
   };
 
@@ -1083,12 +1161,10 @@ const handleDeleteForEveryone = async () => {
               setShowDeleteModal(false);
               setIsDeletedMessageModal(false);
             }}
-            onDeleteForEveryone={
-              isDeletedMessageModal ? undefined : handleDeleteForEveryone
-            }
-            onDeleteForMe={handleDeleteForMe}
-            canDeleteForEveryone={selectedMessages.length > 0}
-            isDeletedMessage={isDeletedMessageModal}
+            onDelete={handleDeleteForEveryone} // This handles "Delete for Everyone"
+            onDeleteForMe={handleDeleteForMe} // This handles "Delete for Me"
+            messageCount={selectedMessages.length}
+            canDeleteForEveryone={canDeleteSelectedMessages()} // Show both options only if user owns all messages
           />
         </>
       )}
