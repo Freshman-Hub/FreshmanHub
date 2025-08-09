@@ -39,10 +39,38 @@ export default function ChatsScreen() {
   const [activeTab, setActiveTab] = useState("chats");
   const [selectedChats, setSelectedChats] = useState<string[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
+  const [transformedChats, setTransformedChats] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   const filters = ["All", "Unread", "Groups", "Friends", "Anonymous"];
+
+  // Helper functions for filtering user deleted messages
+  const getUserDeletedMessages = async (chatId: string): Promise<string[]> => {
+    try {
+      if (!client?.userID) return [];
+
+      const userResponse = await client.queryUsers({ id: client.userID });
+      const currentUser = userResponse.users[0];
+      const userData = currentUser as any;
+      return userData?.deleted_messages?.[chatId] || [];
+    } catch (error) {
+      console.error("Error getting user deleted messages:", error);
+      return [];
+    }
+  };
+
+  const filterUserDeletedMessages = async (channel: Channel) => {
+    const chatId = channel.id;
+    if (!chatId) return channel.state.messages || [];
+    const userDeletedMessages = await getUserDeletedMessages(chatId);
+
+    if (userDeletedMessages.length === 0) return channel.state.messages || [];
+
+    return (channel.state.messages || []).filter(
+      (msg) => !userDeletedMessages.includes(msg.id)
+    );
+  };
 
   // Load channels function
   const loadChannels = useCallback(async () => {
@@ -54,11 +82,45 @@ export default function ChatsScreen() {
         client.userID
       );
       setChannels(userChannels);
+
+      // Process channels with filtered messages
+      const processedChats = await Promise.all(
+        userChannels.map(async (channel) => {
+          // Filter out user-deleted messages
+          const filteredMessages = await filterUserDeletedMessages(channel);
+
+          // Create temp channel with filtered messages
+          const tempChannel = {
+            ...channel,
+            state: {
+              ...channel.state,
+              messages: filteredMessages,
+            },
+          };
+
+          const chatData = streamChannelToChat(tempChannel as Channel);
+          const displayName = getChannelDisplayName(
+            channel,
+            client?.userID || ""
+          );
+          const avatar = getChannelAvatar(channel, client?.userID || "");
+
+          return {
+            ...chatData,
+            name: displayName,
+            avatar: avatar,
+            timestamp: formatChatTimestamp(chatData.timestamp),
+          };
+        })
+      );
+
+      setTransformedChats(processedChats);
       console.log(`✅ Loaded ${userChannels.length} channels`);
     } catch (err) {
       console.error("Error loading channels:", err);
       setError("Failed to load chats");
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client?.userID]);
 
   // Listen for real-time channel updates
@@ -90,20 +152,6 @@ export default function ChatsScreen() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConnected, client?.userID, loadChannels]);
-
-  // Transform Stream channels to chat format with proper names
-  const transformedChats = channels.map((channel) => {
-    const chatData = streamChannelToChat(channel);
-    const displayName = getChannelDisplayName(channel, client?.userID || "");
-    const avatar = getChannelAvatar(channel, client?.userID || "");
-
-    return {
-      ...chatData,
-      name: displayName,
-      avatar: avatar,
-      timestamp: formatChatTimestamp(chatData.timestamp),
-    };
-  });
 
   // Filter chats based on active tab
   const getFilteredChats = () => {
