@@ -25,10 +25,12 @@ import { MessageInfoModal } from "@/components/chats/MessageInfoModal";
 import { MessageInput } from "@/components/chats/MessageInput";
 import { MessageSelectionHeader } from "@/components/chats/MessageSelectionHeader";
 import { SearchDateModal } from "@/components/chats/SearchDateModal";
+import { ViewContactModal } from "@/components/modals/ViewContactModal";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
-import { useUser } from "@/contexts/UserContext";
 import { useStreamChat } from "@/contexts/StreamChatContext";
+import { useUser } from "@/contexts/UserContext";
 import { StreamChatService } from "@/services/stream-chat.service";
+import { User as UserType } from "@/types/user.types";
 import {
   getChannelAvatar,
   getChannelDisplayName,
@@ -73,6 +75,9 @@ const ChatConversationScreen: React.FC = () => {
   const [, setMessageToDelete] = useState<string | null>(null);
   const [, setIsDeletedMessageModal] = useState(false);
   const [, setError] = useState<string | null>(null);
+
+  const [showContactModal, setShowContactModal] = useState(false);
+  const [selectedContact, setSelectedContact] = useState<UserType | null>(null);
 
   // Determine if this is a group chat
   const isGroupChat = chatInfo?.type === "group";
@@ -123,7 +128,7 @@ const ChatConversationScreen: React.FC = () => {
           id: chatId,
           name: initialDisplayName,
           avatar: contactAvatar || null,
-          isOnline: false,
+          online: false,
           type: isGroup ? "group" : "direct",
           isAnonymous: isAnonymous,
           memberCount: isGroup ? groupMembers.length : 2,
@@ -643,8 +648,9 @@ const ChatConversationScreen: React.FC = () => {
       const message = messages.find((m) => m.id === selectedMessages[0]);
       setSelectedMessageInfo({
         ...message,
-        deliveredAt: "July 2, 22:07",
-        status: "read",
+        deliveredAt:
+          message.deliveredAt || message.created_at || message.timestamp,
+        status: message.status,
       });
       setShowMessageInfo(true);
       setSelectedMessages([]);
@@ -823,6 +829,71 @@ const ChatConversationScreen: React.FC = () => {
       console.error("Failed to copy:", error);
     }
     setSelectedMessages([]);
+  };
+
+  const handleViewContact = () => {
+    if (!streamChannel || !client?.userID) return;
+
+    // For direct chats, find the other member
+    if (chatInfo?.type === "direct") {
+      const members = streamChannel.state.members as Record<
+        string,
+        { user: UserType }
+      >;
+      const otherMember = Object.values(members).find(
+        (m) => m.user.id !== client.userID
+      );
+
+      if (otherMember && otherMember.user) {
+        const user = otherMember.user;
+        setSelectedContact({
+          id: user.id,
+          firstName: user.firstName || "",
+          lastName: user.lastName || "",
+          // profileImage: user.image || "",
+          email: user.email || "",
+          phoneNumber: user.phoneNumber || "",
+          role: user.role || "User",
+          online: user.online || false,
+          bio: user.bio || "",
+          studentId: user.studentId || "",
+          country: user.country || "",
+          yearGroup: user.yearGroup || "",
+          major: user.major || "",
+          department: user.department || "",
+          createdAt: user.createdAt || new Date(),
+          updatedAt: user.updatedAt || new Date(),
+          gender: user.gender || "",
+          isActive: user.isActive !== false,
+        });
+        setShowContactModal(true);
+        return;
+      }
+    }
+
+    // For group chats, you may want to show group info or a list of members
+    // For now, fallback to chatInfo (or you can implement group modal)
+    setSelectedContact({
+      id: chatInfo?.id,
+      firstName: chatInfo?.name?.split(" ")[0] || "",
+      lastName: chatInfo?.name?.split(" ")[1] || "",
+      profileImage: chatInfo?.avatar,
+      email: chatInfo?.email || "",
+      phoneNumber: chatInfo?.phoneNumber || "",
+      role: chatInfo?.role || "group",
+      online: chatInfo?.online || false,
+      bio: chatInfo?.bio || "",
+      studentId: chatInfo?.studentId || "",
+      country: chatInfo?.country || "",
+      yearGroup: chatInfo?.yearGroup || "",
+      major: chatInfo?.major || "",
+      department: chatInfo?.department || "",
+      createdAt: chatInfo?.createdAt || new Date(),
+      updatedAt: chatInfo?.updatedAt || new Date(),
+      gender: chatInfo?.gender || "",
+      isActive: true,
+    });
+    setShowContactModal(true);
   };
 
   const handleForward = () => {
@@ -1051,6 +1122,7 @@ const ChatConversationScreen: React.FC = () => {
               onBack={handleBack}
               onOptions={handleChatOptions}
               onSearch={handleSearchMode}
+              onViewContact={handleViewContact}
             />
           )}
 
@@ -1168,6 +1240,13 @@ const ChatConversationScreen: React.FC = () => {
           />
         </>
       )}
+
+      <ViewContactModal
+        visible={showContactModal}
+        onClose={() => setShowContactModal(false)}
+        contact={selectedContact}
+        currentUserId={user?.id}
+      />
     </SafeAreaView>
   );
 };
