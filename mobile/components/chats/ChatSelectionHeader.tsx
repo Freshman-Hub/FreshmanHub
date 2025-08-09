@@ -6,10 +6,8 @@ import {
   Pin,
   Trash2,
   MoreVertical,
-  Eye,
   CheckCheck,
   CheckSquare,
-  Heart,
   Shield,
 } from "lucide-react-native";
 import {
@@ -37,8 +35,6 @@ export function ChatSelectionHeader({
   onBack,
   onPin,
   onDelete,
-  onMute,
-  onArchive,
   onMarkAsRead = () => {},
   onSelectAll = () => {},
   onUnselectAll = () => {},
@@ -49,12 +45,6 @@ export function ChatSelectionHeader({
   const isAllSelected = selectedCount === totalCount && totalCount > 0;
 
   const menuOptions: DropdownOption[] = [
-    {
-      id: "view-contact",
-      title: "View contact",
-      icon: Eye,
-      onPress: () => console.log("View contact"),
-    },
     {
       id: "mark-read",
       title: "Mark as read",
@@ -77,12 +67,6 @@ export function ChatSelectionHeader({
           console.log("Select all");
         }
       },
-    },
-    {
-      id: "add-favorites",
-      title: "Add to Favorites",
-      icon: Heart,
-      onPress: () => console.log("Add to Favorites"),
     },
     {
       id: "block",
