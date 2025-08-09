@@ -1,3 +1,7 @@
 mobile/components/TempUserSync.tsx
 mobile/hooks/useChannelPreferences.ts
 mobile/scripts/run-sync.ts
+mobile/google-services.json
+mobile/GoogleService-Info.plist
+mobile/eas.json
+mobile/components/test/NotificationTestWidget.tsx
