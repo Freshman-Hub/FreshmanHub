@@ -38,6 +38,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
@@ -817,7 +818,7 @@ export default function SelectContactScreen() {
   });
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} >
       {loading ? (
         <LoadingSpinner />
       ) : (
@@ -1144,6 +1145,6 @@ export default function SelectContactScreen() {
           )}
         </>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
