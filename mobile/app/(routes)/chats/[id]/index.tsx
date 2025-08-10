@@ -79,6 +79,8 @@ const ChatConversationScreen: React.FC = () => {
   const [showContactModal, setShowContactModal] = useState(false);
   const [selectedContact, setSelectedContact] = useState<UserType | null>(null);
 
+  // const [isBlocked, setIsBlocked] = useState(false);
+
   // Determine if this is a group chat
   const isGroupChat = chatInfo?.type === "group";
 
@@ -93,6 +95,47 @@ const ChatConversationScreen: React.FC = () => {
     }
     return isCurrentUser ? "You" : userName;
   };
+
+  useEffect(() => {
+    if (!streamChannel || !client?.userID || chatInfo?.type !== "direct")
+      return;
+
+    const members = streamChannel.state.members as Record<
+      string,
+      { user: UserType }
+    >;
+    const otherMember = Object.values(members).find(
+      (m) => m.user.id !== client.userID
+    );
+
+    if (!otherMember || !otherMember.user) return;
+
+    // Initial online status
+    setChatInfo((prev: any) => ({
+      ...prev,
+      online: otherMember.user.online || false,
+    }));
+
+    // Listen for presence changes
+    const handlePresence = (event: any) => {
+      if (event.user && event.user.id === otherMember.user.id) {
+        setChatInfo((prev: any) => ({
+          ...prev,
+          online: event.user.online || false,
+        }));
+        // If you use selectedContact for modal, update that too
+        setSelectedContact((prev: any) =>
+          prev ? { ...prev, online: event.user.online || false } : prev
+        );
+      }
+    };
+
+    client.on("user.presence.changed", handlePresence);
+
+    return () => {
+      client.off("user.presence.changed", handlePresence);
+    };
+  }, [streamChannel, client, chatInfo?.type]);
 
   // Load Stream Chat data
   useEffect(() => {
@@ -188,6 +231,23 @@ const ChatConversationScreen: React.FC = () => {
             client?.userID || ""
           );
           const avatar = getChannelAvatar(channel, client?.userID || "");
+
+          // After loading the channel and members
+          if (chatInfo?.type === "direct" && streamChannel && client?.userID) {
+            const members = streamChannel.state.members as Record<
+              string,
+              { user: UserType }
+            >;
+            const otherMember = Object.values(members).find(
+              (m) => m.user.id !== client.userID
+            );
+            if (otherMember && otherMember.user) {
+              setChatInfo((prev: any) => ({
+                ...prev,
+                online: otherMember.user.online || false, // <-- Use true online status
+              }));
+            }
+          }
 
           setChatInfo((prev: any) => ({
             ...prev,
@@ -1046,6 +1106,50 @@ const ChatConversationScreen: React.FC = () => {
     setShowDeleteModal(true);
   };
 
+//  const handleBlockUser = async () => {
+//    if (!selectedContact) return;
+//    try {
+//      await StreamChatService.blockUserGlobally(selectedContact.id);
+//      setIsBlocked(true); // Update state
+//      console.log("User blocked globally");
+//    } catch (error) {
+//      console.error("Failed to block user:", error);
+//    }
+//  };
+
+//  const handleUnblockUser = async () => {
+//    if (!selectedContact) return;
+//    try {
+//      await StreamChatService.unblockUserGlobally(selectedContact.id);
+//      setIsBlocked(false); // Update state
+//      console.log("User unblocked globally");
+//    } catch (error) {
+//      console.error("Failed to unblock user:", error);
+//    }
+//  };
+
+  // const handleBanUser = async () => {
+  //   if (!selectedContact || !streamChannel) return;
+  //   try {
+  //     await streamChannel.banUser(selectedContact.id, {});
+  //     console.log("User banned from this channel");
+  //     // Optionally update UI state to reflect ban
+  //   } catch (error) {
+  //     console.error("Failed to ban user:", error);
+  //   }
+  // };
+
+  // const handleUnbanUser = async () => {
+  //   if (!selectedContact || !streamChannel) return;
+  //   try {
+  //     await streamChannel.unbanUser(selectedContact.id, {});
+  //     console.log("User unbanned from this channel");
+  //     // Optionally update UI state to reflect unban
+  //   } catch (error) {
+  //     console.error("Failed to unban user:", error);
+  //   }
+  // };
+
   // Group messages by date
   const groupedMessages = messages.reduce((groups: any, message) => {
     const date = message.date;
@@ -1123,6 +1227,8 @@ const ChatConversationScreen: React.FC = () => {
               onOptions={handleChatOptions}
               onSearch={handleSearchMode}
               onViewContact={handleViewContact}
+              // onBlock={isBlocked ? handleUnblockUser : handleBlockUser}
+              // isBlocked={isBlocked}
             />
           )}
 
@@ -1212,6 +1318,8 @@ const ChatConversationScreen: React.FC = () => {
               />
             </KeyboardAvoidingView>
           </View>
+          {/* <MessageList /> */}
+          {/* <MessageInput /> */}
 
           <MessageInfoModal
             visible={showMessageInfo}
@@ -1246,6 +1354,8 @@ const ChatConversationScreen: React.FC = () => {
         onClose={() => setShowContactModal(false)}
         contact={selectedContact}
         currentUserId={user?.id}
+        // onUnblock={handleUnblockUser}
+        // onBlock={handleBlockUser}
       />
     </SafeAreaView>
   );
