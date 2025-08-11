@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   Dimensions,
   Animated,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Bell, Menu } from "lucide-react-native";
@@ -191,6 +192,102 @@ export default function ContinuousStudentHomeScreen() {
     setRefreshing(true);
     setTimeout(() => setRefreshing(false), 2000);
   }, []);
+
+  // Like, comment, share, delete, etc. handlers for CommunityFeedSection
+  const handleLike = async (postId: string) => {
+    if (!user?.id) return;
+
+    // Optimistic update
+    setCommunityPosts((prevPosts) =>
+      prevPosts.map((post) => {
+        if (post.id === postId) {
+          const isLiked = post.likedBy?.includes(user.id) || false;
+          return {
+            ...post,
+            likes: isLiked ? post.likes - 1 : post.likes + 1,
+            likedBy: isLiked
+              ? post.likedBy?.filter((id) => id !== user.id) || []
+              : [...(post.likedBy || []), user.id],
+          };
+        }
+        return post;
+      })
+    );
+
+    // API call
+    const { error } = await PostsService.toggleLike(postId, user.id);
+
+    if (error) {
+      console.error("Error toggling like:", error);
+      // Optionally reload posts if error
+      const { posts } = await PostsService.getPosts(3);
+      setCommunityPosts(posts);
+    }
+  };
+
+  const handleComment = (postId: string) => {
+    router.push(`/(routes)/post/${postId}`);
+  };
+
+  const handleShare = (postId: string) => {
+    console.log("Sharing post", postId);
+  };
+
+  const handleEdit = (postId: string) => {
+    console.log("Edit post", postId);
+  };
+
+  const handleDelete = async (postId: string) => {
+    try {
+      Alert.alert(
+        "Delete Post",
+        "Are you sure you want to delete this post? This action cannot be undone.",
+        [
+          {
+            text: "Cancel",
+            style: "cancel",
+          },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: async () => {
+              const { error } = await PostsService.deletePost(postId);
+              if (error) {
+                Alert.alert(
+                  "Error",
+                  "Failed to delete post. Please try again."
+                );
+              } else {
+                setCommunityPosts((prev) =>
+                  prev.filter((post) => post.id !== postId)
+                );
+                Alert.alert("Success", "Post deleted successfully");
+              }
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      console.error("Error deleting post:", error);
+      Alert.alert("Error", "Failed to delete post");
+    }
+  };
+
+  const handleCopyLink = (postId: string) => {
+    console.log("Copy link", postId);
+  };
+
+  const handleSavePost = (postId: string) => {
+    console.log("Save post", postId);
+  };
+
+  const handleReportPost = (postId: string) => {
+    console.log("Report post", postId);
+  };
+
+  const handleUnfollow = (postId: string) => {
+    console.log("Unfollow user", postId);
+  };
 
   const styles = StyleSheet.create({
     container: {
@@ -468,6 +565,15 @@ export default function ContinuousStudentHomeScreen() {
           userId={user?.id}
           emptyText="No community posts yet."
           formatTimeAgo={formatTimeAgo}
+          onLike={handleLike}
+          onComment={handleComment}
+          onShare={handleShare}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          onCopyLink={handleCopyLink}
+          onSavePost={handleSavePost}
+          onReportPost={handleReportPost}
+          onUnfollow={handleUnfollow}
         />
       </ScrollView>
     </SafeAreaView>
