@@ -19,7 +19,6 @@ import {
   Plus,
   Check,
   ArrowLeft,
-  Users,
   MapPin,
   GraduationCap,
   Calendar,
@@ -44,7 +43,6 @@ const CARD_WIDTH = (width - 2 * PADDING_HORIZONTAL - CARD_MARGIN) / NUM_COLUMNS;
 type FriendStatus = "accepted" | "pending" | "sent" | "received" | "none";
 
 interface ConnectUser extends UserType {
-  mutuals: number;
   isFriend: boolean;
   friendStatus: FriendStatus;
   relationshipId?: string;
@@ -136,44 +134,38 @@ export default function ConnectScreen() {
           receivedMap[r.userId] = { status: "received", id: r.id };
       });
 
-      // For each user, get mutual friends count and status
-      const connectUsers: ConnectUser[] = await Promise.all(
-        users
-          .filter((u) => u.id !== loggedInUserId)
-          .map(async (user) => {
-            const { mutualFriendIds } = await RelationService.getMutualFriends(
-              loggedInUserId,
-              user.id
-            );
-            let friendStatus: FriendStatus = "none";
-            let relationshipId: string | undefined;
-            if (sentMap[user.id]) {
-              friendStatus = sentMap[user.id].status;
-              relationshipId = sentMap[user.id].id;
-            } else if (receivedMap[user.id]) {
-              friendStatus = receivedMap[user.id].status;
-              relationshipId = receivedMap[user.id].id;
-            }
-            if (
-              sentMap[user.id]?.status === "accepted" ||
-              receivedMap[user.id]?.status === "accepted"
-            ) {
-              friendStatus = "accepted";
-            }
-            return {
-              ...user,
-              mutuals: mutualFriendIds.length,
-              isFriend: friendStatus === "accepted",
-              friendStatus,
-              relationshipId,
-            };
-          })
-      );
+      // For each user, get status
+      const connectUsers: ConnectUser[] = users
+        .filter((u) => u.id !== loggedInUserId)
+        .map((user) => {
+          let friendStatus: FriendStatus = "none";
+          let relationshipId: string | undefined;
+          if (sentMap[user.id]) {
+            friendStatus = sentMap[user.id].status;
+            relationshipId = sentMap[user.id].id;
+          } else if (receivedMap[user.id]) {
+            friendStatus = receivedMap[user.id].status;
+            relationshipId = receivedMap[user.id].id;
+          }
+          if (
+            sentMap[user.id]?.status === "accepted" ||
+            receivedMap[user.id]?.status === "accepted"
+          ) {
+            friendStatus = "accepted";
+          }
+          return {
+            ...user,
+            isFriend: friendStatus === "accepted",
+            friendStatus,
+            relationshipId,
+          };
+        });
 
       setAllConnectUsers(connectUsers);
       setLoading(false);
     };
     fetchData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const onRefresh = useCallback(() => {
@@ -273,13 +265,6 @@ export default function ConnectScreen() {
     scrollContent: {
       paddingBottom: theme.spacing.xl,
       paddingHorizontal: PADDING_HORIZONTAL,
-    },
-    sectionTitle: {
-      ...theme.typography.h5,
-      color: theme.colors.text,
-      fontWeight: "800",
-      marginBottom: theme.spacing.lg,
-      marginTop: theme.spacing.xl,
     },
     gridContainer: {
       flexDirection: "row",
@@ -473,12 +458,6 @@ export default function ConnectScreen() {
               <View style={styles.personMetaItem}>
                 <Calendar color={theme.colors.textSecondary} size={14} />
                 <Text style={styles.personMetaText}>{person.yearGroup}</Text>
-              </View>
-              <View style={styles.personMetaItem}>
-                <Users color={theme.colors.textSecondary} size={14} />
-                <Text style={styles.personMetaText}>
-                  {person.mutuals} mutuals
-                </Text>
               </View>
             </View>
 
