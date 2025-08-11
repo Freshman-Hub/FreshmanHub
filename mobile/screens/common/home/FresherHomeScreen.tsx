@@ -10,7 +10,6 @@ import {
   TouchableOpacity,
   Dimensions,
   Animated,
-  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
@@ -24,25 +23,24 @@ import {
   Sparkles,
   Compass,
   Lightbulb,
-  Plus,
   GraduationCap,
-  Megaphone,
 } from "lucide-react-native";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useRouter } from "expo-router";
 import { Header } from "@/components/ui/Header";
-import { Avatar } from "@/components/ui/Avatar";
 import { useUser } from "@/contexts/UserContext";
 import { PostsService } from "../../../services/posts.service";
 import { Post } from "../../../types/post.types";
 import { useSQLiteContext } from "expo-sqlite";
 import { UserService } from "../../../services/user.service";
 import { RelationService } from "../../../services/relation.service";
-import { PostCard } from "@/components/common/PostCard"; // Use the same card as community screen
+import { ConnectionsSection } from "@/components/home/ConnectionsSection";
+import { ClubsSection } from "@/components/home/ClubsSection";
+import { AnnouncementsSection } from "@/components/home/AnnouncementsSection";
+import { CommunityFeedSection } from "@/components/home/CommunityFeedSection";
 
 const { width } = Dimensions.get("window");
 
-// Mock Data for Fresher Home Screen
 const orientationSteps = [
   { id: 1, title: "Complete Registration", completed: true, icon: CheckCircle },
   { id: 2, title: "Campus Tour", completed: false, icon: MapPin },
@@ -98,6 +96,7 @@ const clubsAndSocieties = [
     members: 75,
     focus: "Innovation, AI, Engineering",
     logo: "https://images.pexels.com/photos/1040880/pexels-photo-1040880.jpeg?auto=compress&cs=tinysrgb&w=400",
+    isJoined: false,
   },
   {
     id: 2,
@@ -105,6 +104,7 @@ const clubsAndSocieties = [
     members: 40,
     focus: "Public Speaking, Critical Thinking",
     logo: "https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=400",
+    isJoined: false,
   },
   {
     id: 3,
@@ -112,6 +112,7 @@ const clubsAndSocieties = [
     members: 60,
     focus: "Sustainability, Environmental Action",
     logo: "https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=400",
+    isJoined: false,
   },
 ];
 
@@ -381,153 +382,6 @@ export default function FresherHomeScreen() {
       color: "white",
       fontWeight: "700",
     },
-    peopleScroll: {
-      paddingLeft: theme.spacing.lg,
-    },
-    personCard: {
-      width: width * 0.7,
-      backgroundColor: theme.colors.surface,
-      borderRadius: theme.borderRadius.xl,
-      padding: theme.spacing.lg,
-      marginRight: theme.spacing.md,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.1,
-      shadowRadius: 12,
-      elevation: 4,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-      alignItems: "center",
-    },
-    avatarContainer: {
-      position: "relative",
-      marginBottom: theme.spacing.md,
-    },
-    onlineIndicator: {
-      width: 14,
-      height: 14,
-      borderRadius: 7,
-      backgroundColor: "#22c55e",
-      position: "absolute",
-      top: -2,
-      right: -2,
-      borderWidth: 2,
-      borderColor: "white",
-    },
-    personName: {
-      ...theme.typography.body,
-      color: theme.colors.text,
-      fontWeight: "800",
-      marginBottom: theme.spacing.xs,
-      textAlign: "center",
-    },
-    personMetaContainer: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      justifyContent: "center",
-      gap: theme.spacing.sm,
-      marginBottom: theme.spacing.md,
-    },
-    personMetaItem: {
-      flexDirection: "row",
-      alignItems: "center",
-      backgroundColor: theme.colors.background,
-      borderRadius: theme.borderRadius.md,
-      paddingHorizontal: theme.spacing.sm,
-      paddingVertical: theme.spacing.xs,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-    },
-    personMetaText: {
-      ...theme.typography.captionSmall,
-      color: theme.colors.textSecondary,
-      fontWeight: "600",
-      marginLeft: theme.spacing.xs,
-    },
-    connectButton: {
-      backgroundColor: theme.colors.primary,
-      borderRadius: theme.borderRadius.lg,
-      paddingHorizontal: theme.spacing.md,
-      paddingVertical: theme.spacing.sm,
-      flexDirection: "row",
-      alignItems: "center",
-    },
-    connectText: {
-      ...theme.typography.captionSmall,
-      color: "white",
-      fontWeight: "700",
-      marginLeft: theme.spacing.xs,
-    },
-    clubCard: {
-      width: width * 0.7,
-      backgroundColor: theme.colors.surface,
-      borderRadius: theme.borderRadius.xl,
-      padding: theme.spacing.lg,
-      marginRight: theme.spacing.md,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.1,
-      shadowRadius: 12,
-      elevation: 4,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-      alignItems: "center",
-    },
-    clubLogo: {
-      width: 60,
-      height: 60,
-      borderRadius: theme.borderRadius.lg,
-      marginBottom: theme.spacing.md,
-    },
-    clubName: {
-      ...theme.typography.body,
-      color: theme.colors.text,
-      fontWeight: "800",
-      marginBottom: theme.spacing.xs,
-      textAlign: "center",
-    },
-    clubMeta: {
-      ...theme.typography.captionSmall,
-      color: theme.colors.textSecondary,
-      fontWeight: "500",
-      textAlign: "center",
-    },
-    announcementCard: {
-      backgroundColor: theme.colors.surface,
-      borderRadius: theme.borderRadius.xl,
-      padding: theme.spacing.lg,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.1,
-      shadowRadius: 12,
-      elevation: 4,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-      marginBottom: theme.spacing.md,
-    },
-    announcementHeader: {
-      flexDirection: "row",
-      alignItems: "center",
-      marginBottom: theme.spacing.sm,
-    },
-    announcementTitle: {
-      ...theme.typography.body,
-      color: theme.colors.text,
-      fontWeight: "700",
-      marginLeft: theme.spacing.md,
-      flex: 1,
-    },
-    announcementTime: {
-      ...theme.typography.captionSmall,
-      color: theme.colors.textSecondary,
-      fontWeight: "500",
-    },
-    announcementContent: {
-      ...theme.typography.bodySmall,
-      color: theme.colors.textSecondary,
-      fontWeight: "500",
-      lineHeight: 20,
-    },
     tipCard: {
       backgroundColor: theme.colors.surface,
       borderRadius: theme.borderRadius.xl,
@@ -651,39 +505,17 @@ export default function FresherHomeScreen() {
           </View>
         </View>
 
-        {/* Global Announcements */}
-        {globalAnnouncements.length > 0 && (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>📣 Global Announcements</Text>
-              <TouchableOpacity
-                onPress={() => router.push("/(routes)/announcements")}
-              >
-                <Text style={styles.sectionAction}>View All</Text>
-              </TouchableOpacity>
-            </View>
-            {globalAnnouncements.map((announcement) => (
-              <TouchableOpacity
-                key={announcement.id}
-                style={styles.announcementCard}
-                activeOpacity={0.8}
-              >
-                <View style={styles.announcementHeader}>
-                  <Megaphone color={theme.colors.primary} size={20} />
-                  <Text style={styles.announcementTitle}>
-                    {announcement.title}
-                  </Text>
-                  <Text style={styles.announcementTime}>
-                    {announcement.time}
-                  </Text>
-                </View>
-                <Text style={styles.announcementContent}>
-                  {announcement.content}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
+        {/* Announcements Section */}
+        <AnnouncementsSection
+          title="Global Announcements"
+          actionText="View All"
+          onActionPress={() => router.push("/(routes)/announcements")}
+          announcements={globalAnnouncements.map((a) => ({
+            ...a,
+            onPress: () => router.push("/(routes)/announcements"),
+          }))}
+          emptyText="No announcements available."
+        />
 
         {/* Your Orientation Journey */}
         <View style={styles.section}>
@@ -759,43 +591,16 @@ export default function FresherHomeScreen() {
           ))}
         </ScrollView>
 
-        {/* Club & Society Showcase (for Freshers) */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>📚 Club & Society Showcase</Text>
-            <TouchableOpacity onPress={() => router.push("/(routes)/clubs")}>
-              <Text style={styles.sectionAction}>Explore Clubs</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.peopleScroll}
-        >
-          {clubsAndSocieties.map((club) => (
-            <TouchableOpacity
-              key={club.id}
-              style={styles.clubCard}
-              activeOpacity={0.9}
-            >
-              <Image
-                source={{ uri: club.logo }}
-                style={styles.clubLogo}
-                resizeMode="cover"
-              />
-              <Text style={styles.clubName}>{club.name}</Text>
-              <Text style={styles.clubMeta}>{club.members} members</Text>
-              <Text style={styles.clubMeta}>{club.focus}</Text>
-              <TouchableOpacity
-                style={[styles.connectButton, { marginTop: theme.spacing.md }]}
-              >
-                <Plus color="white" size={16} />
-                <Text style={styles.connectText}>Join</Text>
-              </TouchableOpacity>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        {/* Clubs Section */}
+        <ClubsSection
+          title="Club & Society Showcase"
+          actionText="Explore Clubs"
+          onActionPress={() => router.push("/(routes)/clubs")}
+          clubs={clubsAndSocieties}
+          onClubPress={(club) => console.log("View Club", club.name)}
+          onJoinPress={(club) => console.log("Join Club", club.name)}
+          emptyText="No clubs available."
+        />
 
         {/* Peer Coach Corner */}
         <View style={styles.section}>
@@ -843,122 +648,27 @@ export default function FresherHomeScreen() {
           </Animated.View>
         </View>
 
-        {/* Connect with Your Cohort */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>🤝 Connect with Your Peers</Text>
-            <TouchableOpacity onPress={() => router.push("/(routes)/connect")}>
-              <Text style={styles.sectionAction}>View More</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.peopleScroll}
-        >
-          {suggestedPeers.map((person) => (
-            <TouchableOpacity
-              key={person.id}
-              style={styles.personCard}
-              activeOpacity={0.9}
-            >
-              <View style={styles.avatarContainer}>
-                <Avatar
-                  imageUrl={person.profileImage}
-                  initials={`${person.firstName.charAt(0)}${person.lastName.charAt(0)}`}
-                  size={70}
-                />
-                {person.online && (
-                  <Animated.View
-                    style={[
-                      styles.onlineIndicator,
-                      { transform: [{ scale: pulseAnim }] },
-                    ]}
-                  />
-                )}
-              </View>
-              <Text style={styles.personName}>
-                {person.firstName} {person.lastName}
-              </Text>
-              <View style={styles.personMetaContainer}>
-                <View style={styles.personMetaItem}>
-                  <MapPin color={theme.colors.textSecondary} size={16} />
-                  <Text style={styles.personMetaText}>{person.country}</Text>
-                </View>
-                <View style={styles.personMetaItem}>
-                  <GraduationCap color={theme.colors.textSecondary} size={16} />
-                  <Text style={styles.personMetaText}>{person.major}</Text>
-                </View>
-                <View style={styles.personMetaItem}>
-                  <Calendar color={theme.colors.textSecondary} size={16} />
-                  <Text style={styles.personMetaText}>{person.yearGroup}</Text>
-                </View>
-              </View>
-              <TouchableOpacity style={styles.connectButton}>
-                <Plus color="white" size={16} />
-                <Text style={styles.connectText}>Connect</Text>
-              </TouchableOpacity>
-            </TouchableOpacity>
-          ))}
-          {suggestedPeers.length === 0 && (
-            <Text style={styles.personMetaText}>No suggestions available.</Text>
-          )}
-        </ScrollView>
+        {/* Connections Section */}
+        <ConnectionsSection
+          title="Connect with Your Peers"
+          actionText="View More"
+          onActionPress={() => router.push("/(routes)/connect")}
+          people={suggestedPeers}
+          pulseAnim={pulseAnim}
+          onConnect={(person) => console.log("Connect", person.firstName)}
+          emptyText="No suggestions available."
+        />
 
-        {/* Campus Buzz */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>📢 Campus Buzz</Text>
-            <TouchableOpacity
-              onPress={() => router.push("/(student-tabs)/community")}
-            >
-              <Text style={styles.sectionAction}>Post Update</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={{ gap: theme.spacing.md }}>
-            {campusBuzzPosts.map((post) => (
-              <PostCard
-                key={post.id}
-                id={post.id}
-                user={{
-                  name: post.userDisplayName,
-                  avatar:
-                    post.userAvatar ||
-                    "https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=400",
-                  year: post.userYear,
-                  verified: post.userVerified || false,
-                }}
-                content={post.content}
-                image={post.image}
-                likes={post.likes}
-                comments={post.comments}
-                shares={post.shares}
-                timeAgo={formatTimeAgo(post.createdAt)}
-                isLiked={post.likedBy?.includes(user?.id || "") || false}
-                category={post.category}
-                isOwner={post.userId === user?.id}
-                isFollowing={true}
-                onLike={() => {}}
-                onComment={() => {}}
-                onShare={() => {}}
-                onEdit={() => {}}
-                onDelete={() => {}}
-                onCopyLink={() => {}}
-                onSavePost={() => {}}
-                onReportPost={() => {}}
-                onUnfollow={() => {}}
-                showViewMore={true}
-                maxContentLength={150}
-              />
-            ))}
-            {campusBuzzPosts.length === 0 && (
-              <Text style={styles.personMetaText}>
-                No campus buzz posts yet.
-              </Text>
-            )}
-          </View>
-        </View>
+        {/* Campus Buzz Section */}
+        <CommunityFeedSection
+          title="Campus Buzz"
+          actionText="Post Update"
+          onActionPress={() => router.push("/(student-tabs)/community")}
+          posts={campusBuzzPosts}
+          userId={user?.id}
+          emptyText="No campus buzz posts yet."
+          formatTimeAgo={formatTimeAgo}
+        />
       </ScrollView>
     </SafeAreaView>
   );
