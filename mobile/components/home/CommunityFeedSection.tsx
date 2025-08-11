@@ -13,6 +13,15 @@ export interface CommunityFeedSectionProps {
   emptyText?: string;
   formatTimeAgo?: (dateString: string) => string;
   style?: any;
+  onLike?: (postId: string) => void;
+  onComment?: (postId: string) => void;
+  onShare?: (postId: string) => void;
+  onEdit?: (postId: string) => void;
+  onDelete?: (postId: string) => void;
+  onCopyLink?: (postId: string) => void;
+  onSavePost?: (postId: string) => void;
+  onReportPost?: (postId: string) => void;
+  onUnfollow?: (postId: string) => void;
 }
 
 export const CommunityFeedSection: React.FC<CommunityFeedSectionProps> = ({
@@ -24,6 +33,15 @@ export const CommunityFeedSection: React.FC<CommunityFeedSectionProps> = ({
   emptyText = "No community posts yet.",
   formatTimeAgo,
   style,
+  onLike,
+  onComment,
+  onShare,
+  onEdit,
+  onDelete,
+  onCopyLink,
+  onSavePost,
+  onReportPost,
+  onUnfollow,
 }) => {
   const { theme } = useTheme();
 
@@ -94,15 +112,15 @@ export const CommunityFeedSection: React.FC<CommunityFeedSectionProps> = ({
             category={post.category}
             isOwner={post.userId === userId}
             isFollowing={true}
-            onLike={() => {}}
-            onComment={() => {}}
-            onShare={() => {}}
-            onEdit={() => {}}
-            onDelete={() => {}}
-            onCopyLink={() => {}}
-            onSavePost={() => {}}
-            onReportPost={() => {}}
-            onUnfollow={() => {}}
+            onLike={() => onLike?.(post.id)}
+            onComment={() => onComment?.(post.id)}
+            onShare={() => onShare?.(post.id)}
+            onEdit={() => onEdit?.(post.id)}
+            onDelete={() => onDelete?.(post.id)}
+            onCopyLink={() => onCopyLink?.(post.id)}
+            onSavePost={() => onSavePost?.(post.id)}
+            onReportPost={() => onReportPost?.(post.id)}
+            onUnfollow={() => onUnfollow?.(post.id)}
             showViewMore={true}
             maxContentLength={150}
           />
