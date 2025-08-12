@@ -10,137 +10,54 @@ import {
   TouchableOpacity,
   Dimensions,
   Animated,
-  Image,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import {
-  Bell,
-  Menu,
-  Heart,
-  MessageCircle,
-  Users,
-  ArrowRight,
-  Sparkles,
-  MapPin,
-  BookOpen,
-  Calendar,
-  CheckCircle,
-  Compass,
-  Lightbulb,
-  Plus,
-  Share2,
-  GraduationCap,
-  Megaphone,
-} from "lucide-react-native";
+import { Bell, Menu } from "lucide-react-native";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useRouter } from "expo-router";
 import { Header } from "@/components/ui/Header";
 import { Avatar } from "@/components/ui/Avatar";
 import { useUser } from "@/contexts/UserContext";
+import { PostsService } from "../../../services/posts.service";
+import { Post } from "../../../types/post.types";
+import { useSQLiteContext } from "expo-sqlite";
+import { UserService } from "../../../services/user.service";
+import { RelationService } from "../../../services/relation.service";
+import { ConnectionsSection } from "@/components/home/ConnectionsSection";
+import { CommunityFeedSection } from "@/components/home/CommunityFeedSection";
+import { ClubsSection } from "@/components/home/ClubsSection";
+import { AnnouncementsSection } from "@/components/home/AnnouncementsSection";
 
 const { width } = Dimensions.get("window");
+const CARD_MARGIN = 12;
+const PADDING_HORIZONTAL = 24;
+const CARD_WIDTH_HORIZONTAL = width * 0.8;
 
-// Mock Data for Fresher Home Screen
-const orientationSteps = [
-  { id: 1, title: "Complete Registration", completed: true, icon: CheckCircle },
-  { id: 2, title: "Campus Tour", completed: false, icon: MapPin },
-  { id: 3, title: "Meet Your Peer Coach", completed: false, icon: Users },
-  { id: 4, title: "Attend Welcome Gala", completed: false, icon: Sparkles },
+const campusInsights = [
+  "Top 5 study spots you haven't discovered yet!",
+  "How to ace your next group project: Tips from seniors.",
+  "The ultimate guide to campus clubs and societies.",
+  "Career fair prep: What employers are really looking for.",
 ];
 
-const ashesiDiscoveryChallenges = [
+const alumniSpotlight = [
   {
     id: 1,
-    title: "Find the 'Big Six' Tree",
-    description: "Locate the historic tree on campus and snap a selfie!",
-    icon: Compass,
-    status: "New",
-    color: "#FF6B6B",
-  },
-  {
-    id: 2,
-    title: "Discover the Innovation Hub",
-    description: "Explore the tech space and learn about student projects.",
-    icon: Lightbulb,
-    status: "New",
-    color: "#4ECDC4",
-  },
-  {
-    id: 3,
-    title: "Ashesi Library Scavenger Hunt",
-    description: "Uncover hidden literary gems and study spots.",
-    icon: BookOpen,
-    status: "New",
-    color: "#A8E6CF",
-  },
-];
-
-const trendingFreshers = [
-  {
-    id: 1,
-    name: "Aisha Khan",
-    major: "Computer Science",
+    name: "Dr. Adwoa Mensah",
+    year: "Class of '15",
+    achievement: "Leading AI Research at Google DeepMind",
     avatar:
       "https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=400",
-    status: "Active now",
-    mutuals: 5,
-    country: "Ghana",
-    groupYear: "Class of 2028",
   },
   {
     id: 2,
-    name: "David Lee",
-    major: "Business Administration",
-    avatar:
-      "https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=400",
-    status: "Online",
-    mutuals: 3,
-    country: "Nigeria",
-    groupYear: "Class of 2028",
-  },
-];
-
-const campusBuzz = [
-  {
-    id: 1,
-    user: "Campus Life",
-    content:
-      "The Freshers' Welcome Gala is going to be EPIC! Get your outfits ready! 🎉",
-    image:
-      "https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=400",
-    likes: 1.2,
-    comments: 250,
-    shares: 80,
-    timeAgo: "1h ago",
-    avatar:
-      "https://images.pexels.com/photos/1040880/pexels-photo-1040880.jpeg?auto=compress&cs=tinysrgb&w=400",
-  },
-  {
-    id: 2,
-    user: "Ashesi Insider",
-    content:
-      "Don't miss the orientation session on 'Navigating Campus Resources' tomorrow at 10 AM!",
-    likes: 800,
-    comments: 120,
-    shares: 45,
-    timeAgo: "3h ago",
+    name: "Kofi Boateng",
+    year: "Class of '18",
+    achievement: "Founder of a thriving EdTech Startup",
     avatar:
       "https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=400",
   },
-];
-
-const peerCoachTips = [
-  "Don't be afraid to ask questions! Everyone here was once a fresher.",
-  "Explore different clubs and find your community early on.",
-  "Time management is key! Balance academics with social life.",
-  "Your peer coach is here to help – reach out anytime!",
-];
-
-const ashesiTraditions = [
-  "The 'Big Six' Tree: A symbol of Ashesi's commitment to leadership.",
-  "Community Weekend: A time for bonding and fun activities.",
-  "The Ashesi Anthem: Learn it, sing it, live it!",
-  "The Honor Code: The foundation of trust and integrity at Ashesi.",
 ];
 
 const clubsAndSocieties = [
@@ -150,6 +67,7 @@ const clubsAndSocieties = [
     members: 75,
     focus: "Innovation, AI, Engineering",
     logo: "https://images.pexels.com/photos/1040880/pexels-photo-1040880.jpeg?auto=compress&cs=tinysrgb&w=400",
+    isJoined: true,
   },
   {
     id: 2,
@@ -157,6 +75,7 @@ const clubsAndSocieties = [
     members: 40,
     focus: "Public Speaking, Critical Thinking",
     logo: "https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=400",
+    isJoined: false,
   },
   {
     id: 3,
@@ -164,6 +83,7 @@ const clubsAndSocieties = [
     members: 60,
     focus: "Sustainability, Environmental Action",
     logo: "https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=400",
+    isJoined: true,
   },
 ];
 
@@ -190,14 +110,19 @@ const globalAnnouncements = [
   },
 ];
 
-export default function FresherHomeScreen() {
+export default function ContinuousStudentHomeScreen() {
   const { theme } = useTheme();
   const router = useRouter();
   const { user, loading } = useUser();
+  const db = useSQLiteContext();
   const [refreshing, setRefreshing] = useState(false);
+  const [currentInsight, setCurrentInsight] = useState(0);
   const [pulseAnim] = useState(new Animated.Value(1));
-  const [currentTip, setCurrentTip] = useState(0);
-  const [currentTradition, setCurrentTradition] = useState(0);
+
+  // Community Updates: last 3 posts
+  const [communityPosts, setCommunityPosts] = useState<Post[]>([]);
+  // Personalized Connections: 5 suggested users (not connected)
+  const [suggestedPeers, setSuggestedPeers] = useState<any[]>([]);
 
   useEffect(() => {
     const pulseAnimation = Animated.loop(
@@ -216,26 +141,153 @@ export default function FresherHomeScreen() {
     );
     pulseAnimation.start();
 
-    const tipInterval = setInterval(() => {
-      setCurrentTip((prev) => (prev + 1) % peerCoachTips.length);
-    }, 8000); // Increased duration
-
-    const traditionInterval = setInterval(() => {
-      setCurrentTradition((prev) => (prev + 1) % ashesiTraditions.length);
-    }, 10000); // Increased duration
+    const insightInterval = setInterval(() => {
+      setCurrentInsight((prev) => (prev + 1) % campusInsights.length);
+    }, 10000);
 
     return () => {
       pulseAnimation.stop();
-      clearInterval(tipInterval);
-      clearInterval(traditionInterval);
+      clearInterval(insightInterval);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Set SQLite context for PostsService
+  useEffect(() => {
+    if (db) {
+      PostsService.setSQLiteContext(db);
+    }
+  }, [db]);
+
+  // Fetch last 3 posts for Community Updates
+  useEffect(() => {
+    const fetchPosts = async () => {
+      const { posts } = await PostsService.getPosts(3);
+      setCommunityPosts(posts);
+    };
+    fetchPosts();
+  }, []);
+
+  // Fetch 5 suggested peers (not connected)
+  useEffect(() => {
+    const fetchPeers = async () => {
+      if (!user?.id) return;
+      const { users } = await UserService.getAllUsers();
+      const { relationships } = await RelationService.getRelationshipsForUser(
+        user.id,
+        "friend"
+      );
+      const connectedIds = relationships
+        .filter((r) => r.status === "accepted")
+        .map((r) => r.targetId);
+      const suggestions = users
+        .filter((u) => u.id !== user.id && !connectedIds.includes(u.id))
+        .slice(0, 5);
+      setSuggestedPeers(suggestions);
+    };
+    fetchPeers();
+  }, [user?.id]);
 
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
     setTimeout(() => setRefreshing(false), 2000);
   }, []);
+
+  // Like, comment, share, delete, etc. handlers for CommunityFeedSection
+  const handleLike = async (postId: string) => {
+    if (!user?.id) return;
+
+    // Optimistic update
+    setCommunityPosts((prevPosts) =>
+      prevPosts.map((post) => {
+        if (post.id === postId) {
+          const isLiked = post.likedBy?.includes(user.id) || false;
+          return {
+            ...post,
+            likes: isLiked ? post.likes - 1 : post.likes + 1,
+            likedBy: isLiked
+              ? post.likedBy?.filter((id) => id !== user.id) || []
+              : [...(post.likedBy || []), user.id],
+          };
+        }
+        return post;
+      })
+    );
+
+    // API call
+    const { error } = await PostsService.toggleLike(postId, user.id);
+
+    if (error) {
+      console.error("Error toggling like:", error);
+      // Optionally reload posts if error
+      const { posts } = await PostsService.getPosts(3);
+      setCommunityPosts(posts);
+    }
+  };
+
+  const handleComment = (postId: string) => {
+    router.push(`/(routes)/post/${postId}`);
+  };
+
+  const handleShare = (postId: string) => {
+    console.log("Sharing post", postId);
+  };
+
+  const handleEdit = (postId: string) => {
+    console.log("Edit post", postId);
+  };
+
+  const handleDelete = async (postId: string) => {
+    try {
+      Alert.alert(
+        "Delete Post",
+        "Are you sure you want to delete this post? This action cannot be undone.",
+        [
+          {
+            text: "Cancel",
+            style: "cancel",
+          },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: async () => {
+              const { error } = await PostsService.deletePost(postId);
+              if (error) {
+                Alert.alert(
+                  "Error",
+                  "Failed to delete post. Please try again."
+                );
+              } else {
+                setCommunityPosts((prev) =>
+                  prev.filter((post) => post.id !== postId)
+                );
+                Alert.alert("Success", "Post deleted successfully");
+              }
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      console.error("Error deleting post:", error);
+      Alert.alert("Error", "Failed to delete post");
+    }
+  };
+
+  const handleCopyLink = (postId: string) => {
+    console.log("Copy link", postId);
+  };
+
+  const handleSavePost = (postId: string) => {
+    console.log("Save post", postId);
+  };
+
+  const handleReportPost = (postId: string) => {
+    console.log("Report post", postId);
+  };
+
+  const handleUnfollow = (postId: string) => {
+    console.log("Unfollow user", postId);
+  };
 
   const styles = StyleSheet.create({
     container: {
@@ -272,26 +324,29 @@ export default function FresherHomeScreen() {
       fontWeight: "500",
       textAlign: "center",
     },
-    quickLinksContainer: {
-      flexDirection: "row",
-      justifyContent: "space-around",
-      width: "100%",
+    insightCard: {
+      backgroundColor: "rgba(255,255,255,0.15)",
+      borderRadius: theme.borderRadius.xl,
+      padding: theme.spacing.lg,
       marginTop: theme.spacing.lg,
-    },
-    quickLinkButton: {
+      width: "90%",
       alignItems: "center",
-      paddingVertical: theme.spacing.sm,
-      paddingHorizontal: theme.spacing.md,
-      borderRadius: theme.borderRadius.lg,
-      backgroundColor: "rgba(255,255,255,0.2)", // Added background
+      justifyContent: "center",
       borderWidth: 1,
-      borderColor: "rgba(255,255,255,0.3)",
+      borderColor: "rgba(255,255,255,0.2)",
     },
-    quickLinkText: {
-      ...theme.typography.captionSmall,
+    insightTitle: {
+      ...theme.typography.body,
+      color: "white",
+      fontWeight: "700",
+      marginBottom: theme.spacing.sm,
+    },
+    insightText: {
+      ...theme.typography.h6,
       color: "white",
       fontWeight: "600",
-      marginTop: theme.spacing.xs,
+      textAlign: "center",
+      fontStyle: "italic",
     },
     section: {
       paddingHorizontal: theme.spacing.lg,
@@ -313,93 +368,15 @@ export default function FresherHomeScreen() {
       color: theme.colors.primary,
       fontWeight: "600",
     },
-    orientationCard: {
-      backgroundColor: theme.colors.surface,
-      borderRadius: theme.borderRadius.xl,
-      padding: theme.spacing.lg,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.1,
-      shadowRadius: 12,
-      elevation: 4,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-      marginBottom: theme.spacing.md,
-    },
-    orientationItem: {
-      flexDirection: "row",
-      alignItems: "center",
-      marginBottom: theme.spacing.sm,
-    },
-    orientationText: {
-      ...theme.typography.body,
-      color: theme.colors.text,
-      fontWeight: "600",
-      marginLeft: theme.spacing.md,
-    },
-    discoveryScroll: {
-      paddingLeft: theme.spacing.lg,
-    },
-    discoveryCard: {
-      width: width * 0.75,
-      backgroundColor: theme.colors.surface,
-      borderRadius: theme.borderRadius.xl,
-      padding: theme.spacing.lg,
-      marginRight: theme.spacing.md,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.1,
-      shadowRadius: 12,
-      elevation: 4,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-    },
-    discoveryHeader: {
-      flexDirection: "row",
-      alignItems: "center",
-      marginBottom: theme.spacing.md,
-    },
-    discoveryIcon: {
-      width: 50,
-      height: 50,
-      borderRadius: theme.borderRadius.lg,
-      alignItems: "center",
-      justifyContent: "center",
-      marginRight: theme.spacing.md,
-    },
-    discoveryTitle: {
-      ...theme.typography.body,
-      color: theme.colors.text,
-      fontWeight: "800",
-      flex: 1,
-    },
-    discoveryDescription: {
-      ...theme.typography.bodySmall,
-      color: theme.colors.textSecondary,
-      fontWeight: "500",
-      marginBottom: theme.spacing.md,
-    },
-    discoveryButton: {
-      backgroundColor: theme.colors.primary,
-      borderRadius: theme.borderRadius.lg,
-      paddingHorizontal: theme.spacing.md,
-      paddingVertical: theme.spacing.sm,
-      alignSelf: "flex-start",
-    },
-    discoveryButtonText: {
-      ...theme.typography.captionSmall,
-      color: "white",
-      fontWeight: "700",
-    },
     peopleScroll: {
-      paddingLeft: theme.spacing.lg,
+      paddingLeft: PADDING_HORIZONTAL,
     },
-    personCard: {
-      width: width * 0.7, // Adjusted width to match continuous student screen
+    alumniCard: {
+      width: CARD_WIDTH_HORIZONTAL,
       backgroundColor: theme.colors.surface,
       borderRadius: theme.borderRadius.xl,
       padding: theme.spacing.lg,
-      marginRight: theme.spacing.md,
+      marginRight: CARD_MARGIN,
       shadowColor: "#000",
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.1,
@@ -409,234 +386,44 @@ export default function FresherHomeScreen() {
       borderColor: theme.colors.border,
       alignItems: "center",
     },
-    avatarContainer: {
-      position: "relative",
-      marginBottom: theme.spacing.md,
-    },
-    onlineIndicator: {
-      width: 14,
-      height: 14,
-      borderRadius: 7,
-      backgroundColor: "#22c55e",
-      position: "absolute",
-      top: -2,
-      right: -2,
-      borderWidth: 2,
-      borderColor: "white",
-    },
-    personName: {
+    alumniName: {
       ...theme.typography.body,
       color: theme.colors.text,
       fontWeight: "800",
       marginBottom: theme.spacing.xs,
       textAlign: "center",
     },
-    personMetaContainer: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      justifyContent: "center",
-      gap: theme.spacing.sm,
-      marginBottom: theme.spacing.md,
-    },
-    personMetaItem: {
-      flexDirection: "row",
-      alignItems: "center",
-      backgroundColor: theme.colors.background,
-      borderRadius: theme.borderRadius.md,
-      paddingHorizontal: theme.spacing.sm,
-      paddingVertical: theme.spacing.xs,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-    },
-    personMetaText: {
-      ...theme.typography.captionSmall,
-      color: theme.colors.textSecondary,
-      fontWeight: "600",
-      marginLeft: theme.spacing.xs,
-    },
-    connectButton: {
-      backgroundColor: theme.colors.primary,
-      borderRadius: theme.borderRadius.lg,
-      paddingHorizontal: theme.spacing.md,
-      paddingVertical: theme.spacing.sm,
-      flexDirection: "row",
-      alignItems: "center",
-    },
-    connectText: {
-      ...theme.typography.captionSmall,
-      color: "white",
-      fontWeight: "700",
-      marginLeft: theme.spacing.xs,
-    },
-    momentsContainer: {
-      gap: theme.spacing.md,
-    },
-    momentCard: {
-      backgroundColor: theme.colors.surface,
-      borderRadius: theme.borderRadius.xl,
-      padding: theme.spacing.lg,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.1,
-      shadowRadius: 12,
-      elevation: 4,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-    },
-    momentHeader: {
-      flexDirection: "row",
-      alignItems: "center",
-      marginBottom: theme.spacing.md,
-    },
-    momentUserInfo: {
-      flex: 1,
-      marginLeft: theme.spacing.md,
-    },
-    momentUserName: {
-      ...theme.typography.body,
-      color: theme.colors.text,
-      fontWeight: "700",
-      marginBottom: theme.spacing.xs,
-    },
-    momentTime: {
-      ...theme.typography.captionSmall,
-      color: theme.colors.textSecondary,
-      fontWeight: "500",
-    },
-    momentContent: {
-      ...theme.typography.body,
-      color: theme.colors.text,
-      fontWeight: "500",
-      lineHeight: 24,
-      marginBottom: theme.spacing.md,
-    },
-    momentImage: {
-      width: "100%",
-      height: 200,
-      borderRadius: theme.borderRadius.lg,
-      marginBottom: theme.spacing.md,
-    },
-    momentActions: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-    },
-    momentActionGroup: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: theme.spacing.lg,
-    },
-    momentAction: {
-      flexDirection: "row",
-      alignItems: "center",
-    },
-    momentActionText: {
-      ...theme.typography.captionSmall,
-      color: theme.colors.textSecondary,
-      fontWeight: "600",
-      marginLeft: theme.spacing.xs,
-    },
-    // New styles for Peer Coach Tips and Ashesi Traditions
-    tipCard: {
-      backgroundColor: theme.colors.surface,
-      borderRadius: theme.borderRadius.xl,
-      padding: theme.spacing.lg,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.1,
-      shadowRadius: 12,
-      elevation: 4,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-      alignItems: "center",
-      justifyContent: "center",
-      minHeight: 120, // Ensure consistent height
-    },
-    tipTitle: {
-      ...theme.typography.body,
-      color: theme.colors.text,
-      fontWeight: "700",
-      marginBottom: theme.spacing.sm,
-      textAlign: "center",
-    },
-    tipText: {
-      ...theme.typography.h6,
-      color: theme.colors.textSecondary,
-      fontWeight: "500",
-      textAlign: "center",
-      fontStyle: "italic",
-    },
-    clubCard: {
-      width: width * 0.7,
-      backgroundColor: theme.colors.surface,
-      borderRadius: theme.borderRadius.xl,
-      padding: theme.spacing.lg,
-      marginRight: theme.spacing.md,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.1,
-      shadowRadius: 12,
-      elevation: 4,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-      alignItems: "center",
-    },
-    clubLogo: {
-      width: 60,
-      height: 60,
-      borderRadius: theme.borderRadius.lg,
-      marginBottom: theme.spacing.md,
-    },
-    clubName: {
-      ...theme.typography.body,
-      color: theme.colors.text,
-      fontWeight: "800",
-      marginBottom: theme.spacing.xs,
-      textAlign: "center",
-    },
-    clubMeta: {
-      ...theme.typography.captionSmall,
-      color: theme.colors.textSecondary,
-      fontWeight: "500",
-      textAlign: "center",
-    },
-    announcementCard: {
-      backgroundColor: theme.colors.surface,
-      borderRadius: theme.borderRadius.xl,
-      padding: theme.spacing.lg,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.1,
-      shadowRadius: 12,
-      elevation: 4,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-      marginBottom: theme.spacing.md,
-    },
-    announcementHeader: {
-      flexDirection: "row",
-      alignItems: "center",
-      marginBottom: theme.spacing.sm,
-    },
-    announcementTitle: {
-      ...theme.typography.body,
-      color: theme.colors.text,
-      fontWeight: "700",
-      marginLeft: theme.spacing.md,
-      flex: 1,
-    },
-    announcementTime: {
-      ...theme.typography.captionSmall,
-      color: theme.colors.textSecondary,
-      fontWeight: "500",
-    },
-    announcementContent: {
+    alumniYear: {
       ...theme.typography.bodySmall,
       color: theme.colors.textSecondary,
       fontWeight: "500",
-      lineHeight: 20,
+      marginBottom: theme.spacing.sm,
+      textAlign: "center",
+    },
+    alumniAchievement: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      fontWeight: "500",
+      textAlign: "center",
     },
   });
+
+  const formatTimeAgo = (dateString: string): string => {
+    const now = new Date();
+    const postDate = new Date(dateString);
+    const diffInSeconds = Math.floor(
+      (now.getTime() - postDate.getTime()) / 1000
+    );
+
+    if (diffInSeconds < 60) return "now";
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+    if (diffInSeconds < 86400)
+      return `${Math.floor(diffInSeconds / 3600)}h ago`;
+    if (diffInSeconds < 604800)
+      return `${Math.floor(diffInSeconds / 86400)}d ago`;
+
+    return postDate.toLocaleDateString();
+  };
 
   if (loading || !user) {
     return (
@@ -650,10 +437,10 @@ export default function FresherHomeScreen() {
             style={{
               ...theme.typography.body,
               color: theme.colors.textSecondary,
-              fontWeight: "500"
+              fontWeight: "500",
             }}
           >
-            Loading your Ashesi journey...
+            Loading your Ashesi hub...
           </Text>
         </View>
       </SafeAreaView>
@@ -685,157 +472,51 @@ export default function FresherHomeScreen() {
         <View style={styles.heroSection}>
           <View style={styles.welcomeText}>
             <Text style={styles.greeting}>
-              Welcome, {user.firstName || "Freshman"}! 👋
+              Hey {user.firstName || "Continuous Student"}! 👋
             </Text>
             <Text style={styles.subtitle}>
-              Your Ashesi adventure begins now!
+              Stay connected, discover opportunities, and thrive!
             </Text>
           </View>
-          <View style={styles.quickLinksContainer}>
-            <TouchableOpacity
-              style={styles.quickLinkButton}
-              onPress={() =>
-                router.push("/(routes)/orientation", {
-                })
-              }
-            >
-              <Calendar color="white" size={28} />
-              <Text style={styles.quickLinkText}>Orientation</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.quickLinkButton}>
-              <MapPin color="white" size={28} />
-              <Text style={styles.quickLinkText}>Campus Map</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.quickLinkButton}
-              onPress={() =>
-                router.push("/(routes)/connect", {
-                })
-              }
-            >
-              <Users color="white" size={28} />
-              <Text style={styles.quickLinkText}>Meet Peers</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Global Announcements */}
-        {globalAnnouncements.length > 0 && (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>📣 Global Announcements</Text>
-              <TouchableOpacity
-                onPress={() =>
-                  router.push("/(routes)/announcements", {
-                  })
-                }
-              >
-                <Text style={styles.sectionAction}>View All</Text>
-              </TouchableOpacity>
-            </View>
-            {globalAnnouncements.map((announcement) => (
-              <TouchableOpacity
-                key={announcement.id}
-                style={styles.announcementCard}
-                activeOpacity={0.8}
-              >
-                <View style={styles.announcementHeader}>
-                  <Megaphone color={theme.colors.primary} size={20} />
-                  <Text style={styles.announcementTitle}>
-                    {announcement.title}
-                  </Text>
-                  <Text style={styles.announcementTime}>
-                    {announcement.time}
-                  </Text>
-                </View>
-                <Text style={styles.announcementContent}>
-                  {announcement.content}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-
-        {/* Your Orientation Journey */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>🎓 Your Orientation Journey</Text>
-            <TouchableOpacity>
-              <Text style={styles.sectionAction}>View All</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.orientationCard}>
-            {orientationSteps.map((step) => (
-              <View key={step.id} style={styles.orientationItem}>
-                <step.icon
-                  color={
-                    step.completed ? "#22c55e" : theme.colors.textSecondary
-                  }
-                  size={20}
-                />
-                <Text
-                  style={[
-                    styles.orientationText,
-                    { color: step.completed ? "#22c55e" : theme.colors.text },
-                    step.completed && { textDecorationLine: "line-through" },
-                  ]}
-                >
-                  {step.title}
-                </Text>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        {/* Ashesi Discovery Challenges */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>
-              🗺️ Ashesi Discovery Challenges
+          <Animated.View
+            style={[styles.insightCard, { transform: [{ scale: pulseAnim }] }]}
+          >
+            <Text style={styles.insightTitle}>💡 Campus Insight</Text>
+            <Text style={styles.insightText}>
+              &quot;{campusInsights[currentInsight]}&quot;
             </Text>
-            <TouchableOpacity>
-              <Text style={styles.sectionAction}>Explore More</Text>
-            </TouchableOpacity>
-          </View>
+          </Animated.View>
         </View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.discoveryScroll}
-        >
-          {ashesiDiscoveryChallenges.map((challenge) => (
-            <TouchableOpacity
-              key={challenge.id}
-              style={styles.discoveryCard}
-              activeOpacity={0.9}
-            >
-              <View style={styles.discoveryHeader}>
-                <View
-                  style={[
-                    styles.discoveryIcon,
-                    { backgroundColor: challenge.color + "20" },
-                  ]}
-                >
-                  <challenge.icon color={challenge.color} size={28} />
-                </View>
-                <Text style={styles.discoveryTitle}>{challenge.title}</Text>
-              </View>
-              <Text style={styles.discoveryDescription}>
-                {challenge.description}
-              </Text>
-              <TouchableOpacity style={styles.discoveryButton}>
-                <Text style={styles.discoveryButtonText}>Start Challenge</Text>
-              </TouchableOpacity>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
 
-        {/* Club & Society Showcase (for Freshers) */}
+        {/* Announcements Section */}
+        <AnnouncementsSection
+          title="Global Announcements"
+          actionText="View All"
+          onActionPress={() => router.push("/(routes)/announcements")}
+          announcements={globalAnnouncements.map((a) => ({
+            ...a,
+            onPress: () => router.push("/(routes)/announcements"),
+          }))}
+          emptyText="No announcements available."
+        />
+
+        {/* Connections Section */}
+        <ConnectionsSection
+          title="Personalized Connections"
+          actionText="Find More"
+          onActionPress={() => router.push("/(routes)/connect")}
+          people={suggestedPeers}
+          pulseAnim={pulseAnim}
+          onConnect={(person) => console.log("Connect", person.firstName)}
+          emptyText="No suggestions available."
+        />
+
+        {/* Alumni Spotlight */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>📚 Club & Society Showcase</Text>
-            <TouchableOpacity onPress={() => router.push("/(routes)/clubs")}>
-              <Text style={styles.sectionAction}>Explore Clubs</Text>
+            <Text style={styles.sectionTitle}>🏆 Alumni Spotlight</Text>
+            <TouchableOpacity>
+              <Text style={styles.sectionAction}>See All</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -844,211 +525,56 @@ export default function FresherHomeScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.peopleScroll}
         >
-          {clubsAndSocieties.map((club) => (
+          {alumniSpotlight.map((alumni) => (
             <TouchableOpacity
-              key={club.id}
-              style={styles.clubCard}
+              key={alumni.id}
+              style={styles.alumniCard}
               activeOpacity={0.9}
             >
-              <Image
-                source={{ uri: club.logo }}
-                style={styles.clubLogo}
-                resizeMode="cover"
+              <Avatar
+                imageUrl={alumni.avatar}
+                initials={alumni.name.charAt(0)}
+                size={70}
               />
-              <Text style={styles.clubName}>{club.name}</Text>
-              <Text style={styles.clubMeta}>{club.members} members</Text>
-              <Text style={styles.clubMeta}>{club.focus}</Text>
-              <TouchableOpacity
-                style={[styles.connectButton, { marginTop: theme.spacing.md }]}
-              >
-                <Plus color="white" size={16} />
-                <Text style={styles.connectText}>Join</Text>
-              </TouchableOpacity>
+              <Text style={styles.alumniName}>{alumni.name}</Text>
+              <Text style={styles.alumniYear}>{alumni.year}</Text>
+              <Text style={styles.alumniAchievement}>{alumni.achievement}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
 
-        {/* Peer Coach Corner */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>🗣️ Peer Coach Corner</Text>
-            <TouchableOpacity>
-              <Text style={styles.sectionAction}>Meet Your Coach</Text>
-            </TouchableOpacity>
-          </View>
-          <Animated.View
-            style={[styles.tipCard, { transform: [{ scale: pulseAnim }] }]}
-          >
-            <GraduationCap
-              color={theme.colors.primary}
-              size={32}
-              style={{ marginBottom: theme.spacing.sm }}
-            />
-            <Text style={styles.tipTitle}>Tip from a Peer Coach:</Text>
-            <Text style={styles.tipText}>&quot;{peerCoachTips[currentTip]}&quot;</Text>
-          </Animated.View>
-        </View>
+        {/* Clubs Section */}
+        <ClubsSection
+          title="Club & Society Showcase"
+          actionText="Explore Clubs"
+          onActionPress={() => router.push("/(routes)/clubs")}
+          clubs={clubsAndSocieties}
+          onClubPress={(club) => console.log("View Club", club.name)}
+          onJoinPress={(club) =>
+            console.log(club.isJoined ? "View Club" : "Join Club", club.name)
+          }
+          emptyText="No clubs available."
+        />
 
-        {/* Ashesi Traditions & Culture */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>📜 Ashesi Traditions</Text>
-            <TouchableOpacity>
-              <Text style={styles.sectionAction}>Learn More</Text>
-            </TouchableOpacity>
-          </View>
-          <Animated.View
-            style={[styles.tipCard, { transform: [{ scale: pulseAnim }] }]}
-          >
-            <BookOpen
-              color={theme.colors.primary}
-              size={32}
-              style={{ marginBottom: theme.spacing.sm }}
-            />
-            <Text style={styles.tipTitle}>Did you know?</Text>
-            <Text style={styles.tipText}>
-              &quot;{ashesiTraditions[currentTradition]}&quot;
-            </Text>
-          </Animated.View>
-        </View>
-
-        {/* Connect with Your Cohort */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>🤝 Connect with Your peers</Text>
-            <TouchableOpacity
-              onPress={() =>
-                router.push("/(routes)/connect")
-              }
-            >
-              <Text style={styles.sectionAction}>Find Buddies</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.peopleScroll}
-        >
-          {trendingFreshers.map((person) => (
-            <TouchableOpacity
-              key={person.id}
-              style={styles.personCard}
-              activeOpacity={0.9}
-            >
-              <View style={styles.avatarContainer}>
-                <Avatar
-                  imageUrl={person.avatar}
-                  initials={person.name.charAt(0)}
-                  size={70}
-                />
-                {person.status === "Active now" && (
-                  <Animated.View
-                    style={[
-                      styles.onlineIndicator,
-                      { transform: [{ scale: pulseAnim }] },
-                    ]}
-                  />
-                )}
-              </View>
-              <Text style={styles.personName}>{person.name}</Text>
-              <View style={styles.personMetaContainer}>
-                <View style={styles.personMetaItem}>
-                  <MapPin color={theme.colors.textSecondary} size={16} />
-                  <Text style={styles.personMetaText}>{person.country}</Text>
-                </View>
-                <View style={styles.personMetaItem}>
-                  <GraduationCap color={theme.colors.textSecondary} size={16} />
-                  <Text style={styles.personMetaText}>{person.major}</Text>
-                </View>
-                <View style={styles.personMetaItem}>
-                  <Calendar color={theme.colors.textSecondary} size={16} />
-                  <Text style={styles.personMetaText}>{person.groupYear}</Text>
-                </View>
-                <View style={styles.personMetaItem}>
-                  <Users color={theme.colors.textSecondary} size={16} />
-                  <Text style={styles.personMetaText}>
-                    {person.mutuals} mutuals
-                  </Text>
-                </View>
-              </View>
-              <TouchableOpacity style={styles.connectButton}>
-                <Plus color="white" size={16} />
-                <Text style={styles.connectText}>Connect</Text>
-              </TouchableOpacity>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-
-        {/* Campus Buzz */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>📢 Campus Buzz</Text>
-            <TouchableOpacity>
-              <Text style={styles.sectionAction}>Post Update</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.momentsContainer}>
-            {campusBuzz.map((moment) => (
-              <TouchableOpacity
-                key={moment.id}
-                style={styles.momentCard}
-                activeOpacity={0.8}
-              >
-                <View style={styles.momentHeader}>
-                  <Avatar
-                    imageUrl={moment.avatar}
-                    initials={moment.user.charAt(0)}
-                    size={45}
-                  />
-                  <View style={styles.momentUserInfo}>
-                    <Text style={styles.momentUserName}>{moment.user}</Text>
-                    <Text style={styles.momentTime}>{moment.timeAgo}</Text>
-                  </View>
-                </View>
-
-                <Text style={styles.momentContent}>{moment.content}</Text>
-
-                {moment.image && (
-                  <Image
-                    source={{ uri: moment.image }}
-                    style={styles.momentImage}
-                    resizeMode="cover"
-                  />
-                )}
-
-                <View style={styles.momentActions}>
-                  <View style={styles.momentActionGroup}>
-                    <TouchableOpacity style={styles.momentAction}>
-                      <Heart color={theme.colors.primary} size={20} />
-                      <Text style={styles.momentActionText}>
-                        {moment.likes}K
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.momentAction}>
-                      <MessageCircle
-                        color={theme.colors.textSecondary}
-                        size={20}
-                      />
-                      <Text style={styles.momentActionText}>
-                        {moment.comments}
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.momentAction}>
-                      <Share2 color={theme.colors.textSecondary} size={20} />
-                      <Text style={styles.momentActionText}>
-                        {moment.shares}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                  <TouchableOpacity>
-                    <ArrowRight color={theme.colors.textSecondary} size={20} />
-                  </TouchableOpacity>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+        {/* Community Updates Section */}
+        <CommunityFeedSection
+          title="Community Updates"
+          actionText="Share Update"
+          onActionPress={() => router.push("/(student-tabs)/community")}
+          posts={communityPosts}
+          userId={user?.id}
+          emptyText="No community posts yet."
+          formatTimeAgo={formatTimeAgo}
+          onLike={handleLike}
+          onComment={handleComment}
+          onShare={handleShare}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          onCopyLink={handleCopyLink}
+          onSavePost={handleSavePost}
+          onReportPost={handleReportPost}
+          onUnfollow={handleUnfollow}
+        />
       </ScrollView>
     </SafeAreaView>
   );
