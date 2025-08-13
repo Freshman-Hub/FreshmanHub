@@ -535,8 +535,9 @@ export function ContentScreen({
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    setDataLoaded(false); // Reset flag to force reload
-    await loadEvents();
+    setPage(0);
+    setDataLoaded(false);
+    await loadEvents(true); // Pass reset=true
     setRefreshing(false);
   }, [loadEvents]);
 
