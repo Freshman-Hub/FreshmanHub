@@ -462,9 +462,13 @@ export function ContentScreen({
   }, [collectionName, user?.id]);
 
   // Use your existing EventsService
-  const loadEvents = useCallback(async () => {
-    try {
-      setLoading(true);
+ const loadEvents = useCallback(
+   async (reset = false) => {
+     try {
+       setLoading(true);
+       // If reset, start from page 0
+       const currentPage = reset ? 0 : page;
+       const offset = currentPage * PAGE_SIZE;
 
       const { events: fetchedEvents, error } = await EventsService.getEvents(
         50,
