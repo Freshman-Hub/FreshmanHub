@@ -479,40 +479,52 @@ export function ContentScreen({
          offset
        );
 
-      if (error) {
-        console.error("Error loading content:", error);
-        Alert.alert("Error", `Failed to load ${contentType}s`);
-      } else if (fetchedEvents) {
-        // Filter events based on invitee status
-        const filteredEvents = filterEventsByInvitee(fetchedEvents);
-        setEvents(filteredEvents);
-        setDataLoaded(true); // Mark data as loaded
+       if (error) {
+         console.error("Error loading content:", error);
+         Alert.alert("Error", `Failed to load ${contentType}s`);
+         setHasMore(false);
+       } else if (fetchedEvents) {
+         // Filter events based on invitee status
+         const filteredEvents = filterEventsByInvitee(fetchedEvents);
+         if (reset) {
+           setEvents(filteredEvents);
+         } else {
+           setEvents((prev) => [...prev, ...filteredEvents]);
+         }
+         setHasMore(filteredEvents.length === PAGE_SIZE);
 
-        // Load attendee profiles for each event
-        filteredEvents.forEach((event) => {
-          if (event.rsvpYes?.length > 0) {
-            loadAttendeeProfiles(event.id, event.rsvpYes);
-          }
-        });
-      }
+         // Load attendee profiles for each event
+         filteredEvents.forEach((event) => {
+           if (event.rsvpYes?.length > 0) {
+             loadAttendeeProfiles(event.id, event.rsvpYes);
+           }
+         });
+       }
 
-      // Also load deleted events
-      await loadDeletedEvents();
-    } catch (error) {
-      console.error("Error loading content:", error);
-      Alert.alert("Error", `Failed to load ${contentType}s`);
-    } finally {
-      setLoading(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    contentType,
-    selectedFilter,
-    collectionName,
-    user?.id,
-    loadAttendeeProfiles,
-    loadDeletedEvents,
-  ]);
+       // Also load deleted events
+       await loadDeletedEvents();
+     } catch (error) {
+       console.error("Error loading content:", error);
+       Alert.alert("Error", `Failed to load ${contentType}s`);
+       // TODO: Send error to monitoring system
+       setHasMore(false);
+     } finally {
+       setLoading(false);
+       setDataLoaded(true);
+     }
+   },
+   // eslint-disable-next-line react-hooks/exhaustive-deps
+   [
+     contentType,
+     selectedFilter,
+     collectionName,
+     user?.id,
+     user?.role,
+     page,
+     loadAttendeeProfiles,
+     loadDeletedEvents,
+   ]
+ );
 
   // Load events only if data not already loaded
   useEffect(() => {
