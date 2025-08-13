@@ -837,7 +837,13 @@ export function ContentScreen({
       } else if (event) {
         setEvents((prevEvents) => [event, ...prevEvents]);
         setCreateModalVisible(false);
-        Alert.alert("Success", `${contentType} created successfully`);
+        // 🔔 Show success message with notification info
+        const invitedCount = eventData.attendeeIds?.length || 0;
+        const successMessage =
+          invitedCount > 0
+            ? `${contentType} created successfully!\n\n🔔 Notifications sent to ${invitedCount} invited user${invitedCount > 1 ? "s" : ""}.`
+            : `${contentType} created successfully!`;
+        Alert.alert("Success", successMessage);
       }
     } catch (error) {
       console.error("Error creating content:", error);
