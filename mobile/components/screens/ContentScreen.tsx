@@ -1433,44 +1433,71 @@ export function ContentScreen({
             }
           >
             {filteredEvents.length > 0 ? (
-              timeFilter === "deleted" ? (
-                // Render deleted events with restore functionality
-                filteredEvents.map((event) => (
-                  <DeletedEventCard
-                    key={event.id}
-                    event={event}
-                    onRestore={handleRestoreEvent}
-                    onPermanentDelete={handlePermanentDeleteEvent}
-                    onRemove={handleRemoveEvent}
-                    currentUserId={user?.id}
-                  />
-                ))
-              ) : (
-                // Render normal events
-                filteredEvents.map((event) => (
-                  <CompactEventCard
-                    key={event.id}
-                    id={event.id}
-                    title={event.title}
-                    date={new Date(event.date).toLocaleDateString("en-US", {
-                      weekday: "short",
-                      month: "short",
-                      day: "numeric",
-                    })}
-                    time={
-                      event.allDay
-                        ? "All day"
-                        : `${event.startTime} - ${event.endTime}`
-                    }
-                    location={event.location || "No location"}
-                    attendees={event.attendeeCount || 0}
-                    category={event.category}
-                    rsvpStatus={getUserRSVPStatus(event)}
-                    onPress={() => handleEventPress(event.id)}
-                    onRSVP={handleRSVP}
-                  />
-                ))
-              )
+              <>
+                {timeFilter === "deleted"
+                  ? // Render deleted events with restore functionality
+                    filteredEvents.map((event) => (
+                      <DeletedEventCard
+                        key={event.id}
+                        event={event}
+                        onRestore={handleRestoreEvent}
+                        onPermanentDelete={handlePermanentDeleteEvent}
+                        onRemove={handleRemoveEvent}
+                        currentUserId={user?.id}
+                      />
+                    ))
+                  : // Render normal events
+                    filteredEvents.map((event) => (
+                      <CompactEventCard
+                        key={event.id}
+                        id={event.id}
+                        title={event.title}
+                        date={new Date(event.date).toLocaleDateString("en-US", {
+                          weekday: "short",
+                          month: "short",
+                          day: "numeric",
+                        })}
+                        time={
+                          event.allDay
+                            ? "All day"
+                            : `${event.startTime} - ${event.endTime}`
+                        }
+                        location={event.location || "No location"}
+                        attendees={event.attendeeCount || 0}
+                        category={event.category}
+                        rsvpStatus={getUserRSVPStatus(event)}
+                        onPress={() => handleEventPress(event.id)}
+                        onRSVP={handleRSVP}
+                      />
+                    ))}
+
+                {hasMore && !loading && (
+                  <TouchableOpacity
+                    style={{
+                      marginVertical: 16,
+                      alignSelf: "center",
+                      backgroundColor: theme.colors.primary,
+                      borderRadius: 24,
+                      paddingHorizontal: 24,
+                      paddingVertical: 10,
+                    }}
+                    onPress={() => {
+                      setPage((prev) => prev + 1);
+                      loadEvents();
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: "white",
+                        fontWeight: "600",
+                        fontSize: 16,
+                      }}
+                    >
+                      Load More
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </>
             ) : (
               <View style={styles.emptyState}>
                 <Text style={styles.emptyText}>
