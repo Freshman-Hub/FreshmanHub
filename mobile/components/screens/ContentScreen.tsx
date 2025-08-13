@@ -355,6 +355,9 @@ export function ContentScreen({
   );
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [filterDate, setFilterDate] = useState<Date | null>(null);
+  const [page, setPage] = useState(0); // For pagination
+  const [hasMore, setHasMore] = useState(true); // If more events are available
+  const PAGE_SIZE = 50; // Match service default
 
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [showEventDetail, setShowEventDetail] = useState(false);
