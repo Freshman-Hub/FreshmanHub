@@ -470,11 +470,14 @@ export function ContentScreen({
        const currentPage = reset ? 0 : page;
        const offset = currentPage * PAGE_SIZE;
 
-      const { events: fetchedEvents, error } = await EventsService.getEvents(
-        50,
-        selectedFilter,
-        collectionName
-      );
+       const { events: fetchedEvents, error } = await EventsService.getEvents(
+         PAGE_SIZE,
+         selectedFilter,
+         collectionName,
+         user?.id,
+         user?.role,
+         offset
+       );
 
       if (error) {
         console.error("Error loading content:", error);
