@@ -1,24 +1,25 @@
+import { db } from "@/firebase/config/firebaseConfig";
+import { CreateEventData, Event } from "@/types/event.types";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import NetInfo from "@react-native-community/netinfo";
 import {
-  collection,
   addDoc,
-  getDocs,
+  arrayRemove,
+  arrayUnion,
+  collection,
+  deleteDoc,
   doc,
   getDoc,
-  updateDoc,
-  deleteDoc,
-  query,
-  where,
-  limit,
-  arrayUnion,
-  arrayRemove,
+  getDocs,
   increment,
+  limit,
   orderBy,
-  Timestamp,
+  query,
   serverTimestamp,
+  Timestamp,
+  updateDoc,
+  where,
 } from "firebase/firestore";
-import { db } from "@/firebase/config/firebaseConfig";
-import { Event, CreateEventData } from "@/types/event.types";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const getSyncKey = (collectionName: string) => `lastSync_${collectionName}`;
 
