@@ -1,18 +1,18 @@
 "use client";
-import { useState, useCallback } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  RefreshControl,
-} from "react-native";
+import { ChatHeader } from "@/components/chats/ChatHeader";
+import { ChatListItem } from "@/components/chats/ChatListItem";
+import { ChatSelectionHeader } from "@/components/chats/ChatSelectionHeader";
+import { FloatingActionButton } from "@/components/chats/FloatingActionButton";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useRouter } from "expo-router";
-import { ChatListItem } from "@/components/chats/ChatListItem";
-import { FloatingActionButton } from "@/components/chats/FloatingActionButton";
-import { ChatSelectionHeader } from "@/components/chats/ChatSelectionHeader";
-import { ChatHeader } from "@/components/chats/ChatHeader";
+import { useCallback, useState } from "react";
+import {
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 // Mock private chats data
 const mockPrivateChats = [
@@ -24,7 +24,7 @@ const mockPrivateChats = [
     unreadCount: 0,
     avatar:
       "https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?auto=compress&cs=tinysrgb&w=400",
-    isOnline: true,
+    online: true,
     type: "direct" as const,
     isVerified: false,
   },
@@ -36,7 +36,7 @@ const mockPrivateChats = [
     unreadCount: 2,
     avatar:
       "https://images.pexels.com/photos/1040880/pexels-photo-1040880.jpeg?auto=compress&cs=tinysrgb&w=400",
-    isOnline: false,
+    online: false,
     type: "direct" as const,
     isVerified: true,
   },
@@ -48,7 +48,7 @@ const mockPrivateChats = [
     unreadCount: 1,
     avatar:
       "https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=400",
-    isOnline: true,
+    online: true,
     type: "direct" as const,
     isVerified: false,
   },
