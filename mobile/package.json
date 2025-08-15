@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@expo/vector-icons": "^14.1.0",
-    "@op-engineering/op-sqlite": "^14.1.3",
+    "@op-engineering/op-sqlite": "^14.1.4",
     "@react-native-async-storage/async-storage": "2.1.2",
     "@react-native-community/datetimepicker": "8.4.1",
     "@react-native-community/netinfo": "11.4.1",
@@ -22,6 +22,7 @@
     "@react-navigation/bottom-tabs": "^7.3.10",
     "@react-navigation/elements": "^2.3.8",
     "@react-navigation/native": "^7.1.6",
+    "@sentry/react-native": "~6.14.0",
     "datetimepicker": "^0.1.39",
     "expo": "53.0.20",
     "expo-av": "~15.1.7",
@@ -42,7 +43,6 @@
     "expo-router": "~5.1.2",
     "expo-sharing": "~13.1.5",
     "expo-splash-screen": "~0.30.9",
-    "expo-sqlite": "^15.2.14",
     "expo-status-bar": "~2.2.3",
     "expo-symbols": "~0.4.5",
     "expo-system-ui": "~5.0.10",
@@ -68,7 +68,8 @@
     "react-native-web": "~0.20.0",
     "react-native-webview": "13.13.5",
     "stream-chat-expo": "^8.3.1",
-    "zod": "^3.25.67"
+    "zod": "^3.25.67",
+    "expo-sqlite": "~15.2.14"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
