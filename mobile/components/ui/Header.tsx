@@ -84,7 +84,6 @@ export function Header({
       color: theme.colors.text,
       fontWeight: "700",
       flex: 1,
-      fontSize: 24,
     },
     rightContainer: {
       flexDirection: "row",
