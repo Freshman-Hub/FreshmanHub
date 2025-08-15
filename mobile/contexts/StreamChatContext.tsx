@@ -2,6 +2,7 @@ import { chatClient } from "@/config/stream.config";
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { StreamChat } from "stream-chat";
 import { useUser } from "./UserContext";
+import { SqliteClient } from "stream-chat-expo";
 
 interface StreamChatContextType {
   client: StreamChat | null;
@@ -51,7 +52,7 @@ export function StreamChatProvider({ children }: StreamChatProviderProps) {
       // Don't connect if already connected to same user
       if (
         chatClient.userID === user.id &&
-        chatClient.wsConnection?.isConnected
+        chatClient.wsConnection && !chatClient.wsConnection.isDisconnected
       ) {
         console.log("✅ Already connected to Stream Chat for user:", user.id);
         setIsConnected(true);
@@ -106,6 +107,7 @@ export function StreamChatProvider({ children }: StreamChatProviderProps) {
       if (chatClient.userID) {
         try {
           console.log("🔄 Disconnecting from Stream Chat");
+          await SqliteClient.resetDB();
           await chatClient.disconnectUser();
           if (mounted) {
             setIsConnected(false);
@@ -131,6 +133,7 @@ export function StreamChatProvider({ children }: StreamChatProviderProps) {
     return () => {
       mounted = false;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, user?.id]);
 
   // Handle connection state changes
