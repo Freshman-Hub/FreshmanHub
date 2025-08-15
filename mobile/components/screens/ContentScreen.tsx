@@ -364,6 +364,8 @@ export function ContentScreen({
   const [page, setPage] = useState(0); // For pagination
   const [hasMore, setHasMore] = useState(true); // If more events are available
   const PAGE_SIZE = 50; // Match service default
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState("");
 
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [showEventDetail, setShowEventDetail] = useState(false);
@@ -486,69 +488,50 @@ export function ContentScreen({
   }, [collectionName, user?.id]);
 
   // Use your existing EventsService
- const loadEvents = useCallback(
-   async (reset = false) => {
-     try {
-       setLoading(true);
-       // If reset, start from page 0
-       const currentPage = reset ? 0 : page;
-       const offset = currentPage * PAGE_SIZE;
+  const loadEvents = useCallback(async () => {
+    try {
+      setLoading(true);
 
-       const { events: fetchedEvents, error } = await EventsService.getEvents(
-         PAGE_SIZE,
-         selectedFilter,
-         collectionName,
-         user?.id,
-         user?.role,
-         offset
-       );
+      const { events: fetchedEvents, error } = await EventsService.getEvents(
+        50,
+        selectedFilter,
+        collectionName
+      );
 
-       if (error) {
-         console.error("Error loading content:", error);
-         Alert.alert("Error", `Failed to load ${contentType}s`);
-         setHasMore(false);
-       } else if (fetchedEvents) {
-         // Filter events based on invitee status
-         const filteredEvents = filterEventsByInvitee(fetchedEvents);
-         if (reset) {
-           setEvents(filteredEvents);
-         } else {
-           setEvents((prev) => [...prev, ...filteredEvents]);
-         }
-         setHasMore(filteredEvents.length === PAGE_SIZE);
+      if (error) {
+        console.error("Error loading content:", error);
+        Alert.alert("Error", `Failed to load ${contentType}s`);
+      } else if (fetchedEvents) {
+        // Filter events based on invitee status
+        const filteredEvents = filterEventsByInvitee(fetchedEvents);
+        setEvents(filteredEvents);
+        setDataLoaded(true); // Mark data as loaded
 
-         // Load attendee profiles for each event
-         filteredEvents.forEach((event) => {
-           if (event.rsvpYes?.length > 0) {
-             loadAttendeeProfiles(event.id, event.rsvpYes);
-           }
-         });
-       }
+        // Load attendee profiles for each event
+        filteredEvents.forEach((event) => {
+          if (event.rsvpYes?.length > 0) {
+            loadAttendeeProfiles(event.id, event.rsvpYes);
+          }
+        });
+      }
 
-       // Also load deleted events
-       await loadDeletedEvents();
-     } catch (error) {
-       console.error("Error loading content:", error);
-       Alert.alert("Error", `Failed to load ${contentType}s`);
-       // TODO: Send error to monitoring system
-       setHasMore(false);
-     } finally {
-       setLoading(false);
-       setDataLoaded(true);
-     }
-   },
-   // eslint-disable-next-line react-hooks/exhaustive-deps
-   [
-     contentType,
-     selectedFilter,
-     collectionName,
-     user?.id,
-     user?.role,
-     page,
-     loadAttendeeProfiles,
-     loadDeletedEvents,
-   ]
- );
+      // Also load deleted events
+      await loadDeletedEvents();
+    } catch (error) {
+      console.error("Error loading content:", error);
+      Alert.alert("Error", `Failed to load ${contentType}s`);
+    } finally {
+      setLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    contentType,
+    selectedFilter,
+    collectionName,
+    user?.id,
+    loadAttendeeProfiles,
+    loadDeletedEvents,
+  ]);
 
   // Load events only if data not already loaded
   useEffect(() => {
@@ -558,10 +541,15 @@ export function ContentScreen({
   }, [dataLoaded, loadEvents]);
 
   const onRefresh = useCallback(async () => {
+    const state = await NetInfo.fetch();
+    if (!state.isConnected) {
+      setSnackbarMessage("No Internet connection");
+      setSnackbarVisible(true);
+      return;
+    }
     setRefreshing(true);
-    setPage(0);
-    setDataLoaded(false);
-    await loadEvents(true); // Pass reset=true
+    setDataLoaded(false); // Reset flag to force reload
+    await loadEvents();
     setRefreshing(false);
   }, [loadEvents]);
 
@@ -1211,7 +1199,7 @@ export function ContentScreen({
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+    <SafeAreaView style={styles.container}>
       {/* Show bottom toast loading indicator */}
       {(deleteLoading ||
         editLoading ||
@@ -1457,71 +1445,44 @@ export function ContentScreen({
             }
           >
             {filteredEvents.length > 0 ? (
-              <>
-                {timeFilter === "deleted"
-                  ? // Render deleted events with restore functionality
-                    filteredEvents.map((event) => (
-                      <DeletedEventCard
-                        key={event.id}
-                        event={event}
-                        onRestore={handleRestoreEvent}
-                        onPermanentDelete={handlePermanentDeleteEvent}
-                        onRemove={handleRemoveEvent}
-                        currentUserId={user?.id}
-                      />
-                    ))
-                  : // Render normal events
-                    filteredEvents.map((event) => (
-                      <CompactEventCard
-                        key={event.id}
-                        id={event.id}
-                        title={event.title}
-                        date={new Date(event.date).toLocaleDateString("en-US", {
-                          weekday: "short",
-                          month: "short",
-                          day: "numeric",
-                        })}
-                        time={
-                          event.allDay
-                            ? "All day"
-                            : `${event.startTime} - ${event.endTime}`
-                        }
-                        location={event.location || "No location"}
-                        attendees={event.attendeeCount || 0}
-                        category={event.category}
-                        rsvpStatus={getUserRSVPStatus(event)}
-                        onPress={() => handleEventPress(event.id)}
-                        onRSVP={handleRSVP}
-                      />
-                    ))}
-
-                {hasMore && !loading && (
-                  <TouchableOpacity
-                    style={{
-                      marginVertical: 16,
-                      alignSelf: "center",
-                      backgroundColor: theme.colors.primary,
-                      borderRadius: 24,
-                      paddingHorizontal: 24,
-                      paddingVertical: 10,
-                    }}
-                    onPress={() => {
-                      setPage((prev) => prev + 1);
-                      loadEvents();
-                    }}
-                  >
-                    <Text
-                      style={{
-                        color: "white",
-                        fontWeight: "600",
-                        fontSize: 16,
-                      }}
-                    >
-                      Load More
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </>
+              timeFilter === "deleted" ? (
+                // Render deleted events with restore functionality
+                filteredEvents.map((event) => (
+                  <DeletedEventCard
+                    key={event.id}
+                    event={event}
+                    onRestore={handleRestoreEvent}
+                    onPermanentDelete={handlePermanentDeleteEvent}
+                    onRemove={handleRemoveEvent}
+                    currentUserId={user?.id}
+                  />
+                ))
+              ) : (
+                // Render normal events
+                filteredEvents.map((event) => (
+                  <CompactEventCard
+                    key={event.id}
+                    id={event.id}
+                    title={event.title}
+                    date={new Date(event.date).toLocaleDateString("en-US", {
+                      weekday: "short",
+                      month: "short",
+                      day: "numeric",
+                    })}
+                    time={
+                      event.allDay
+                        ? "All day"
+                        : `${event.startTime} - ${event.endTime}`
+                    }
+                    location={event.location || "No location"}
+                    attendees={event.attendeeCount || 0}
+                    category={event.category}
+                    rsvpStatus={getUserRSVPStatus(event)}
+                    onPress={() => handleEventPress(event.id)}
+                    onRSVP={handleRSVP}
+                  />
+                ))
+              )
             ) : (
               <View style={styles.emptyState}>
                 <Text style={styles.emptyText}>
@@ -1593,6 +1554,22 @@ export function ContentScreen({
           onChange={handleDatePickerChange}
         />
       )}
+
+      <Snackbar
+        visible={snackbarVisible}
+        onDismiss={() => setSnackbarVisible(false)}
+        duration={2500}
+        style={{
+          position: "absolute",
+          bottom: 25,
+          left: 16,
+          right: 16,
+          borderRadius: 8,
+          zIndex: 999999,
+        }}
+      >
+        {snackbarMessage}
+      </Snackbar>
     </SafeAreaView>
   );
 }
