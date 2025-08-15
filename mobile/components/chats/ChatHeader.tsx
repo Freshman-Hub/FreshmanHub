@@ -13,6 +13,7 @@ import {
   MoreVertical,
   Users,
   BookOpen,
+  ArrowLeft,
 } from "lucide-react-native";
 import {
   OptionsDropdown,
@@ -61,10 +62,17 @@ export function ChatHeader({
       borderBottomWidth: 1,
       borderBottomColor: theme.colors.border,
     },
+    backButton: {
+      marginRight: theme.spacing.md,
+    },
     header: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
+    },
+    leftSection: {
+      flexDirection: "row",
+      alignItems: "center", // <-- ensures vertical alignment
     },
     title: {
       ...theme.typography.h3,
@@ -90,7 +98,7 @@ export function ChatHeader({
       ...theme.typography.body,
       color: theme.colors.text,
       marginLeft: theme.spacing.sm,
-      fontWeight: "500"
+      fontWeight: "500",
     },
   });
 
@@ -102,7 +110,15 @@ export function ChatHeader({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>{title}</Text>
+        <View style={styles.leftSection}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPressIn={() => router.back()}
+          >
+            <ArrowLeft size={24} color={theme.colors.text} />
+          </TouchableOpacity>
+          <Text style={styles.title}>{title}</Text>
+        </View>
         <View style={styles.rightActions}>
           <TouchableOpacity onPress={handleSearchToggle}>
             <Search size={24} color={theme.colors.text} />
