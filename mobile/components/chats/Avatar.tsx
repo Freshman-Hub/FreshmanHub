@@ -1,27 +1,34 @@
-"use client"
-import { View, Text, Image, StyleSheet } from "react-native"
-import { useTheme } from "@/contexts/ThemeContext"
-import { Users, UserX, Megaphone } from "lucide-react-native"
+"use client";
+import { useTheme } from "@/contexts/ThemeContext";
+import { Megaphone, Users, UserX } from "lucide-react-native";
+import { Image, StyleSheet, Text, View } from "react-native";
 
 interface AvatarProps {
-  source: string | null
-  name: string
-  size: number
-  isOnline?: boolean
-  type?: "direct" | "group" | "anonymous" | "announcement"
+  source: string | null;
+  name: string;
+  size: number;
+  online?: boolean;
+  type?: "direct" | "group" | "anonymous" | "announcement";
 }
 
-export function Avatar({ source, name, size, isOnline = false, type = "direct" }: AvatarProps) {
-  const { theme } = useTheme()
+export function Avatar({
+  source,
+  name,
+  size,
+  online = false,
+  type = "direct",
+}: AvatarProps) {
+  const { theme } = useTheme();
 
-  const getInitials = (name: string) => {
+  const getInitials = (name?: string) => {
+    if (!name) return "someone";
     return name
       .split(" ")
       .map((word) => word[0])
       .join("")
       .toUpperCase()
-      .slice(0, 2)
-  }
+      .slice(0, 2);
+  };
 
   const getBackgroundColor = (name: string) => {
     const colors = [
@@ -35,24 +42,25 @@ export function Avatar({ source, name, size, isOnline = false, type = "direct" }
       "#F7DC6F",
       "#BB8FCE",
       "#85C1E9",
-    ]
-    const index = name.length % colors.length
-    return colors[index]
-  }
+    ];
+    const safeName = name || "";
+    const index = safeName.length % colors.length;
+    return colors[index];
+  };
 
   const getTypeIcon = () => {
-    const iconSize = size * 0.4
+    const iconSize = size * 0.4;
     switch (type) {
       case "group":
-        return <Users size={iconSize} color="white" />
+        return <Users size={iconSize} color="white" />;
       case "anonymous":
-        return <UserX size={iconSize} color="white" />
+        return <UserX size={iconSize} color="white" />;
       case "announcement":
-        return <Megaphone size={iconSize} color="white" />
+        return <Megaphone size={iconSize} color="white" />;
       default:
-        return null
+        return null;
     }
-  }
+  };
 
   const styles = StyleSheet.create({
     container: {
@@ -86,7 +94,7 @@ export function Avatar({ source, name, size, isOnline = false, type = "direct" }
       borderWidth: 2,
       borderColor: theme.colors.background,
     },
-  })
+  });
 
   return (
     <View style={styles.container}>
@@ -106,7 +114,7 @@ export function Avatar({ source, name, size, isOnline = false, type = "direct" }
           <Text style={styles.initials}>{getInitials(name)}</Text>
         )}
       </View>
-      {isOnline && type === "direct" && <View style={styles.onlineIndicator} />}
+      {online && type === "direct" && <View style={styles.onlineIndicator} />}
     </View>
-  )
+  );
 }
