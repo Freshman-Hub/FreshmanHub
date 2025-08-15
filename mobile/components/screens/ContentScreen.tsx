@@ -1,41 +1,43 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  RefreshControl,
-  TouchableOpacity,
-  Alert,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useTheme } from "@/contexts/ThemeContext";
+import { useUser } from "@/contexts/UserContext";
 import {
   ArrowLeft,
   Calendar,
-  List,
   CalendarDays,
-  Trash2,
+  List,
   RotateCcw,
+  Trash2,
 } from "lucide-react-native";
-import { useTheme } from "@/contexts/ThemeContext";
-import { useUser } from "@/contexts/UserContext";
+import { useCallback, useEffect, useState } from "react";
+import {
+  Alert,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { UserService } from "@/services/user.service";
 import { User } from "@/types/user.types";
 
 // Import components
-import { Header } from "@/components/ui/Header";
-import { FloatingActionButton } from "@/components/ui/FloatingActionButton";
-import { CalendarView } from "@/components/ui/CalendarView";
-import { CompactEventCard } from "@/components/ui/EventCard";
-import { CreateEventModal } from "@/components/ui/CreateEventModal";
-import { EventDetailModal } from "@/components/modals/EventDetailModal";
 import { EditEventModal } from "@/components/modals/EditEventModal";
+import { EventDetailModal } from "@/components/modals/EventDetailModal";
+import { CalendarView } from "@/components/ui/CalendarView";
+import { CreateEventModal } from "@/components/ui/CreateEventModal";
+import { CompactEventCard } from "@/components/ui/EventCard";
 import { FilterChip } from "@/components/ui/FilterChip";
+import { FloatingActionButton } from "@/components/ui/FloatingActionButton";
+import { Header } from "@/components/ui/Header";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner"; // Replace Loader with LoadingSpinner
 import DateTimePicker from "@react-native-community/datetimepicker";
+import NetInfo from "@react-native-community/netinfo";
+import { Snackbar } from "react-native-paper"; // Import Snackbar component
 
 // Import your existing services
 import { EventsService } from "@/services/events.service";
