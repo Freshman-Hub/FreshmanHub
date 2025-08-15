@@ -26,7 +26,6 @@ import {
   Phone,
   TriangleAlert as AlertTriangle,
   Shield,
-  Activity,
   ExternalLink,
   Mail,
   ChevronRight,
