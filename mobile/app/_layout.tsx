@@ -288,6 +288,24 @@ function LayoutContent() {
     }
   }, [db]);
 
+  const syncTimeout = useRef<number | null>(null);
+
+  // Listen for network changes and trigger sync
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      if (state.isConnected) {
+        if (syncTimeout.current) clearTimeout(syncTimeout.current);
+        syncTimeout.current = setTimeout(() => {
+          EventsService.processQueuedChanges();
+        }, 500); // 500ms debounce
+      }
+    });
+    return () => {
+      if (syncTimeout.current) clearTimeout(syncTimeout.current);
+      unsubscribe();
+    };
+  }, []);
+
   const initializePushNotifications = async () => {
     try {
       const token = await NotificationService.registerForPushNotifications();
