@@ -100,6 +100,213 @@ export class EventsService {
     }
   }
 
+  // Add to queue table
+  private static async addToQueue(
+    operation: "create" | "update" | "delete",
+    eventId: string,
+    data: any
+  ) {
+    if (!this.sqliteDb) {
+      console.warn("⚠️ SQLite context not available for queue");
+      return;
+    }
+    // Check for duplicate (same eventId and operation)
+    const existing = await this.sqliteDb.getFirstAsync(
+      "SELECT id FROM event_sync_queue WHERE eventId = ? AND operation = ?",
+      [eventId, operation]
+    );
+    if (existing) {
+      console.log(
+        `⚠️ Queue already contains [${operation}] for eventId=${eventId}, skipping duplicate.`
+      );
+      return;
+    }
+    console.log(`📝 Queuing [${operation}] for eventId=${eventId}`);
+    await this.sqliteDb.runAsync(
+      `INSERT INTO event_sync_queue (eventId, operation, data, timestamp) VALUES (?, ?, ?, ?)`,
+      [eventId, operation, JSON.stringify(data), new Date().toISOString()]
+    );
+    console.log(`✅ Added to queue: [${operation}] eventId=${eventId}`);
+  }
+
+  // Get all queued changes
+  private static async getQueue() {
+    if (!this.sqliteDb) {
+      console.warn("⚠️ SQLite context not available for queue");
+      return [];
+    }
+    const queue = await this.sqliteDb.getAllAsync(
+      "SELECT * FROM event_sync_queue ORDER BY timestamp ASC"
+    );
+    console.log(`📦 Current queue length: ${queue.length}`);
+    return queue;
+  }
+
+  // Remove processed queue item
+  private static async removeFromQueue(id: number) {
+    if (!this.sqliteDb) {
+      console.warn("⚠️ SQLite context not available for queue");
+      return;
+    }
+    await this.sqliteDb.runAsync("DELETE FROM event_sync_queue WHERE id = ?", [
+      id,
+    ]);
+    console.log(`🗑️ Removed queue item id=${id}`);
+  }
+
+  static async processQueuedChanges() {
+    if (!this.sqliteDb) {
+      console.warn("⚠️ SQLite context not available for queue processing");
+      return;
+    }
+    const queue = await this.getQueue();
+    console.log(`🔄 Processing ${queue.length} queued changes...`);
+    for (const item of queue) {
+      try {
+        // Validate event schema before processing
+        let eventData;
+        try {
+          eventData = JSON.parse(item.data);
+        } catch (e) {
+          console.error(`❌ Malformed queue item id=${item.id}, removing. ${e}`);
+          await this.removeFromQueue(item.id);
+          continue;
+        }
+        // Basic schema check
+        if (!eventData || !eventData.id) {
+          console.error(
+            `❌ Invalid event data in queue item id=${item.id}, removing.`
+          );
+          await this.removeFromQueue(item.id);
+          continue;
+        }
+        // Conflict resolution: last-write-wins
+        // If event exists in Firebase, compare updatedAt
+        let remoteDoc;
+        try {
+          remoteDoc = await getDoc(
+            doc(db, eventData.sourceCollection || "events", eventData.id)
+          );
+        } catch {}
+        if (remoteDoc && remoteDoc.exists()) {
+          const remoteData = remoteDoc.data();
+          if (
+            remoteData.updatedAt &&
+            eventData.updatedAt &&
+            remoteData.updatedAt > eventData.updatedAt
+          ) {
+            // Remote is newer, skip local update
+            await this.removeFromQueue(item.id);
+            continue;
+          }
+        }
+        if (item.operation === "create") {
+          const { id, ...firebaseEvent } = eventData;
+          const docRef = await addDoc(
+            collection(db, eventData.sourceCollection || "events"),
+            {
+              ...firebaseEvent,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+              isDeleted: false,
+              deletedAt: null,
+            }
+          );
+          await this.sqliteDb.runAsync("DELETE FROM events WHERE id = ?", [
+            eventData.id,
+          ]);
+          await this.insertOrUpdateEventInSQLite(
+            { ...eventData, id: docRef.id },
+            eventData.sourceCollection || "events"
+          );
+        } else if (item.operation === "update") {
+          await updateDoc(
+            doc(db, eventData.sourceCollection || "events", eventData.id),
+            {
+              ...eventData,
+              updatedAt: serverTimestamp(),
+            }
+          );
+          // Defensive merge: fetch existing event and merge with update data
+          let mergedEvent = eventData;
+          try {
+            const existingEvent = await this.sqliteDb.getFirstAsync(
+              "SELECT * FROM events WHERE id = ? AND sourceCollection = ?",
+              [eventData.id, eventData.sourceCollection || "events"]
+            );
+            if (existingEvent) {
+              // Parse arrays from string fields
+              const parseArray = (val: unknown): any[] => {
+                if (Array.isArray(val)) return val;
+                if (typeof val === "string") {
+                  try {
+                    const parsed = JSON.parse(val);
+                    if (Array.isArray(parsed)) return parsed;
+                    return val.includes(",")
+                      ? val.split(",").map((s) => s.trim())
+                      : [val];
+                  } catch {
+                    return val.includes(",")
+                      ? val.split(",").map((s) => s.trim())
+                      : [val];
+                  }
+                }
+                return [];
+              };
+              mergedEvent = {
+                ...existingEvent,
+                attendees: parseArray(existingEvent.attendees),
+                invitedUsers: parseArray(existingEvent.invitedUsers),
+                rsvpYes: parseArray(existingEvent.rsvpYes),
+                rsvpNo: parseArray(existingEvent.rsvpNo),
+                rsvpMaybe: parseArray(existingEvent.rsvpMaybe),
+                ...eventData, // updateData takes precedence
+              };
+            }
+          } catch (mergeErr) {
+            console.error("Error merging event data:", mergeErr);
+            // fallback: just use eventData
+            mergedEvent = eventData;
+          }
+          await this.insertOrUpdateEventInSQLite(
+            mergedEvent,
+            eventData.sourceCollection || "events"
+          );
+        } else if (item.operation === "delete") {
+          await updateDoc(
+            doc(db, eventData.sourceCollection || "events", eventData.id),
+            {
+              isDeleted: true,
+              deletedAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            }
+          );
+          await this.sqliteDb.runAsync(
+            `UPDATE events SET isDeleted = 1, deletedAt = ?, updatedAt = ? WHERE id = ? AND sourceCollection = ?`,
+            [
+              new Date().toISOString(),
+              new Date().toISOString(),
+              eventData.id,
+              eventData.sourceCollection || "events",
+            ]
+          );
+          console.log(`✅ Synced [delete] eventId=${eventData.id} to Firebase`);
+        }
+        await this.removeFromQueue(item.id);
+      } catch (error) {
+        console.error(`❌ Failed to sync queue item id=${item.id}:`, error);
+        // TODO: Send error to monitoring service in production
+        // Item stays in queue for retry
+      }
+    }
+    console.log("🔁 Queue processing complete.");
+  }
+
+  private static async isOnline(): Promise<boolean> {
+    const state = await NetInfo.fetch();
+    return !!state.isConnected;
+  }
+
   // Sync events from Firebase to SQLite
   private static async syncEventsFromFirebase(
     collectionName: string = "events"
