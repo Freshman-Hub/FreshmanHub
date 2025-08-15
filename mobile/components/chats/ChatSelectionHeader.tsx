@@ -8,7 +8,7 @@ import {
   MoreVertical,
   CheckCheck,
   CheckSquare,
-  Shield,
+  // Shield,
 } from "lucide-react-native";
 import {
   OptionsDropdown,
@@ -68,12 +68,12 @@ export function ChatSelectionHeader({
         }
       },
     },
-    {
-      id: "block",
-      title: "Block",
-      icon: Shield,
-      onPress: () => console.log("Block"),
-    },
+    // {
+    //   id: "block",
+    //   title: "Block",
+    //   icon: Shield,
+    //   onPress: () => console.log("Block"),
+    // },
   ];
 
   const styles = StyleSheet.create({
