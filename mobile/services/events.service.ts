@@ -432,9 +432,40 @@ export class EventsService {
     }
 
     try {
-      // Convert Firestore Timestamps to ISO strings before storing
+      // Defensive: Ensure user-related fields are always arrays
+      function ensureArray(val: any): any[] {
+        if (Array.isArray(val)) return val;
+        if (typeof val === "string") {
+          try {
+            const parsed = JSON.parse(val);
+            if (Array.isArray(parsed)) return parsed;
+            return val.includes(",")
+              ? val.split(",").map((s) => s.trim())
+              : [val];
+          } catch {
+            return val.includes(",")
+              ? val.split(",").map((s) => s.trim())
+              : [val];
+          }
+        }
+        return [];
+      }
+      // Basic schema validation
+      if (!event.id || !event.title || !event.date) {
+        console.error(
+          `❌ Invalid event schema for id=${event.id || "unknown"}`
+        );
+        // TODO: Send error to monitoring service in production
+        return;
+      }
+
       const convertedEvent = {
         ...event,
+        attendees: ensureArray(event.attendees),
+        invitedUsers: ensureArray(event.invitedUsers),
+        rsvpYes: ensureArray(event.rsvpYes),
+        rsvpNo: ensureArray(event.rsvpNo),
+        rsvpMaybe: ensureArray(event.rsvpMaybe),
         createdAt: this.convertTimestampToISO(event.createdAt),
         updatedAt: this.convertTimestampToISO(event.updatedAt),
         deletedAt: event.deletedAt
