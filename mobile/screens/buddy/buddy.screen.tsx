@@ -1,42 +1,42 @@
-import React, { useState, useRef } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  TextInput,
-  Animated,
-  Image,
-  RefreshControl,
-  TextStyle,
-  ViewStyle,
-  ImageStyle,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useTheme } from "@/contexts/ThemeContext";
 import { useRouter } from "expo-router";
 import {
   ArrowLeft,
-  Search,
-  Filter,
-  Users,
-  MessageCircle,
-  UserPlus,
-  MapPin,
-  GraduationCap,
-  Globe,
-  Heart,
-  Star,
-  Calendar,
-  X,
-  Coffee,
   BookOpen,
-  Music,
+  Calendar,
   Camera,
+  Coffee,
+  Filter,
   Gamepad2,
+  Globe,
+  GraduationCap,
+  Heart,
+  MapPin,
+  MessageCircle,
+  Music,
+  Search,
+  Star,
   UserCheck,
+  UserPlus,
+  Users,
+  X,
 } from "lucide-react-native";
-import { useTheme } from "@/contexts/ThemeContext";
+import React, { useRef, useState } from "react";
+import {
+  Animated,
+  Image,
+  ImageStyle,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TextStyle,
+  TouchableOpacity,
+  View,
+  ViewStyle,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 // Mock buddies data
 const buddyCategories = [
@@ -60,7 +60,7 @@ const myBuddy = {
   interests: ["Technology", "Music", "Photography"],
   rating: 4.9,
   helpedStudents: 23,
-  isOnline: true,
+  online: true,
   isAssigned: true,
   matchPercentage: 100,
   connectionDate: "Assigned at orientation",
@@ -76,7 +76,7 @@ const myConnections = [
     country: "Ghana",
     avatar:
       "https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=400",
-    isOnline: true,
+    online: true,
     connectionDate: "2 weeks ago",
     mutualConnections: 5,
     isAssigned: false,
@@ -89,7 +89,7 @@ const myConnections = [
     country: "Ghana",
     avatar:
       "https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg?auto=compress&cs=tinysrgb&w=400",
-    isOnline: false,
+    online: false,
     connectionDate: "1 week ago",
     mutualConnections: 8,
     isAssigned: false,
@@ -102,7 +102,7 @@ const myConnections = [
     country: "Nigeria",
     avatar:
       "https://images.pexels.com/photos/1181686/pexels-photo-1181686.jpeg?auto=compress&cs=tinysrgb&w=400",
-    isOnline: true,
+    online: true,
     connectionDate: "3 days ago",
     mutualConnections: 12,
     isAssigned: false,
@@ -123,7 +123,7 @@ const availableBuddies = [
     interests: ["Programming", "Gaming", "Basketball"],
     rating: 4.7,
     helpedStudents: 12,
-    isOnline: true,
+    online: true,
     isAssigned: false,
     matchPercentage: 95,
   },
@@ -140,7 +140,7 @@ const availableBuddies = [
     interests: ["Business", "Reading", "Traveling"],
     rating: 4.8,
     helpedStudents: 18,
-    isOnline: false,
+    online: false,
     isAssigned: false,
     matchPercentage: 87,
   },
@@ -157,7 +157,7 @@ const availableBuddies = [
     interests: ["Engineering", "Innovation", "Sports"],
     rating: 4.9,
     helpedStudents: 31,
-    isOnline: true,
+    online: true,
     isAssigned: false,
     matchPercentage: 82,
   },
@@ -174,7 +174,7 @@ const availableBuddies = [
     interests: ["AI/ML", "Photography", "Cooking"],
     rating: 4.6,
     helpedStudents: 15,
-    isOnline: true,
+    online: true,
     isAssigned: false,
     matchPercentage: 90,
   },
@@ -859,9 +859,7 @@ export default function BuddiesScreen() {
                       source={{ uri: myBuddy.avatar }}
                       style={styles.buddyAvatar}
                     />
-                    {myBuddy.isOnline && (
-                      <View style={styles.onlineIndicator} />
-                    )}
+                    {myBuddy.online && <View style={styles.onlineIndicator} />}
                   </View>
                   <View style={styles.buddyInfo}>
                     <Text style={styles.buddyName}>{myBuddy.name}</Text>
@@ -950,7 +948,7 @@ export default function BuddiesScreen() {
                           source={{ uri: buddy.avatar }}
                           style={styles.buddyAvatar}
                         />
-                        {buddy.isOnline && (
+                        {buddy.online && (
                           <View style={styles.onlineIndicator} />
                         )}
                       </View>
@@ -1064,7 +1062,7 @@ export default function BuddiesScreen() {
                       source={{ uri: connection.avatar }}
                       style={styles.buddyAvatar}
                     />
-                    {connection.isOnline && (
+                    {connection.online && (
                       <View style={styles.onlineIndicator} />
                     )}
                   </View>
