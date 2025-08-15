@@ -144,6 +144,15 @@ const universalActions = [
     route: "/(routes)/library",
     category: "Academic",
   },
+  {
+    id: 13,
+    title: "Sessions",
+    description: "Study spaces and book resources",
+    icon: Library,
+    color: "#84cc16",
+    route: "/(routes)/sessions",
+    category: "Academic",
+  },
 ];
 
 export default function MenuScreen() {
