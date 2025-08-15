@@ -18,9 +18,14 @@ import { EventsService } from "@/services/events.service";
 import { UserService } from "@/services/user.service";
 
 import { NotificationService } from "@/services/notifications.service";
-import { NotificationTestWidget } from "@/components/test/NotificationTestWidget";
+import * as Sentry from "@sentry/react-native";
+// import { NotificationTestWidget } from "@/components/test/NotificationTestWidget";
 
-
+Sentry.init({
+  dsn: "https://9042024d9bf23b56646f9d037a0326d4@o4509836470386688.ingest.us.sentry.io/4509836472614912", // Get this from your Sentry project settings
+  debug: true, // Optional: verbose logging for setup
+  sendDefaultPii: true,
+});
 
 async function migrateDbIfNeeded(db: SQLiteDatabase) {
   const DATABASE_VERSION = 1;
