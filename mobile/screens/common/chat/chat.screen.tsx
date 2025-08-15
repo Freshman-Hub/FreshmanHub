@@ -1,32 +1,32 @@
-import React, { useState, useRef } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  TextInput,
-  Image,
-  Animated,
-  ViewStyle,
-  TextStyle,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useTheme } from "@/contexts/ThemeContext";
 import { useRouter } from "expo-router";
 import {
   ArrowLeft,
-  Search,
-  Plus,
-  Users,
   MessageCircle,
-  Shield,
-  Send,
   MoveVertical as MoreVertical,
   Phone,
+  Plus,
+  Search,
+  Send,
+  Shield,
+  Users,
   Video,
   X,
 } from "lucide-react-native";
-import { useTheme } from "@/contexts/ThemeContext";
+import React, { useRef, useState } from "react";
+import {
+  Animated,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TextStyle,
+  TouchableOpacity,
+  View,
+  ViewStyle,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 // Mock chat data
 const chatRooms = [
@@ -40,7 +40,7 @@ const chatRooms = [
     unread: 3,
     avatar:
       "https://images.pexels.com/photos/1454360/pexels-photo-1454360.jpeg?auto=compress&cs=tinysrgb&w=400",
-    isOnline: true,
+    online: true,
   },
   {
     id: 2,
@@ -52,7 +52,7 @@ const chatRooms = [
     unread: 0,
     avatar:
       "https://images.pexels.com/photos/159711/books-bookstore-book-reading-159711.jpeg?auto=compress&cs=tinysrgb&w=400",
-    isOnline: false,
+    online: false,
   },
   {
     id: 3,
@@ -63,7 +63,7 @@ const chatRooms = [
     lastTime: "1h ago",
     unread: 1,
     avatar: null,
-    isOnline: true,
+    online: true,
   },
   {
     id: 4,
@@ -75,7 +75,7 @@ const chatRooms = [
     unread: 0,
     avatar:
       "https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=400",
-    isOnline: true,
+    online: true,
   },
   {
     id: 5,
@@ -87,7 +87,7 @@ const chatRooms = [
     unread: 0,
     avatar:
       "https://images.pexels.com/photos/1190298/pexels-photo-1190298.jpeg?auto=compress&cs=tinysrgb&w=400",
-    isOnline: false,
+    online: false,
   },
 ];
 
@@ -240,7 +240,7 @@ export default function ChatScreen() {
       gap: theme.spacing.xs,
     },
     typeChip: {
-      paddingHorizontal: theme.spacing.sm +1,
+      paddingHorizontal: theme.spacing.sm + 1,
       paddingVertical: theme.spacing.xs,
       borderRadius: theme.borderRadius.xxxl,
       backgroundColor: theme.colors.background,
@@ -258,7 +258,7 @@ export default function ChatScreen() {
       ...theme.typography.bodySmall,
       color: theme.colors.textSecondary,
       fontWeight: "600",
-      fontSize:12
+      fontSize: 12,
     },
     typeChipTextActive: {
       color: "white",
@@ -481,7 +481,7 @@ export default function ChatScreen() {
               <Text style={styles.chatDetailName}>{selectedChat.name}</Text>
               <Text style={styles.chatDetailStatus}>
                 {selectedChat.type === "private"
-                  ? selectedChat.isOnline
+                  ? selectedChat.online
                     ? "Online"
                     : "Last seen recently"
                   : `${selectedChat.participants} participants`}
@@ -631,7 +631,7 @@ export default function ChatScreen() {
                 <Shield color="#7c3aed" size={24} />
               </View>
             )}
-            {chat.isOnline && <View style={styles.onlineIndicator} />}
+            {chat.online && <View style={styles.onlineIndicator} />}
 
             <View style={styles.chatInfo}>
               <View style={styles.chatHeader}>
