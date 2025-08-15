@@ -869,6 +869,11 @@ export class EventsService {
         await this.insertOrUpdateEventInSQLite(localEvent as any, contentType);
         console.log(`💾 Event ${newEvent.title} saved to SQLite with temp ID`);
       }
+      const isOnline = await this.isOnline();
+      if (!isOnline) {
+        await this.addToQueue("create", tempId, newEvent);
+        return { event: newEvent };
+      }
 
       // 2. Then save to Firebase (with serverTimestamp)
       try {
@@ -938,6 +943,7 @@ export class EventsService {
           firebaseError
         );
         // Event is still available locally
+        await this.addToQueue("create", tempId, newEvent);
         return { event: newEvent };
       }
     } catch (error) {
