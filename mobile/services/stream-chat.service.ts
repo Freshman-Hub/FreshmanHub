@@ -223,9 +223,57 @@ export class StreamChatService {
   // Delete message
   static async deleteMessage(messageId: string, hard: boolean = false) {
     try {
-      return await this.client.deleteMessage(messageId, hard);
+      console.log(
+        `🔄 Deleting message ${messageId} via service (hard: ${hard})`
+      );
+
+      const result = await this.client.deleteMessage(messageId, hard);
+
+      console.log(`✅ Message deleted successfully:`, result);
+      return result;
     } catch (error: any) {
       console.error("❌ Failed to delete message:", error);
+      console.error("Error details:", {
+        code: error.code,
+        message: error.message,
+        statusCode: error.statusCode,
+        details: error.details,
+      });
+      throw error;
+    }
+  }
+  // Hide channel (soft delete)
+  static async hideChannel(channel: Channel) {
+    try {
+      console.log(`🔄 Hiding channel: ${channel.id}`);
+      await channel.hide();
+      console.log(`✅ Channel hidden successfully`);
+    } catch (error: any) {
+      console.error("❌ Failed to hide channel:", error);
+      throw error;
+    }
+  }
+
+  // Leave group channel
+  static async leaveChannel(channel: Channel, userId: string) {
+    try {
+      console.log(`🔄 Leaving channel: ${channel.id}`);
+      await channel.removeMembers([userId]);
+      console.log(`✅ Left channel successfully`);
+    } catch (error: any) {
+      console.error("❌ Failed to leave channel:", error);
+      throw error;
+    }
+  }
+
+  // Delete channel (only for channel owners)
+  static async deleteChannel(channel: Channel) {
+    try {
+      console.log(`🔄 Deleting channel: ${channel.id}`);
+      await channel.delete();
+      console.log(`✅ Channel deleted successfully`);
+    } catch (error: any) {
+      console.error("❌ Failed to delete channel:", error);
       throw error;
     }
   }
@@ -293,6 +341,48 @@ export class StreamChatService {
       return await channel.removeMembers(memberIds);
     } catch (error: any) {
       console.error("❌ Failed to remove members:", error);
+      throw error;
+    }
+  }
+
+  static async blockUser(userId: string, channel: Channel) {
+    try {
+      await channel.banUser(userId, { reason: "Blocked by admin" });
+      console.log(`✅ User ${userId} blocked in channel ${channel.id}`);
+    } catch (error) {
+      console.error("❌ Failed to block user:", error);
+      throw error;
+    }
+  }
+
+  static async unblockUser(userId: string, channel: Channel) {
+    try {
+      await channel.unbanUser(userId);
+      console.log(`✅ User ${userId} unblocked in channel ${channel.id}`);
+    } catch (error) {
+      console.error("❌ Failed to unblock user:", error);
+      throw error;
+    }
+  }
+
+  // Block user globally
+  static async blockUserGlobally(userId: string) {
+    try {
+      await chatClient.blockUser(userId);
+      console.log(`✅ User ${userId} blocked globally`);
+    } catch (error) {
+      console.error("❌ Failed to block user globally:", error);
+      throw error;
+    }
+  }
+
+  // Unblock user globally
+  static async unblockUserGlobally(userId: string) {
+    try {
+      await chatClient.unBlockUser(userId);
+      console.log(`✅ User ${userId} unblocked globally`);
+    } catch (error) {
+      console.error("❌ Failed to unblock user globally:", error);
       throw error;
     }
   }
