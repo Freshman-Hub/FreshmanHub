@@ -1,8 +1,8 @@
 "use client";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { useTheme } from "@/contexts/ThemeContext";
-import { Users, UserX, Megaphone } from "lucide-react-native";
 import { Avatar } from "@/components/chats/Avatar";
+import { useTheme } from "@/contexts/ThemeContext";
+import { Megaphone, Users, UserX } from "lucide-react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 interface Chat {
   id: string;
@@ -11,7 +11,7 @@ interface Chat {
   timestamp: string;
   unreadCount: number;
   avatar: string | null;
-  isOnline: boolean;
+  online: boolean;
   type: "direct" | "group" | "anonymous" | "announcement";
   isVerified: boolean;
 }
@@ -127,7 +127,7 @@ export function ChatListItem({
           source={chat.avatar}
           name={chat.name}
           size={50}
-          isOnline={chat.isOnline}
+          online={chat.online}
           type={chat.type}
         />
       </View>
