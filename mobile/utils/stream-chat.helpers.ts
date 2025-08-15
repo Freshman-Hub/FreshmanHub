@@ -1,9 +1,7 @@
 import { Channel, MessageResponse } from "stream-chat";
 
 // Convert Stream Chat channel to our Chat interface
-export function streamChannelToChat(
-  channel: Channel
-) {
+export function streamChannelToChat(channel: Channel) {
   const lastMessage = channel.state.messages[channel.state.messages.length - 1];
 
   const isAnonymous =
@@ -29,7 +27,7 @@ export function streamChannelToChat(
       : Date.now(),
     unreadCount: channel.state.unreadCount || 0,
     avatar: (channel.data as { image?: string })?.image,
-    isOnline: false, // Can be determined based on member presence
+    online: false, // Can be determined based on member presence
   };
 }
 
@@ -62,28 +60,28 @@ export function getChannelDisplayName(
     (channel.data as { anonymous?: boolean })?.anonymous ||
     (channel.data as { isAnonymous?: boolean })?.isAnonymous ||
     false;
-  
-     if (channel.type === "team") {
-       if ((channel.data as { name?: string })?.name) {
-         const channelName = (channel.data as { name?: string }).name!;
-         console.log("🔍 Team channel name found:", channelName);
-         return isAnonymous ? `🎭 ${channelName}` : channelName;;
-       }
-       console.log("⚠️ Team channel without name:", channel.data);
-       return isAnonymous ? "🎭 Anonymous Group" : "Unnamed Group";
-     }
+
+  if (channel.type === "team") {
+    if ((channel.data as { name?: string })?.name) {
+      const channelName = (channel.data as { name?: string }).name!;
+      console.log("🔍 Team channel name found:", channelName);
+      return isAnonymous ? `🎭 ${channelName}` : channelName;
+    }
+    console.log("⚠️ Team channel without name:", channel.data);
+    return isAnonymous ? "🎭 Anonymous Group" : "Unnamed Group";
+  }
   if ((channel.data as { name?: string })?.name) {
     return (channel.data as { name?: string }).name!;
   }
 
   // For direct chats, show the other user's name
   if (channel.type === "messaging") {
-    const otherMember = (Object.values(channel.state.members) as {
-      user_id: string;
-      user?: { name?: string };
-    }[]).find(
-      (member) => member.user_id !== currentUserId
-    );
+    const otherMember = (
+      Object.values(channel.state.members) as {
+        user_id: string;
+        user?: { name?: string };
+      }[]
+    ).find((member) => member.user_id !== currentUserId);
 
     if (otherMember?.user?.name) {
       return otherMember.user.name;
@@ -107,7 +105,9 @@ export function getChannelAvatar(
   // For direct chats, use the other user's avatar
   if (channel.type === "messaging") {
     const otherMembers = Object.values(channel.state.members).filter(
-      (member) => (member as { user?: { id?: string; image?: string } }).user?.id !== currentUserId
+      (member) =>
+        (member as { user?: { id?: string; image?: string } }).user?.id !==
+        currentUserId
     ) as { user?: { id?: string; image?: string } }[];
 
     if (otherMembers.length > 0) {
