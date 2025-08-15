@@ -172,7 +172,7 @@ CREATE TABLE chat_channels (
   timestamp INTEGER,
   unreadCount INTEGER DEFAULT 0,
   avatar TEXT,
-  isOnline INTEGER DEFAULT 0,
+  online INTEGER DEFAULT 0,
   memberCount INTEGER DEFAULT 0,
   image TEXT,
   createdAt TEXT NOT NULL,
