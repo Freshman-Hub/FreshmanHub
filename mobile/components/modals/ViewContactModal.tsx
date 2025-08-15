@@ -36,6 +36,7 @@ interface ViewContactModalProps {
   onAddFriend?: () => void;
   onRemoveFriend?: () => void;
   onBlock?: () => void;
+  onUnblock?: () => void;
   onReport?: () => void;
   isFriend?: boolean;
   isBlocked?: boolean;
@@ -51,6 +52,7 @@ export function ViewContactModal({
   onAddFriend,
   onRemoveFriend,
   onBlock,
+  onUnblock,
   onReport,
   isFriend = false,
   isBlocked = false,
@@ -131,7 +133,6 @@ export function ViewContactModal({
     avatar: {
       marginBottom: theme.spacing.md,
       padding: 0,
-      
     },
     name: {
       fontSize: 24,
@@ -578,6 +579,30 @@ export function ViewContactModal({
                 </Text>
               </View>
             </View>
+
+            {/* {!isBlocked ? (
+              <>
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.dangerAction]}
+                  onPress={onBlock}
+                >
+                  <Shield color={theme.colors.error} size={20} />
+                  <Text style={[styles.actionText, styles.dangerActionText]}>
+                    Block
+                  </Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <TouchableOpacity
+                style={[styles.actionButton, styles.secondaryAction]}
+                onPress={onUnblock}
+              >
+                <Shield color={theme.colors.primary} size={20} />
+                <Text style={[styles.actionText, styles.secondaryActionText]}>
+                  Unblock
+                </Text>
+              </TouchableOpacity>
+            )} */}
           </View>
         </ScrollView>
       </SafeAreaView>
