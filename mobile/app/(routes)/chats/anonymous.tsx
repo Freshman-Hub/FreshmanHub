@@ -1,18 +1,18 @@
 "use client";
-import { useState, useCallback } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  RefreshControl,
-} from "react-native";
+import { ChatHeader } from "@/components/chats/ChatHeader";
+import { ChatListItem } from "@/components/chats/ChatListItem";
+import { ChatSelectionHeader } from "@/components/chats/ChatSelectionHeader";
+import { FloatingActionButton } from "@/components/chats/FloatingActionButton";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useRouter } from "expo-router";
-import { ChatListItem } from "@/components/chats/ChatListItem";
-import { FloatingActionButton } from "@/components/chats/FloatingActionButton";
-import { ChatSelectionHeader } from "@/components/chats/ChatSelectionHeader";
-import { ChatHeader } from "@/components/chats/ChatHeader";
+import { useCallback, useState } from "react";
+import {
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 // Mock anonymous chats data
 const mockAnonymousChats = [
@@ -23,7 +23,7 @@ const mockAnonymousChats = [
     timestamp: "4:20 PM",
     unreadCount: 1,
     avatar: null,
-    isOnline: false,
+    online: false,
     type: "anonymous" as const,
     isVerified: false,
   },
@@ -34,7 +34,7 @@ const mockAnonymousChats = [
     timestamp: "3:15 PM",
     unreadCount: 0,
     avatar: null,
-    isOnline: false,
+    online: false,
     type: "anonymous" as const,
     isVerified: false,
   },
@@ -45,7 +45,7 @@ const mockAnonymousChats = [
     timestamp: "2:45 PM",
     unreadCount: 3,
     avatar: null,
-    isOnline: false,
+    online: false,
     type: "anonymous" as const,
     isVerified: false,
   },
@@ -56,7 +56,7 @@ const mockAnonymousChats = [
     timestamp: "1:30 PM",
     unreadCount: 0,
     avatar: null,
-    isOnline: false,
+    online: false,
     type: "anonymous" as const,
     isVerified: false,
   },
