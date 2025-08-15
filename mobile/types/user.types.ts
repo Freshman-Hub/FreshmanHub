@@ -41,7 +41,7 @@ export interface User {
   assignedStudents?: string[]; // for coaches/advisors
   assignedCoach?: string; // for students
   permissions?: UserPermissions;
-  isOnline: boolean; // For real-time presence tracking
+  online: boolean; // For real-time presence tracking
 }
 
 export interface UserPermissions {
@@ -92,7 +92,7 @@ export interface AdminLog {
   adminId: string;
   adminEmail?: string; // Made optional
   targetUserId?: string; // Keep optional but handled properly
-  targetUserEmail?: string; // Keep optional but handled properly  
+  targetUserEmail?: string; // Keep optional but handled properly
   details: Record<string, any>;
   timestamp: Timestamp;
   ipAddress?: string;
