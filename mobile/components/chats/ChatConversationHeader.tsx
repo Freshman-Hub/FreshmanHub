@@ -11,7 +11,7 @@ import {
   Info,
   MoreVertical,
   Search,
-  Shield,
+  // Shield,
   User,
 } from "lucide-react-native";
 import { useState } from "react";
@@ -34,6 +34,8 @@ interface ChatConversationHeaderProps {
   onOptions: () => void;
   onSearch?: () => void;
   onViewContact?: () => void;
+  onBlock?: () => void;
+  isBlocked?: boolean;
 }
 
 export function ChatConversationHeader({
@@ -42,6 +44,8 @@ export function ChatConversationHeader({
   onOptions,
   onSearch,
   onViewContact,
+  // onBlock,
+  // isBlocked = false,
 }: ChatConversationHeaderProps) {
   const { theme } = useTheme();
   const router = useRouter();
@@ -89,12 +93,15 @@ export function ChatConversationHeader({
             onSearch?.();
           },
         },
-        {
-          id: "block",
-          title: "Block",
-          icon: Shield,
-          onPress: () => console.log("Block"),
-        },
+        // {
+        //   id: "block",
+        //   title: isBlocked ? "Unblock" : "Block", // <-- Change label
+        //   icon: Shield,
+        //   onPress: () => {
+        //     setShowOptionsMenu(false);
+        //     onBlock?.();
+        //   },
+        // },
       ];
 
   const styles = StyleSheet.create({
