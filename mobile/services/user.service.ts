@@ -1,19 +1,19 @@
+import { db } from "@/firebase/config/firebaseConfig";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
+  addDoc,
   collection,
   doc,
   getDoc,
   getDocs,
-  addDoc,
-  updateDoc,
-  query,
-  where,
   orderBy,
+  query,
   Timestamp,
+  updateDoc,
+  where,
 } from "firebase/firestore";
-import { db } from "@/firebase/config/firebaseConfig";
 import type { User, UserRequest } from "../types/user.types";
 import { logAdminAction, logSystemAction } from "./logging.service";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 // import { useSQLiteContext } from "expo-sqlite";
 
 const LAST_SYNC_KEY = "lastUserSync";
@@ -143,7 +143,7 @@ export class UserService {
          studentId = ?, yearGroup = ?, major = ?, country = ?, gender = ?, 
          department = ?, phoneNumber = ?, profileImage = ?, isActive = ?, 
          updatedAt = ?, createdBy = ?, lastLoginAt = ?, assignedStudents = ?, 
-         assignedCoach = ?, permissions = ?, isOnline = ?
+         assignedCoach = ?, permissions = ?, online = ?
          WHERE id = ?`,
           [
             convertedUser.firstName,
@@ -170,7 +170,7 @@ export class UserService {
             convertedUser.permissions
               ? JSON.stringify(convertedUser.permissions)
               : null,
-            convertedUser.isOnline ? 1 : 0,
+            convertedUser.online ? 1 : 0,
             convertedUser.id,
           ]
         );
@@ -182,7 +182,7 @@ export class UserService {
           id, firstName, lastName, email, bio, role, studentId, yearGroup, major, 
           country, gender, department, phoneNumber, profileImage, isActive, 
           createdAt, updatedAt, createdBy, lastLoginAt, assignedStudents, 
-          assignedCoach, permissions, isOnline
+          assignedCoach, permissions, online
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             convertedUser.id,
@@ -211,7 +211,7 @@ export class UserService {
             convertedUser.permissions
               ? JSON.stringify(convertedUser.permissions)
               : null,
-            convertedUser.isOnline ? 1 : 0,
+            convertedUser.online ? 1 : 0,
           ]
         );
         console.log(`➕ Inserted new user ${convertedUser.email} into SQLite`);
@@ -298,7 +298,7 @@ export class UserService {
           : [],
         assignedCoach: row.assignedCoach,
         permissions: row.permissions ? JSON.parse(row.permissions) : {},
-        isOnline: row.isOnline === 1,
+        online: row.online === 1,
       }));
 
       console.log(`💾 SQLite returned ${users.length} users`);
@@ -619,7 +619,7 @@ export class UserService {
             permissions: result.permissions
               ? JSON.parse(result.permissions)
               : {},
-            isOnline: result.isOnline === 1,
+            online: result.online === 1,
           };
           console.log(`💾 Found user ${userId} in SQLite`);
           return { user, error: null };
@@ -688,7 +688,7 @@ export class UserService {
               : [],
             assignedCoach: row.assignedCoach,
             permissions: row.permissions ? JSON.parse(row.permissions) : {},
-            isOnline: row.isOnline === 1,
+            online: row.online === 1,
           }));
           console.log(`💾 Found ${users.length} users in SQLite`);
           return { users, error: null };
@@ -717,6 +717,36 @@ export class UserService {
     } catch (error: any) {
       console.error("Search users by email error:", error);
       return { users: [], error: error.message };
+    }
+  }
+
+  // Add to UserService class
+  static async getUserPushTokens(userId: string): Promise<string[]> {
+    try {
+      const userDoc = await getDoc(doc(db, "users", userId));
+      if (userDoc.exists()) {
+        return userDoc.data().pushTokens || [];
+      }
+      return [];
+    } catch (error) {
+      console.error("Error getting user push tokens:", error);
+      return [];
+    }
+  }
+
+  static async getMultipleUserTokens(userIds: string[]): Promise<string[]> {
+    try {
+      const tokens: string[] = [];
+
+      for (const userId of userIds) {
+        const userTokens = await this.getUserPushTokens(userId);
+        tokens.push(...userTokens);
+      }
+
+      return tokens;
+    } catch (error) {
+      console.error("Error getting multiple user tokens:", error);
+      return [];
     }
   }
 }
