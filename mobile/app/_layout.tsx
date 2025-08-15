@@ -317,6 +317,15 @@ function LayoutContent() {
     }
   };
 
+  useEffect(() => {
+    if (user?.id) {
+      Sentry.setUser({
+        id: user.id,
+        email: user.email,
+        role: user.role, // or any other field
+      });
+    }
+  }, [user]);
 
   useEffect(() => {
     // Initialize notifications
