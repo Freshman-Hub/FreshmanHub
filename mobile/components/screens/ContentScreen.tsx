@@ -327,6 +327,10 @@ const DeletedEventCard = ({
   );
 };
 
+// Add this at the very top, before your component
+const globalUserCache: Record<string, User> = {};
+const globalUserFetchPromises: Record<string, Promise<User | undefined>> = {};
+
 export function ContentScreen({
   contentType,
   title,
@@ -391,8 +395,26 @@ export function ContentScreen({
         const profiles: User[] = [];
 
         for (const userId of attendeeIds.slice(0, 10)) {
-          const { user, error } = await UserService.getUserById(userId);
-          if (user && !error) {
+          if (globalUserCache[userId]) {
+            profiles.push(globalUserCache[userId]);
+            continue;
+          }
+          // Prevent duplicate fetches for the same userId
+          if (!globalUserFetchPromises[userId]) {
+            globalUserFetchPromises[userId] = UserService.getUserById(userId)
+              .then(({ user, error }) => {
+                if (user && !error) {
+                  globalUserCache[userId] = user;
+                  return user;
+                }
+                return undefined;
+              })
+              .finally(() => {
+                delete globalUserFetchPromises[userId];
+              });
+          }
+          const user = await globalUserFetchPromises[userId];
+          if (user) {
             profiles.push(user);
           }
         }
