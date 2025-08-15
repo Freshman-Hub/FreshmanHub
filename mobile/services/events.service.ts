@@ -956,7 +956,10 @@ export class EventsService {
   static async getEvents(
     limitCount: number = 50,
     category?: string,
-    collectionName: string = "events"
+    collectionName: string = "events",
+    userId?: string,
+    userRole?: string,
+    offset: number = 0
   ): Promise<{ events: Event[]; error: string | null }> {
     try {
       // First try to sync from Firebase (only new/updated events)
@@ -972,12 +975,22 @@ export class EventsService {
       return await this.getEventsFromSQLite(
         limitCount,
         category,
-        collectionName
+        collectionName,
+        userId,
+        userRole,
+        offset
       );
     } catch (error: any) {
       console.error("Get all events error:", error);
       // Final fallback to Firebase
-      return await this.getAllEventsFromFirebase(limitCount, category);
+      return await this.getAllEventsFromFirebase(
+        limitCount,
+        category,
+        collectionName,
+        userId,
+        userRole,
+        offset
+      );
     }
   }
 
@@ -1093,7 +1106,7 @@ export class EventsService {
         if (existingEvent) {
           // For SQLite, convert serverTimestamp to ISO string
           const sqliteUpdateData = {
-            ...cleanUpdateData,
+            ...updateData,
             updatedAt: new Date().toISOString(),
           };
 
@@ -1111,7 +1124,18 @@ export class EventsService {
         }
       }
 
-      // 2. Then update Firebase (with serverTimestamp)
+      // 2. Try to update Firebase
+      const isOnline = await this.isOnline();
+      if (!isOnline) {
+        // If offline, add to queue
+        await this.addToQueue("update", eventId, {
+          id: eventId,
+          ...updateData,
+          sourceCollection: collectionName,
+        });
+        return { error: null };
+      }
+
       try {
         await updateDoc(doc(db, collectionName, eventId), cleanUpdateData);
         console.log(`🔥 Updated event ${eventId} in Firebase`);
@@ -1120,7 +1144,12 @@ export class EventsService {
           "❌ Firebase update failed, changes remain in SQLite only:",
           firebaseError
         );
-        // Changes are still saved locally
+        // If online but Firebase fails, add to queue for retry
+        await this.addToQueue("update", eventId, {
+          id: eventId,
+          ...updateData,
+          sourceCollection: collectionName,
+        });
       }
 
       return { error: null };
