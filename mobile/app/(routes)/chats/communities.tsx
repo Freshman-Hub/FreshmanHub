@@ -1,18 +1,18 @@
 "use client";
-import { useState, useCallback } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  RefreshControl,
-} from "react-native";
+import { ChatHeader } from "@/components/chats/ChatHeader";
+import { ChatListItem } from "@/components/chats/ChatListItem";
+import { ChatSelectionHeader } from "@/components/chats/ChatSelectionHeader";
+import { FloatingActionButton } from "@/components/chats/FloatingActionButton";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useRouter } from "expo-router";
-import { ChatListItem } from "@/components/chats/ChatListItem";
-import { FloatingActionButton } from "@/components/chats/FloatingActionButton";
-import { ChatSelectionHeader } from "@/components/chats/ChatSelectionHeader";
-import { ChatHeader } from "@/components/chats/ChatHeader";
+import { useCallback, useState } from "react";
+import {
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 // Mock communities data
 const mockCommunities = [
@@ -23,7 +23,7 @@ const mockCommunities = [
     timestamp: "3:45 PM",
     unreadCount: 5,
     avatar: null,
-    isOnline: false,
+    online: false,
     type: "group" as const,
     isVerified: true,
   },
@@ -34,7 +34,7 @@ const mockCommunities = [
     timestamp: "2:20 PM",
     unreadCount: 12,
     avatar: null,
-    isOnline: false,
+    online: false,
     type: "announcement" as const,
     isVerified: true,
   },
@@ -45,7 +45,7 @@ const mockCommunities = [
     timestamp: "1:30 PM",
     unreadCount: 3,
     avatar: null,
-    isOnline: false,
+    online: false,
     type: "group" as const,
     isVerified: false,
   },
@@ -56,7 +56,7 @@ const mockCommunities = [
     timestamp: "12:15 PM",
     unreadCount: 0,
     avatar: null,
-    isOnline: false,
+    online: false,
     type: "announcement" as const,
     isVerified: true,
   },
