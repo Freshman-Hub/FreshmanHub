@@ -51,7 +51,7 @@ export const ChatService = {
     timestamp: number;
     unreadCount: number;
     avatar?: string;
-    isOnline?: boolean;
+    online?: boolean;
   }) {
     try {
       await setDoc(
@@ -645,12 +645,12 @@ export const ChatService = {
       const chatDoc = await getDoc(doc(firestore, "chats", chatId));
       if (chatDoc.exists()) {
         const chatData = chatDoc.data();
-        const participants = chatData.participants || [];
+        // const participants = chatData.participants || [];
 
         // Calculate remaining unread count (exclude current user)
-        const otherParticipants = participants.filter(
-          (id: string) => id !== userId
-        );
+        // const otherParticipants = participants.filter(
+        //   (id: string) => id !== userId
+        // );
         const remainingUnreadCount = Math.max(
           0,
           (chatData.unreadCount || 0) - snapshot.docs.length
