@@ -420,7 +420,7 @@ function LayoutContent() {
         <Stack.Screen name="+not-found" />
       </Stack>
       <StatusBar style="auto" />
-      {user && __DEV__ && <NotificationTestWidget />}
+      {/* {user && __DEV__ && <NotificationTestWidget />} */}
     </>
   );
 }
