@@ -16,7 +16,7 @@ export interface CustomUserData {
   studentId?: string;
   yearGroup?: string;
   major?: string;
-  isOnline?: boolean;
+  online?: boolean;
 }
 
 export interface CustomMessageData {
@@ -41,7 +41,7 @@ export interface Chat {
   timestamp: number;
   unreadCount: number;
   avatar?: string;
-  isOnline?: boolean;
+  online?: boolean;
 }
 
 export interface Message {
