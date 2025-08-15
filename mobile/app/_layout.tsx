@@ -335,6 +335,7 @@ function LayoutContent() {
     if (user?.id) {
       initializePushNotifications();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   useEffect(() => {
