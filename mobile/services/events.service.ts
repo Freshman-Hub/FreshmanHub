@@ -576,14 +576,24 @@ export class EventsService {
   private static async getEventsFromSQLite(
     limitCount: number = 50,
     category?: string,
-    collectionName: string = "events"
+    collectionName: string = "events",
+    userId?: string,
+    userRole?: string,
+    offset: number = 0
   ): Promise<{ events: Event[]; error: string | null }> {
     try {
       if (!this.sqliteDb) {
         console.warn(
           "⚠️ SQLite context not available, falling back to Firebase"
         );
-        return await this.getAllEventsFromFirebase(limitCount, category);
+        return await this.getAllEventsFromFirebase(
+          limitCount,
+          category,
+          collectionName,
+          userId,
+          userRole,
+          offset
+        );
       }
 
       console.log("💾 Fetching events from SQLite...");
@@ -599,6 +609,13 @@ export class EventsService {
       // Exclude soft deleted events
       conditions.push("(isDeleted IS NULL OR isDeleted = 0)");
 
+      if (userId) {
+        conditions.push(
+          "(userId = ? OR attendees LIKE ? OR invitedUsers LIKE ? OR isPublic = 1)"
+        );
+        params.push(userId, `%\"${userId}\"%`, `%\"${userId}\"%`);
+      }
+
       if (category && category !== "All") {
         conditions.push("category = ?");
         params.push(category);
@@ -608,8 +625,8 @@ export class EventsService {
         query += " WHERE " + conditions.join(" AND ");
       }
 
-      query += " ORDER BY date ASC LIMIT ?";
-      params.push(limitCount);
+      query += " ORDER BY date ASC LIMIT ? OFFSET ?";
+      params.push(limitCount, offset);
 
       const result = await this.sqliteDb.getAllAsync(query, params);
 
@@ -664,7 +681,14 @@ export class EventsService {
     } catch (error: any) {
       console.error("❌ Error fetching events from SQLite:", error);
       console.log("🔄 Falling back to Firebase...");
-      return await this.getAllEventsFromFirebase(limitCount, category);
+      return await this.getAllEventsFromFirebase(
+        limitCount,
+        category,
+        collectionName,
+        userId,
+        userRole,
+        offset
+      );
     }
   }
 
