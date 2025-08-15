@@ -100,6 +100,15 @@ deletedAt TEXT,
   FOREIGN KEY (userId) REFERENCES users (id)
 );
 
+-- Events sync queue table
+CREATE TABLE event_sync_queue (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  eventId TEXT,
+  operation TEXT NOT NULL, -- 'create', 'update', 'delete'
+  data TEXT, -- JSON string
+  timestamp TEXT NOT NULL
+);
+
 -- Posts table
 CREATE TABLE posts (
   id TEXT PRIMARY KEY NOT NULL,
