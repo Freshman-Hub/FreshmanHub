@@ -1,28 +1,28 @@
-import React, { useState } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  Image,
-  RefreshControl,
-  TextStyle,
-  ViewStyle,
-  ImageStyle,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useTheme } from "@/contexts/ThemeContext";
 import { useRouter } from "expo-router";
 import {
   ArrowLeft,
-  MessageCircle,
   Calendar,
-  Star,
-  Users,
   GraduationCap,
+  MessageCircle,
+  Star,
   Target,
+  Users,
 } from "lucide-react-native";
-import { useTheme } from "@/contexts/ThemeContext";
+import React, { useState } from "react";
+import {
+  Image,
+  ImageStyle,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextStyle,
+  TouchableOpacity,
+  View,
+  ViewStyle,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 // Mock advising data
 const academicAdvisor = {
@@ -42,7 +42,7 @@ const academicAdvisor = {
   ],
   rating: 4.9,
   studentsAdvised: 450,
-  isOnline: true,
+  online: true,
   availability: "Available today",
   nextAvailableSlot: "Today at 3:00 PM",
   phone: "+233 30 610 340",
@@ -65,7 +65,7 @@ const peerAdvisors = [
     ],
     rating: 4.7,
     studentsHelped: 25,
-    isOnline: false,
+    online: false,
     availability: "Available tomorrow",
   },
   {
@@ -79,7 +79,7 @@ const peerAdvisors = [
     specializations: ["Business Track", "Leadership", "Internship Guidance"],
     rating: 4.8,
     studentsHelped: 18,
-    isOnline: true,
+    online: true,
     availability: "Available now",
   },
   {
@@ -97,7 +97,7 @@ const peerAdvisors = [
     ],
     rating: 4.9,
     studentsHelped: 32,
-    isOnline: true,
+    online: true,
     availability: "Available this week",
   },
 ];
@@ -779,7 +779,7 @@ export default function AdvisingScreen() {
                     source={{ uri: academicAdvisor.avatar }}
                     style={styles.advisorAvatar}
                   />
-                  {academicAdvisor.isOnline && (
+                  {academicAdvisor.online && (
                     <View style={styles.onlineIndicator} />
                   )}
                 </View>
@@ -868,9 +868,7 @@ export default function AdvisingScreen() {
                       source={{ uri: advisor.avatar }}
                       style={styles.peerAdvisorAvatar}
                     />
-                    {advisor.isOnline && (
-                      <View style={styles.onlineIndicator} />
-                    )}
+                    {advisor.online && <View style={styles.onlineIndicator} />}
                   </View>
                   <View style={styles.peerAdvisorInfo}>
                     <Text style={styles.peerAdvisorName}>{advisor.name}</Text>
