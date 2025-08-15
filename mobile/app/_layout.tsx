@@ -64,7 +64,7 @@ CREATE TABLE users (
   assignedStudents TEXT, -- JSON array as string
   assignedCoach TEXT,
   permissions TEXT, -- JSON object as string
-  isOnline INTEGER NOT NULL DEFAULT 0
+  online INTEGER NOT NULL DEFAULT 0
 );
 
 -- Events table
