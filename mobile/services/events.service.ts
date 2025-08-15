@@ -695,45 +695,124 @@ export class EventsService {
   // Firebase fallback - Exclude soft deleted events
   private static async getAllEventsFromFirebase(
     limitCount: number = 50,
-    category?: string
+    category?: string,
+    collectionName: string = "events",
+    userId?: string,
+    userRole?: string,
+    offset: number = 0
   ): Promise<{ events: Event[]; error: string | null }> {
     try {
       console.log("🔥 Fetching events from Firebase (fallback)...");
 
-      let firebaseQuery;
+      const baseCollection = collection(db, collectionName);
+      const queries = [];
 
-      if (category && category !== "All") {
-        firebaseQuery = query(
-          collection(db, "events"),
-          where("category", "==", category),
-          where("isDeleted", "!=", true),
-          orderBy("isDeleted"),
-          orderBy("date", "asc"),
-          limit(limitCount)
+      if (userId) {
+        // User is creator
+        queries.push(
+          query(
+            baseCollection,
+            where("userId", "==", userId),
+            where("isDeleted", "!=", true),
+            orderBy("date", "asc"),
+            limit(limitCount + offset)
+          )
         );
+        // User is invited
+        queries.push(
+          query(
+            baseCollection,
+            where("invitedUsers", "array-contains", userId),
+            where("isDeleted", "!=", true),
+            orderBy("date", "asc"),
+            limit(limitCount + offset)
+          )
+        );
+        // User is attending
+        queries.push(
+          query(
+            baseCollection,
+            where("attendees", "array-contains", userId),
+            where("isDeleted", "!=", true),
+            orderBy("date", "asc"),
+            limit(limitCount + offset)
+          )
+        );
+        // Public events/sessions
+        queries.push(
+          query(
+            baseCollection,
+            where("isPublic", "==", true),
+            where("isDeleted", "!=", true),
+            orderBy("date", "asc"),
+            limit(limitCount + offset)
+          )
+        );
+        // Special case: head coach sees all sessions
+        if (userRole === "head_of_coaches" && collectionName === "sessions") {
+          queries.push(
+            query(
+              baseCollection,
+              where("isDeleted", "!=", true),
+              orderBy("date", "asc"),
+              limit(limitCount + offset)
+            )
+          );
+        }
       } else {
-        firebaseQuery = query(
-          collection(db, "events"),
-          where("isDeleted", "!=", true),
-          orderBy("isDeleted"),
-          orderBy("date", "asc"),
-          limit(limitCount)
+        queries.push(
+          query(
+            baseCollection,
+            where("isPublic", "==", true),
+            where("isDeleted", "!=", true),
+            orderBy("date", "asc"),
+            limit(limitCount + offset)
+          )
         );
       }
 
-      const querySnapshot = await getDocs(firebaseQuery);
-      const events: Event[] = [];
+      // If category filter
+      if (category && category !== "All") {
+        queries.forEach((q, idx) => {
+          queries[idx] = query(q, where("category", "==", category));
+        });
+      }
 
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        if (!data.isDeleted) {
-          events.push({
-            id: doc.id,
-            ...data,
-            sourceCollection: "events",
-          } as Event);
+      // Fetch and merge results
+      let events: Event[] = [];
+      for (const q of queries) {
+        const querySnapshot = await getDocs(q);
+        let docs = querySnapshot.docs;
+        // Apply offset for true pagination
+        if (offset > 0) {
+          docs = docs.slice(offset);
         }
+        docs.forEach((doc) => {
+          const data = doc.data();
+          if (!events.some((e) => e.id === doc.id)) {
+            events.push({
+              id: doc.id,
+              ...data,
+              sourceCollection: collectionName,
+            } as Event);
+          }
+        });
+      }
+
+      // Sort events (upcoming first, then by date)
+      events.sort((a, b) => {
+        const dateA = new Date(a.date);
+        const dateB = new Date(b.date);
+        const now = new Date();
+        const isAUpcoming = dateA >= now;
+        const isBUpcoming = dateB >= now;
+        if (isAUpcoming && !isBUpcoming) return -1;
+        if (!isAUpcoming && isBUpcoming) return 1;
+        return dateA.getTime() - dateB.getTime();
       });
+
+      // Limit results
+      events = events.slice(0, limitCount);
 
       console.log(`🔥 Firebase returned ${events.length} events (fallback)`);
       return { events, error: null };
