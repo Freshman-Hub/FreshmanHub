@@ -248,19 +248,20 @@ export default function RoutesLayout() {
       /> */}
 
       {/* Orientation & Onboarding */}
-      {/* <Stack.Screen
-        name="orientation"
+      <Stack.Screen
+        name="orientation/index"
         options={{
           title: "Orientation Guide",
+          headerShown: false,
         }}
       />
       <Stack.Screen
-        name="campus-tour"
+        name="connect/index"
         options={{
-          title: "Campus Tour",
+          title: "Connection",
           headerShown: false, // Immersive experience
         }}
-      /> */}
+      />
 
       {/* Search & Discovery */}
       <Stack.Screen
