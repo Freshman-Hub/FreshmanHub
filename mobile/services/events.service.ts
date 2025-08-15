@@ -337,6 +337,12 @@ export class EventsService {
           orderBy("updatedAt", "asc")
         );
       }
+      // Also fetch remote deletes since last sync
+      let deletedQuery = query(
+        collection(db, collectionName),
+        where("isDeleted", "==", true),
+        orderBy("deletedAt", "asc")
+      );
 
       const querySnapshot = await getDocs(firebaseQuery);
       const events: Event[] = [];
@@ -352,19 +358,59 @@ export class EventsService {
       console.log(`🔥 Firebase returned ${events.length} events`);
 
       // Insert/update events in SQLite
+      let allInserted = true;
       if (events.length > 0 && this.sqliteDb) {
         for (const event of events) {
-          await this.insertOrUpdateEventInSQLite(event, collectionName);
+          try {
+            await this.insertOrUpdateEventInSQLite(event, collectionName);
+          } catch (err) {
+            allInserted = false;
+            console.error(
+              `❌ Failed to insert event ${event.id} during sync:`,
+              err
+            );
+          }
         }
+        // Only update last sync time if all events were inserted successfully
+        if (allInserted) {
+          const latestEvent = events[events.length - 1];
+          if (latestEvent.updatedAt) {
+            const syncTime =
+              latestEvent.updatedAt instanceof Timestamp
+                ? latestEvent.updatedAt.toDate().toISOString()
+                : String(latestEvent.updatedAt);
+            await this.updateLastSyncTime(collectionName, syncTime);
+          }
+        } else {
+          console.warn(
+            "⚠️ Not updating lastSync because some events failed to insert into SQLite."
+          );
+        }
+      }
+      //TODO: To be revised Remove remote deletes from SQLite
+      // if (this.sqliteDb) {
+      //   const deletedSnapshot = await getDocs(deletedQuery);
+      //   for (const docSnap of deletedSnapshot.docs) {
+      //     await this.sqliteDb.runAsync(
+      //       "DELETE FROM events WHERE id = ? AND sourceCollection = ?",
+      //       [docSnap.id, collectionName]
+      //     );
+      //   }
+      // }
 
-        // Update last sync time with the latest event's updatedAt
-        const latestEvent = events[events.length - 1];
-        if (latestEvent.updatedAt) {
-          const syncTime =
-            latestEvent.updatedAt instanceof Timestamp
-              ? latestEvent.updatedAt.toDate().toISOString()
-              : String(latestEvent.updatedAt);
-          await this.updateLastSyncTime(collectionName, syncTime);
+      // Mark remote deletes as soft deleted in SQLite
+      if (this.sqliteDb) {
+        const deletedSnapshot = await getDocs(deletedQuery);
+        for (const docSnap of deletedSnapshot.docs) {
+          await this.sqliteDb.runAsync(
+            `UPDATE events SET isDeleted = 1, deletedAt = ?, updatedAt = ? WHERE id = ? AND sourceCollection = ?`,
+            [
+              new Date().toISOString(),
+              new Date().toISOString(),
+              docSnap.id,
+              collectionName,
+            ]
+          );
         }
       }
 
