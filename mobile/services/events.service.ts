@@ -1190,6 +1190,15 @@ export class EventsService {
         console.log(`💾 Soft deleted event ${eventId} from SQLite`);
       }
 
+      const isOnline = await this.isOnline();
+      if (!isOnline) {
+        await this.addToQueue("delete", eventId, {
+          id: eventId,
+          sourceCollection: collectionName,
+        });
+        return { error: null };
+      }
+
       // 2. Then soft delete in Firebase - Fixed: removed deletedBy
       try {
         await updateDoc(doc(db, collectionName, eventId), {
@@ -1204,6 +1213,10 @@ export class EventsService {
         this.schedulePermanentDeletion(eventId, collectionName);
       } catch (firebaseError) {
         console.error("❌ Firebase soft delete failed:", firebaseError);
+        await this.addToQueue("delete", eventId, {
+          id: eventId,
+          sourceCollection: collectionName,
+        });
         // Event is still soft deleted locally
       }
 
@@ -1366,10 +1379,12 @@ export class EventsService {
       }
 
       if (!isOwner) {
+        // TODO: Enforce server-side permission checks in production
         return {
           error: "You don't have permission to permanently delete this event",
         };
       }
+      // TODO: Version event schema and handle migrations for future changes
 
       // 1. Permanently delete from Firebase (if it exists there)
       try {
