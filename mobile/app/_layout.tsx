@@ -5,15 +5,18 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFonts } from "expo-font";
 import { Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Provider as PaperProvider } from "react-native-paper";
 import "react-native-reanimated";
-// import TempUserSync from "@/components/TempUserSync";
-import { SQLiteProvider, type SQLiteDatabase } from "expo-sqlite";
+import {
+  SQLiteProvider,
+  type SQLiteDatabase,
+  useSQLiteContext,
+} from "expo-sqlite";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { OverlayProvider } from "stream-chat-expo";
+import NetInfo from "@react-native-community/netinfo";
 
-import { useSQLiteContext } from "expo-sqlite";
 import { EventsService } from "@/services/events.service";
 import { UserService } from "@/services/user.service";
 
